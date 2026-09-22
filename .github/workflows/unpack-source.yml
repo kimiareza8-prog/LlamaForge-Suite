@@ -1,0 +1,39 @@
+name: Unpack source archive
+
+on:
+  push:
+    paths:
+      - ".bootstrap/source.tar.xz"
+      - ".github/workflows/unpack-source.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .bootstrap/source.tar.xz
+          tmp="$(mktemp -d)"
+          tar -xJf .bootstrap/source.tar.xz -C "$tmp"
+          cp -a "$tmp/LlamaForge-Suite/." .
+          rm -rf .bootstrap
+      - name: Commit unpacked source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          git commit -m "Unpack LlamaForge Suite source"
+          git push
