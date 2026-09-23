@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#1f2024" />
+  <title>LlamaForge — Local AI Studio</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/macos.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <aside id="sidebar" class="sidebar">
+      <div class="brand-row">
+        <button id="sidebarToggle" class="icon-button ghost mobile-only" aria-label="Toggle navigation"></button>
+        <div class="brand-mark" aria-hidden="true"><span></span></div>
+        <div class="brand-copy"><strong>LlamaForge</strong><span>Local AI Studio</span></div>
+        <button id="collapseSidebar" class="icon-button ghost desktop-only" aria-label="Collapse sidebar"></button>
+      </div>
+
+      <button id="newChatButton" class="new-chat-button">
+        <span class="button-icon" data-icon="plus"></span><span class="nav-label">New chat</span>
+      </button>
+
+      <nav id="nav" class="nav-list" aria-label="Main navigation"></nav>
+
+      <div class="sidebar-section chats-section">
+        <div class="section-label nav-label chats-label-row"><span>Recent</span><button id="clearLocalChats" class="clear-chats-button" type="button" title="Clear chat history">Clear</button></div>
+        <div id="recentChats" class="recent-chats"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div id="runtimeMini" class="runtime-mini"></div>
+        <button id="openSettings" class="profile-button">
+          <span class="avatar">LF</span>
+          <span class="profile-copy nav-label"><strong>Local workspace</strong><small>Private on this machine</small></span>
+          <span class="profile-more nav-label">···</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main-shell">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button id="mobileNavButton" class="icon-button ghost mobile-nav" aria-label="Open navigation"></button>
+          <div id="pageHeading" class="page-heading"></div>
+        </div>
+        <div class="topbar-right">
+          <div id="modelPill" class="model-pill"></div>
+          <div id="connectionPill" class="connection-pill"></div>
+        </div>
+      </header>
+      <section id="view" class="view"></section>
+    </main>
+  </div>
+
+  <div id="toastStack" class="toast-stack" aria-live="polite"></div>
+  <div id="modalRoot"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

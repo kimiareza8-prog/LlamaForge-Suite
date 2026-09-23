@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "name": "search_catalog",
+  "category": "example",
+  "description": "Example skill using query parameters",
+  "parameters": {
+    "q": {"type": "string"},
+    "limit": {"type": "integer"}
+  },
+  "required": ["q"],
+  "request": {
+    "method": "GET",
+    "url": "https://example.com/api/search",
+    "query": {"q": "{q}", "limit": "{limit}"}
+  },
+  "response": {"format": "json", "select": "results", "max_chars": 12000}
+}

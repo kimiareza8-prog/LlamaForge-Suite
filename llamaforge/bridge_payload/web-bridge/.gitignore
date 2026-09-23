@@ -1,0 +1,8 @@
+/data/config.php
+/data/agent-status.json
+/data/model-control.json
+/data/messages/
+/data/ratelimits/
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,9 @@
+{
+  "name": "product_lookup",
+  "description": "Read product data from my own HTTP API",
+  "method": "GET",
+  "url": "https://example.com/api/product?id={url:id}",
+  "parameters": {
+    "id": {"type": "string", "description": "Product ID"}
+  }
+}

@@ -1,0 +1,9 @@
+# Optional: installed into ~/.llamaforge/brain/trainer-env by Brain -> Prepare Trainer.
+# Not required for normal LlamaForge startup.
+torch
+transformers>=4.55
+peft>=0.17
+accelerate>=1.8
+safetensors
+sentencepiece
+bitsandbytes>=0.48

@@ -1,0 +1,35 @@
+3.9.0-live-stream-files
+- Added live SSE chat-state streaming for partial Agent/final answers, with automatic long-poll fallback when hosting buffers SSE.
+- Accepts arbitrary attachment types and sends non-image files as opaque staged attachments for metadata-first Skill routing.
+- Raised safe Bridge payload allowance for staged files while retaining local workspace size limits.
+- Compacted Calendar, Files, chat and side-panel CSS for a smaller, cleaner responsive workspace.
+- Preserves the stable ZIP -> staged extract -> verify -> atomic activation update pipeline.
+- owner_key and agent_token remain persistent across update/rollback; the management UI does not rotate them accidentally.
+- PharData remains available as ZIP extraction fallback when PHP ZipArchive is unavailable.
+
+3.7.0-smart-elastic-cluster
+- Added browser-scoped Persian Calendar and File Manager workspaces.
+- Added owner-scoped Host <-> Local workspace sync for Calendar/File Agent operations.
+- Calendar/File capabilities are generic primitives composed by the model, not one skill per question.
+- File content remains out of model context until read_content is explicitly needed.
+
+3.7.0-smart-elastic-cluster
+- Atomic model lifecycle compatibility and multimodal attachment UI.
+- Vision model detection, image/text attachments, and visible Web/Core versions.
+
+3.4.0-smart-router-updater
+===============
+- Added authenticated `bridge-update.php` for remote status, ZIP install and rollback.
+- Update packages use a manifest with SHA-256 hashes, safe relative paths, file/size limits and serialized update locking.
+- Creates a server-side backup before every install or rollback; failed installs automatically restore the previous code.
+- Preserves runtime config/tokens, messages, rate limits and browser-scoped chat history during code updates.
+- Connect descriptor now advertises Bridge updater/rollback support and the current Bridge version.
+- Activity UI understands the model's Direct-vs-Skills route decision and Skill-family selection.
+- Refined ChatGPT-like spacing, typography, composer, activity panel and responsive/mobile safe-area behavior.
+- Browser-scoped private chat history, draft persistence, conversation deletion, response stop and remote model Stop/Unload remain available.
+
+3.2.0-professional-ui
+=====================
+- Professional Agent activity timeline, compact while running and collapsed after completion.
+- Direct-vs-Agent routing activity and richer Skill execution details.
+- Model selector connected to LlamaForge model-control flow.

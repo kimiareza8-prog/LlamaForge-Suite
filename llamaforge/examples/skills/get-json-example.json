@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "name": "lookup_item",
+  "category": "example",
+  "description": "Example GET JSON skill",
+  "parameters": {
+    "id": {"type": "string", "description": "Item ID"}
+  },
+  "required": ["id"],
+  "request": {
+    "method": "GET",
+    "url": "https://example.com/api/items/{url:id}",
+    "timeout": 20
+  },
+  "retry": {"attempts": 2, "statuses": [429, 500, 502, 503, 504]},
+  "response": {"format": "json", "select": "data", "max_chars": 8000}
+}

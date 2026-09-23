@@ -1,0 +1,17 @@
+AI Bridge 3.8 — LlamaForge Chat UI
+==================================
+
+1) کل پوشه web-bridge را روی هاست PHP 7.4+ قرار بده.
+2) پوشه data باید برای PHP قابل نوشتن باشد.
+3) اولین بار که سایت باز شود، data/config.php با توکن‌های تصادفی ساخته می‌شود.
+4) برای ورود به مدیریت، فایل data/config.php را از File Manager هاست باز کن و مقدار owner_key را بردار.
+5) آدرس مدیریت:
+   https://YOUR-DOMAIN.com/ai/manage.php?key=YOUR_OWNER_KEY
+6) در Manage، LlamaForge Connection URL را کپی کن و داخل LlamaForge > Agent > Connected websites/apps قرار بده.
+
+نکات امنیتی:
+- data/config.php را هرگز داخل GitHub Commit نکن.
+- agent_token و owner_key را عمومی نکن.
+- تاریخچه هر مرورگر با Browser Identity جدا می‌شود و مرورگر دیگر به آن دسترسی ندارد.
+- حذف گفتگو و پاک کردن کل تاریخچه فقط روی تاریخچه همان Browser Identity اعمال می‌شود.
+- برای استفاده عمومی، HTTPS الزامی/توصیه‌شده است.

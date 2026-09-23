@@ -1,0 +1,5 @@
+# Optional browser automation for LlamaForge Agent.
+# The lightweight web/API/OpenAPI tools do not need this package.
+selenium>=4.49,<5
+# Optional document inspection for File Manager read_content on PDFs.
+pypdf>=5.0,<7

@@ -1,0 +1,6 @@
+config.php
+agent-status.json
+model-control.json
+messages/
+ratelimits/
+*.tmp

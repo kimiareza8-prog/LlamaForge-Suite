@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "name": "create_record",
+  "category": "example",
+  "description": "Example POST JSON skill; requires Agent write permission",
+  "parameters": {
+    "title": {"type": "string"},
+    "text": {"type": "string"}
+  },
+  "required": ["title", "text"],
+  "request": {
+    "method": "POST",
+    "url": "https://example.com/api/records",
+    "headers": {"X-Client": "LlamaForge"},
+    "json": {"title": "{title}", "text": "{text}"},
+    "timeout": 30
+  },
+  "response": {"format": "json", "select": "record"}
+}

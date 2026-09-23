@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
+
+# Local AI models / training outputs
+*.gguf
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.bin
+models/
+checkpoints/
+runs/
+
+# LlamaForge local runtime state
+.llamaforge/
+*browser-profile*/
+
+# Web Bridge runtime/secrets
+web-bridge/data/config.php
+web-bridge/data/agent-status.json
+web-bridge/data/model-control.json
+web-bridge/data/messages/
+web-bridge/data/ratelimits/
+web-bridge/data/*.tmp
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs/temp
+*.log
+*.tmp
+*.bak
+*.swp

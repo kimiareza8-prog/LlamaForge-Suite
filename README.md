@@ -47,6 +47,23 @@ Read `web-bridge/START-HERE.txt` for the setup steps. Keep `owner_key`, `agent_t
 
 Open the Bridge management page, copy the **LlamaForge Connection URL**, then add it in LlamaForge under the connected websites/apps section. The web UI will then receive model status, available model metadata, Agent activity and replies.
 
+## Smart Skill routing
+
+LlamaForge now uses a model-driven Skill tree instead of a regex-only gate:
+
+1. The local model decides **Direct chat** vs **Skills**.
+2. If Skills are needed, the model selects a family such as Web, API, Browser, Connector or Custom.
+3. LlamaForge shortlists only the concrete skills in that branch.
+4. The model chooses one action, receives the real observation, then re-plans until it can answer.
+
+This keeps greetings, writing and ordinary explanations out of the tool loop while operational requests such as “open this URL”, web research, HTTP/API calls and browser interaction can enter the Skill runtime. Final answers are corrected back to the user's language when internal control prompts are English.
+
+## Updating the hosted Web Bridge from LlamaForge
+
+Web Bridge 3.4 includes an authenticated updater endpoint. Once an updater-capable Bridge is installed on the host, LlamaForge can send its bundled Bridge ZIP directly to the connected site, create a server-side backup, install the new code and refresh the connection descriptor. The same Settings card can restore a previous backup. Runtime configuration, tokens and browser chat history are not replaced by Bridge updates.
+
+**One-time bootstrap:** an older Bridge that does not already contain `bridge-update.php` cannot install this feature by itself. Upgrade that host to this Bridge version once manually; subsequent Bridge releases can be installed or rolled back from LlamaForge.
+
 ## History isolation
 
 Each browser installation gets a cryptographically random browser identity stored in its own `localStorage`. The server stores a hash of that identity with each session/message. History, deletion and watch operations are scoped to that browser identity, so one normal browser does not receive another browser's chat list or messages.
@@ -70,3 +87,13 @@ Do not commit `.gguf`, `.safetensors`, checkpoints or other model weights to thi
 ## License
 
 See `LICENSE`.
+
+## 0.33.0 highlights
+
+Adaptive AutoTune now benchmarks the exact GGUF with the installed `llama-bench`, persists the winning CPU-thread/GPU-layer/batch plan per model, guards context and transient buffers for oversized models, keeps one shared model server for Agent work, parallelizes independent read-only Skills, lazy-loads vision projectors, and capability-gates n-gram speculative decoding.
+
+## 0.32.0 highlights
+
+This build adds true Agent/web response streaming, universal metadata-first file attachments, smarter file/calendar Skill routing, compact calendar UI, and Full RAM loading with `--load-mode none` when the model fits safely.
+
+Published package version: 0.33.0-adaptive-engine
