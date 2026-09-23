@@ -1,9 +1,8 @@
-name: Unpack source archive
+name: Publish LlamaForge source package
 
 on:
   push:
     paths:
-      - ".bootstrap/source.tar.xz"
       - ".github/workflows/unpack-source.yml"
   workflow_dispatch:
 
@@ -11,20 +10,57 @@ permissions:
   contents: write
 
 jobs:
-  unpack:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unpack source tree
+
+      - name: Rebuild and verify source archive
         shell: bash
         run: |
           set -euo pipefail
-          test -f .bootstrap/source.tar.xz
+          test -d .bootstrap/source-parts
+          cat .bootstrap/source-parts/part-*.b64 > /tmp/llamaforge-source.b64
+          base64 -d /tmp/llamaforge-source.b64 > /tmp/llamaforge-source.tar.xz
+          echo "f6abe956ac5ae08e52b1cee4479a60ce30eaa0b3d29f6cf25fcc9625edfbea93  /tmp/llamaforge-source.tar.xz" | sha256sum -c -
           tmp="$(mktemp -d)"
-          tar -xJf .bootstrap/source.tar.xz -C "$tmp"
+          tar -xJf /tmp/llamaforge-source.tar.xz -C "$tmp"
+          test -f "$tmp/LlamaForge-Suite/VERSION"
+          test -d "$tmp/LlamaForge-Suite/llamaforge"
+          test -d "$tmp/LlamaForge-Suite/web-bridge"
+
+      - name: Build versioned ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          tar -xJf /tmp/llamaforge-source.tar.xz -C "$tmp"
+          mkdir -p versions/0.33.0-adaptive-engine
+          (
+            cd "$tmp/LlamaForge-Suite"
+            zip -qr "$GITHUB_WORKSPACE/versions/0.33.0-adaptive-engine/LlamaForge-Suite-0.33.0-adaptive-engine.zip" .
+          )
+          sha256sum versions/0.33.0-adaptive-engine/LlamaForge-Suite-0.33.0-adaptive-engine.zip > versions/0.33.0-adaptive-engine/SHA256SUMS.txt
+
+      - name: Replace repository source atomically
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          tar -xJf /tmp/llamaforge-source.tar.xz -C "$tmp"
+
+          # Keep Git metadata, this workflow, and the freshly built versions directory.
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name ".git" \
+            ! -name ".github" \
+            ! -name ".bootstrap" \
+            ! -name "versions" \
+            -exec rm -rf {} +
+
           cp -a "$tmp/LlamaForge-Suite/." .
           rm -rf .bootstrap
-      - name: Commit unpacked source
+
+      - name: Commit published 0.33.0 source
         shell: bash
         run: |
           set -euo pipefail
@@ -35,5 +71,5 @@ jobs:
             echo "Nothing to commit."
             exit 0
           fi
-          git commit -m "Unpack LlamaForge Suite source"
+          git commit -m "Publish LlamaForge Suite 0.33.0 adaptive engine"
           git push
