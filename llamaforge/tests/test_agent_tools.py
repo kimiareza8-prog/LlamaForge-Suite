@@ -346,7 +346,7 @@ def test_agent_direct_route_skips_skills_for_simple_greeting(tmp_path, monkeypat
         return {"content": "سلام، چطور می‌تونم کمک کنم؟"}
 
     events = list(rt.run([{"role":"user","content":"سلام"}], model, AgentPermissions(), max_steps=4, context_limit=8192))
-    assert len(calls) == 2
+    assert len(calls) == 1  # pure greetings bypass router inference
     assert any(e.get("event") == "route_decision" and e.get("route") == "direct" for e in events)
     assert any(e.get("event") == "route" and e.get("route") == "direct" for e in events)
     assert not any(e.get("event") == "tool_start" for e in events)
@@ -371,7 +371,7 @@ def test_agent_direct_route_corrects_english_answer_back_to_persian(tmp_path, mo
     events = list(rt.run([{"role":"user","content":"سلام"}], model, AgentPermissions(), max_steps=4))
     answer = "".join(e.get("delta", "") for e in events if e.get("type") == "text")
     assert answer.startswith("سلام")
-    assert len(calls) == 3
+    assert len(calls) == 2  # answer plus language repair; no greeting router
     assert any(e.get("event") == "direct_complete" and e.get("language_corrected") for e in events)
 
 
@@ -495,5 +495,5 @@ def test_agent_runtime_direct_route_forwards_true_streaming_final(tmp_path, monk
     answer = "".join(e.get("delta", "") for e in events if e.get("type") == "text")
     assert answer == "سلام دنیا"
     assert len(stream_calls) == 1
-    assert len(model_calls) == 1  # routing only; final answer came from the live stream
+    assert len(model_calls) == 0  # pure greeting goes directly to the live stream
     assert any(e.get("event") == "direct_complete" and e.get("streamed") is True for e in events)

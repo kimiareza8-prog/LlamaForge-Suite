@@ -1,3 +1,30 @@
+# 0.34.0-smart-brain
+
+- Refresh local chat with a neutral sidebar, compact controls, per-thread drafts/attachments, history search/rename and accessible mobile navigation.
+- Add a readable Jalali month/selected-day calendar, create/edit/cancel dialog, explicit host timezone, local date conversion and multiday display.
+- Fix late-cancel and multi-file/thread-switch races; cancelled responses cannot remove a newer answer.
+- Refresh hosted Bridge CSS for readable chat/calendar controls; updater, tokens and transport code are unchanged.
+
+- Brain supervision compiler and replay curriculum rewritten; no automatic targets from plain questions or ungrounded teacher answers.
+- Explicit question/answer teaching form, correction-aware replay, duplicate recent-lesson detection, finite-gradient guard and bounded candidate loss checks.
+- Live adapter reload no longer rolls back its own candidate. Generation/ledger are confirmed after reload, with durable crash recovery.
+- Silent subprocess timeout, cancellable conversion, checkpoint-based CPU memory admission and terminal UI unlock.
+- See BRAIN_SYSTEM_FA.md and AUDIT_REPORT_FA.md for test evidence and limits; real GGUF training quality has not been benchmarked.
+
+
+- Reuse the router's capability decision, cache request-local discovery, and bypass routing for exact greetings.
+- Add typed operation policies and preflight input validation; show reusable operation branches and their independent permissions in the Skill Tree.
+- Preserve attachment IDs after save/rename and browser reload; deduplicate repeated staging; protect workspace destinations and archive reads.
+- Bound ZIP/TAR and Office decompression; resolve XLSX shared strings; preserve large vision JSON envelopes.
+- Verify local writes and reuse successful same-turn write receipts; block repeated preflight/tool failures and serialize mutations.
+- Preserve workspace ownership in parallel read workers; cancel without blocking on executor shutdown.
+- Stream every final-answer path, preserve explicitly read images in budget-final synthesis, and propagate inference errors/final markers.
+- Add ordered SSE history/reconnect and long-poll fallback, token-ID dedup, backend chat cancellation, and persistent context drafts.
+- Keep image storage separate from projector loading; disable internal control reasoning; redact credential fields in logs/progress.
+- Keep adaptive memory guards active on CPU, retain manual thread settings, count per-slot context/KV, default to one slot, and leave unmeasured automatic speculation off.
+- AutoTune uses bounded staged search, 3 repeats, median/stability scoring, real batch/ubatch comparisons, candidate timeout/cancellation/memory monitoring, and runtime/hardware/profile cache identity.
+- No change to hosted Bridge PHP/JS, token lifecycle or atomic updater (CSS only). No new production dependency.
+
 # 0.33.0-adaptive-engine
 
 - Added real token streaming for Agent final answers. Routing/planning stays structured, while the final user-facing generation is streamed directly from llama-server.

@@ -57,7 +57,7 @@
 
   const App = {
     state:null,
-    route:(location.hash || '#models').slice(1),
+    route:(location.hash || '#chat').slice(1),
     chatAbort:null,
     streaming:false,
     contextTokens:null,
@@ -72,6 +72,7 @@
     brainLearning:false,
     brainSetup:false,
     brainTurnPending:false,
+    brainLessonDraft:{question:'',answer:''},
     brainTogglePending:false,
     toolsOpen:localStorage.getItem('lf.toolsOpen')==='1',
     pendingMemoryMode:null,
@@ -80,6 +81,13 @@
     settingsDraft:{},
     pendingAttachments:[],
     calendarCursor:null,
+    calendarSelected:'',
+    calendarRequest:0,
+    chatDrafts:{},
+    attachmentDrafts:{},
+    historyQuery:'',
+    generationId:null,
+    generationThreadId:null,
     filesFolder:'',
     filesSearch:'',
   };
@@ -141,7 +149,7 @@
     try { const x=JSON.parse(localStorage.getItem('lf.threads')||'[]'); return Array.isArray(x)?x:[]; } catch { return []; }
   }
   function saveThreads(){
-    const persisted=App.threads.slice(0,40).map(t=>({...t,messages:(t.messages||[]).map(m=>({...m,attachments:Array.isArray(m.attachments)?m.attachments.map(a=>{const x={...a};if(x.data_url){delete x.data_url;x.unavailable=true}if(x.text){delete x.text;x.unavailable=true}return x;}):undefined}))}));
+    const persisted=App.threads.slice(0,40).map(t=>({...t,messages:(t.messages||[]).map(m=>({...m,attachments:Array.isArray(m.attachments)?m.attachments.map(a=>{const x={...a};if(x.data_url){delete x.data_url;x.unavailable=!x.attachment_id}if(x.text){delete x.text;x.unavailable=!x.attachment_id}return x;}):undefined}))}));
     try{localStorage.setItem('lf.threads',JSON.stringify(persisted));}catch{}
     renderRecent();
   }
@@ -151,12 +159,19 @@
     return t;
   }
   function newThread(){
-    if(App.streaming && App.chatAbort) App.chatAbort.abort();
+    if(App.streaming)stopGeneration();
+    if(App.activeThreadId)App.attachmentDrafts[App.activeThreadId]=App.pendingAttachments;
+    App.pendingAttachments=[];
     const t={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),title:'New chat',messages:[],created:Date.now(),updated:Date.now()};
     App.threads.unshift(t); App.activeThreadId=t.id; App.contextTokens=null; localStorage.setItem('lf.activeThread',t.id); saveThreads(); setRoute('chat');
   }
-  function selectThread(id){ App.activeThreadId=id; localStorage.setItem('lf.activeThread',id); App.contextTokens=null; setRoute('chat'); }
-  function deleteThread(id){ App.threads=App.threads.filter(t=>t.id!==id); if(App.activeThreadId===id) App.activeThreadId=App.threads[0]?.id||null; saveThreads(); render(); }
+  function selectThread(id){
+    if(id!==App.activeThreadId&&App.streaming)stopGeneration();
+    if(App.activeThreadId)App.attachmentDrafts[App.activeThreadId]=App.pendingAttachments;
+    App.activeThreadId=id;App.pendingAttachments=App.attachmentDrafts[id]||[];
+    localStorage.setItem('lf.activeThread',id);App.contextTokens=null;setRoute('chat');
+  }
+  function deleteThread(id){ if(App.activeThreadId===id&&App.streaming)stopGeneration();delete App.chatDrafts[id];delete App.attachmentDrafts[id];if(App.activeThreadId===id)App.pendingAttachments=[];App.threads=App.threads.filter(t=>t.id!==id); if(App.activeThreadId===id) App.activeThreadId=App.threads[0]?.id||null; saveThreads(); render(); }
   async function clearAllThreads(){
     if(App.streaming)stopGeneration();
     const ok=await confirmModal('Clear chat history','Delete every local conversation stored in this browser? This cannot be undone.','Clear all',true);if(!ok)return;
@@ -165,20 +180,20 @@
   function titleFromPrompt(text){ const clean=text.replace(/\s+/g,' ').trim(); return clean.length>38?clean.slice(0,37)+'…':clean||'New chat'; }
 
   function renderNav(){
-    // Keep the daily workflow intentionally small.  Advanced engine pages still
-    // exist and can be reached from Settings, but the main navigation is just:
-    // choose a model -> chat -> see learning status.
-    const primaryIds=new Set(['models','chat','calendar','files','cluster','agent','brain','settings','logs']);
-    const primary=routes.filter(x=>primaryIds.has(x[0]));
-    const button=([id,label,ic])=>`<button class="nav-item ${App.route===id?'active':''}" data-route="${id}" title="${label}">${icon(ic)}<span class="nav-label">${label}</span></button>`;
-    $('#nav').innerHTML=primary.map(button).join('');
+    const primaryIds=new Set(['chat','calendar','files','models','brain']);
+    const button=([id,label,ic])=>`<button class="nav-item ${App.route===id?'active':''}" data-route="${id}" title="${label}" ${App.route===id?'aria-current="page"':''}>${icon(ic)}<span class="nav-label">${label}</span></button>`;
+    const advanced=routes.filter(x=>!primaryIds.has(x[0])&&x[0]!=='home');
+    $('#nav').innerHTML=routes.filter(x=>primaryIds.has(x[0])).map(button).join('')+
+      `<details class="nav-tools" ${App.toolsOpen?'open':''}><summary title="Tools & settings">${icon('tune')}<span class="nav-label">Tools & settings</span>${icon('down')}</summary><div class="nav-tools-list">${advanced.map(button).join('')}</div></details>`;
+    $('.nav-tools').ontoggle=e=>{App.toolsOpen=e.target.open;localStorage.setItem('lf.toolsOpen',App.toolsOpen?'1':'0')};
     $$('[data-route]').forEach(b=>b.onclick=()=>setRoute(b.dataset.route));
     document.querySelector('.app-shell').classList.toggle('sidebar-collapsed',App.sidebarCollapsed);
     renderRecent(); updateChrome();
   }
   function renderRecent(){
     const root=$('#recentChats'); if(!root) return;
-    root.innerHTML=App.threads.slice(0,12).map(t=>`<div class="recent-chat-row ${App.activeThreadId===t.id?'active':''}"><button class="recent-chat" data-thread="${escapeHtml(t.id)}" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</button><button class="recent-delete" data-delete-thread="${escapeHtml(t.id)}" title="Delete chat">${icon('trash')}</button></div>`).join('') || '<div style="padding:6px 11px;color:var(--faint);font-size:10px">No conversations yet</div>';
+    root.innerHTML=App.threads.filter(t=>!App.historyQuery||(t.title+' '+t.messages.map(m=>m.content||'').join(' ')).toLocaleLowerCase().includes(App.historyQuery.toLocaleLowerCase())).slice(0,40).map(t=>`<div class="recent-chat-row ${App.activeThreadId===t.id?'active':''}"><button class="recent-chat" data-thread="${escapeHtml(t.id)}" title="${escapeHtml(t.title)}" dir="auto">${escapeHtml(t.title)}</button><button class="recent-rename" data-rename-thread="${escapeHtml(t.id)}" aria-label="Rename chat">${icon('edit')}</button><button class="recent-delete" data-delete-thread="${escapeHtml(t.id)}" title="Delete chat">${icon('trash')}</button></div>`).join('') || '<div style="padding:6px 11px;color:var(--faint);font-size:10px">No conversations yet</div>';
+    $$('[data-rename-thread]',root).forEach(b=>b.onclick=()=>{const t=App.threads.find(x=>x.id===b.dataset.renameThread);const name=prompt('Conversation name',t.title);if(name?.trim()){t.title=name.trim().slice(0,120);saveThreads()}});
     $$('[data-thread]',root).forEach(b=>b.onclick=()=>selectThread(b.dataset.thread));
     $$('[data-delete-thread]',root).forEach(b=>b.onclick=async e=>{e.stopPropagation();const id=b.dataset.deleteThread,t=App.threads.find(x=>x.id===id);const ok=await confirmModal('Delete chat',`Delete “${t?.title||'this chat'}”?`,'Delete',true);if(ok)deleteThread(id)});
   }
@@ -282,59 +297,101 @@
   }
 
   async function renderCalendar(view){
+    const request=++App.calendarRequest;
     view.className='view calendar-route';
-    view.innerHTML=`<div class="page calendar-page"><div class="calendar-loading">${icon('calendar')}<strong>در حال آماده‌سازی تقویم…</strong></div></div>`;
+    view.innerHTML='<div class="page"><div class="empty-state" role="status">در حال دریافت تقویم…</div></div>';
     try{
-      const nowData=await api('/api/calendar/now');
-      const now=nowData.now||{};
-      if(!App.calendarCursor){const [y,m]=(now.jalali||'1405-01-01').split('-').map(Number);App.calendarCursor={year:y,month:m};}
-      const {year,month}=App.calendarCursor;
-      const data=await api(`/api/calendar/month?year=${year}&month=${month}`);
-      if(App.route!=='calendar')return;
-      const cal=data.month||{},days=cal.days||[];
-      const today=String(data.now?.jalali||'');
-      const offset=((Number(cal.first_weekday||0)-5)+7)%7;
-      const headers=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
-      const blanks=Array.from({length:offset},()=>'<div class="calendar-day blank"></div>').join('');
-      const dayHtml=days.map(d=>{
-        const isToday=d.jalali===today,holiday=!!d.holiday||!!d.weekend;
-        const events=(d.events||[]).slice(0,3);
-        return `<button class="calendar-day ${isToday?'today':''} ${holiday?'holiday':''}" data-cal-day="${escapeHtml(d.jalali)}" data-greg-day="${escapeHtml(d.gregorian)}">
-          <div class="cal-day-top"><strong>${d.day}</strong><span>${escapeHtml(d.weekday_fa||'')}</span></div>
-          ${d.holiday?`<small class="holiday-name">${escapeHtml(d.holiday)}</small>`:''}
-          <div class="day-events">${events.map(e=>`<span title="${escapeHtml(e.title||'')}">${escapeHtml(shortName(e.title||'رویداد',22))}</span>`).join('')}${(d.events||[]).length>3?`<em>+${d.events.length-3}</em>`:''}</div>
-        </button>`;
-      }).join('');
-      const upcoming=days.flatMap(d=>(d.events||[]).map(e=>({...e,jalali:d.jalali,weekday:d.weekday_fa}))).filter(e=>String(e.start||'')>=String(new Date().toISOString().slice(0,16))).slice(0,10);
-      const eventCount=days.reduce((n,d)=>n+(d.events||[]).length,0);
-      view.innerHTML=`<div class="page calendar-page calendar-v2" dir="rtl">
-        <header class="calendar-topbar"><div class="calendar-title-block"><span class="mini-kicker">تقویم هوشمند</span><div class="calendar-title-line"><h2>${escapeHtml(cal.month_name||'')} <b>${year}</b></h2><span>${eventCount} رویداد این ماه</span></div><p>برنامه‌ات را اینجا ببین یا مستقیم به Agent بگو چه چیزی ثبت، جابه‌جا یا پیدا کند.</p></div><div class="calendar-top-actions"><button id="calToday" class="secondary-button">امروز</button><button id="calAdd" class="primary-button">${icon('plus')} رویداد جدید</button></div></header>
-        <div class="calendar-glance"><div class="calendar-today-card"><span class="today-orb">${escapeHtml(String((now.jalali||'').split('-')[2]||''))}</span><div><small>امروز · ${escapeHtml(now.weekday_fa||'')}</small><strong>${escapeHtml(now.jalali_text||now.jalali||'')}</strong></div><b>${escapeHtml((now.time||'').slice(0,5))}</b></div><div class="calendar-agent-prompt">${icon('spark')}<div><strong>با زبان طبیعی برنامه‌ریزی کن</strong><span>مثلاً: «فردا ساعت ۱۰ جلسه بذار» یا «اولین زمان خالی دو ساعته‌ام را پیدا کن»</span></div></div></div>
-        <div class="calendar-layout">
-          <section class="calendar-card calendar-main-card">
-            <div class="calendar-toolbar"><div class="calendar-nav"><button id="calPrev" class="icon-button ghost" aria-label="ماه قبل">${icon('chevron')}</button><button id="calNext" class="icon-button ghost" aria-label="ماه بعد">${icon('chevron')}</button></div><div class="calendar-month-title">${escapeHtml(cal.month_name||'')} ${year}</div><div class="calendar-toolbar-note">برای افزودن رویداد روی یک روز کلیک کن</div></div>
-            <div class="calendar-weekdays">${headers.map((h,i)=>`<span class="${i===6?'holiday':''}">${h}</span>`).join('')}</div>
-            <div class="calendar-grid">${blanks}${dayHtml}</div>
+      const cursor=App.calendarCursor;
+      const data=await api('/api/calendar/month'+(cursor?`?year=${cursor.year}&month=${cursor.month}`:''));
+      if(App.route!=='calendar'||request!==App.calendarRequest)return;
+      const cal=data.month,now=data.now,days=cal.days||[],events=cal.events||[];
+      App.calendarCursor={year:cal.year,month:cal.month};
+      if(!days.some(d=>d.jalali===App.calendarSelected))App.calendarSelected=days.find(d=>d.jalali===now.jalali)?.jalali||days[0]?.jalali;
+      const fa=n=>Number(n).toLocaleString('fa-IR',{useGrouping:false});
+      const paint=()=>{
+        if(App.route!=='calendar'||request!==App.calendarRequest)return;
+        const selected=days.find(d=>d.jalali===App.calendarSelected)||days[0];
+        const agenda=LFWorkspaceUI.eventsForDay(events,selected.gregorian);
+        const blanks=Array.from({length:(cal.first_weekday+2)%7},()=>'<span class="cal-cell empty" aria-hidden="true"></span>').join('');
+        view.innerHTML=`<div class="page calendar-workspace" dir="rtl">
+          <header class="cal-page-head"><div><p class="cal-kicker">برنامهٔ شما</p><h2>تقویم</h2><p>امروز ${escapeHtml(now.jalali_text)} · ${escapeHtml(now.weekday_fa)}</p></div><div class="cal-head-actions"><button id="calToday" class="secondary-button">امروز</button><button id="calAdd" class="primary-button">${icon('plus')} رویداد جدید</button></div></header>
+          <div class="cal-workspace-grid"><section class="cal-month-panel" aria-label="نمای ماهانه">
+            <div class="cal-month-toolbar"><h3>${escapeHtml(cal.month_name)} <span>${fa(cal.year)}</span></h3><div><button id="calPrev" class="icon-button" aria-label="ماه قبل" ${cal.year===1200&&cal.month===1?'disabled':''}>${icon('chevron')}</button><button id="calNext" class="icon-button" aria-label="ماه بعد" ${cal.year===1700&&cal.month===12?'disabled':''}>${icon('chevron')}</button></div></div>
+            <div class="cal-week-labels">${['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'].map(h=>`<span>${h}</span>`).join('')}</div>
+            <div class="cal-month-grid">${blanks}${days.map(d=>`<button class="cal-cell ${d.jalali===now.jalali?'today':''} ${d.jalali===selected.jalali?'selected':''} ${d.weekend||d.holiday?'holiday':''}" data-cal-day="${d.jalali}" aria-pressed="${d.jalali===selected.jalali}" aria-label="${fa(d.day)} ${escapeHtml(cal.month_name)}، ${fa(d.event_count||0)} رویداد${d.holiday?'، '+escapeHtml(d.holiday):''}"><span class="cal-day-number">${fa(d.day)}</span>${d.holiday?`<span class="cal-holiday" title="${escapeHtml(d.holiday)}">${escapeHtml(d.holiday)}</span>`:''}<span class="cal-event-chips">${(d.events||[]).slice(0,2).map(e=>`<span title="${escapeHtml(e.title)}">${escapeHtml(e.title)}</span>`).join('')}${d.event_count>2?`<small>+${fa(d.event_count-2)}</small>`:''}</span></button>`).join('')}</div>
+            <footer class="cal-month-footer"><span><i></i> امروز</span><span>${fa(events.length)} رویداد در این ماه${events.length>=500?' · سقف نمایش ۵۰۰ رویداد':''}</span></footer>
           </section>
-          <aside class="calendar-side"><div class="calendar-side-card calendar-agenda"><div class="calendar-side-title"><div><span class="mini-kicker">AGENDA</span><h3>برنامه‌های پیشِ رو</h3></div><span class="agenda-count">${upcoming.length}</span></div><div class="upcoming-list">${upcoming.length?upcoming.map(e=>`<div class="upcoming-item"><span class="upcoming-time">${escapeHtml(String(e.start||'').slice(11,16)||'—')}</span><div><strong>${escapeHtml(e.title||'رویداد')}</strong><small>${escapeHtml(e.weekday||'')} · ${escapeHtml(e.jalali||'')}</small></div></div>`).join(''):`<div class="calendar-empty-agenda">${icon('calendar')}<strong>برنامه‌ای نزدیک نیست</strong><span>روی هر روز کلیک کن تا یک رویداد بسازی.</span></div>`}</div></div>
-          <div class="calendar-side-card calendar-agent-card"><div class="calendar-agent-icon">${icon('spark')}</div><div><strong>Agent به تقویم دسترسی دارد</strong><p>خواندن زمان، دیدن رویدادها، ثبت و تغییر برنامه‌ها از Skillهای عمومی تقویم انجام می‌شود؛ لازم نیست نام Skill را بدانی.</p></div></div></aside>
-        </div>
-      </div>`;
-      const shift=delta=>{let y=App.calendarCursor.year,m=App.calendarCursor.month+delta;if(m<1){m=12;y--}if(m>12){m=1;y++}App.calendarCursor={year:y,month:m};renderCalendar(view)};
-      $('#calPrev').onclick=()=>shift(-1);$('#calNext').onclick=()=>shift(1);
-      $('#calToday').onclick=()=>{const [y,m]=(now.jalali||'1405-01').split('-').map(Number);App.calendarCursor={year:y,month:m};renderCalendar(view)};
-      $('#calAdd').onclick=()=>openCalendarEventModal(today||`${year}-${String(month).padStart(2,'0')}-01`);
-      $$('[data-cal-day]').forEach(b=>b.onclick=()=>openCalendarEventModal(b.dataset.calDay,b.dataset.gregDay));
-    }catch(e){view.innerHTML=`<div class="page"><div class="error-card"><strong>تقویم باز نشد</strong><p>${escapeHtml(e.message)}</p></div></div>`;}
+          <aside class="cal-agenda-panel"><div class="cal-agenda-heading"><div><p>${escapeHtml(selected.weekday_fa)}</p><h3>${fa(selected.day)} ${escapeHtml(cal.month_name)}</h3></div><span class="cal-count">${fa(agenda.length)}</span></div>
+            ${selected.holiday?`<p class="cal-day-holiday">${escapeHtml(selected.holiday)}</p>`:''}
+            <div class="cal-agenda-list">${agenda.length?agenda.map(e=>`<button class="cal-agenda-event" data-cal-event="${escapeHtml(e.id)}"><span class="cal-event-line"></span><span><time>${e.all_day?'تمام روز':String(e.start).slice(0,10)===selected.gregorian?escapeHtml(String(e.start).slice(11,16)):'ادامهٔ رویداد'}</time><strong>${escapeHtml(e.title||'رویداد')}</strong>${e.location?`<small>${escapeHtml(e.location)}</small>`:''}</span>${icon('edit')}</button>`).join(''):`<div class="cal-agenda-empty">${icon('calendar')}<strong>این روز آزاد است</strong><p>یک قرار یا یادآوری به برنامه‌ات اضافه کن.</p></div>`}</div>
+            <button id="calSelectedAdd" class="secondary-button cal-add-day">${icon('plus')} افزودن به این روز</button>
+            <p class="cal-timezone">زمان تقویم: <bdi>${escapeHtml(now.timezone)} (${escapeHtml(now.utc_offset)})</bdi></p>
+          </aside></div>
+          <div class="cal-chat-link">${icon('spark')}<span>می‌توانی برنامه‌ات را در چت هم تنظیم کنی.</span><button id="calAsk" class="text-button">رفتن به چت ${icon('chevron')}</button></div>
+        </div>`;
+        const shift=delta=>{let {year,month}=App.calendarCursor;month+=delta;if(month<1){month=12;year--}if(month>12){month=1;year++}App.calendarCursor={year,month};renderCalendar(view)};
+        $('#calPrev').onclick=()=>shift(-1);$('#calNext').onclick=()=>shift(1);
+        $('#calToday').onclick=()=>{App.calendarCursor=null;App.calendarSelected=now.jalali;renderCalendar(view)};
+        $('#calAdd').onclick=$('#calSelectedAdd').onclick=()=>openCalendarEventModal(selected,now,null,()=>renderCalendar(view));
+        $$('[data-cal-day]',view).forEach(b=>b.onclick=()=>{App.calendarSelected=b.dataset.calDay;paint();$(`[data-cal-day="${App.calendarSelected}"]`,view)?.focus()});
+        $$('[data-cal-event]',view).forEach(b=>b.onclick=()=>{const event=events.find(e=>e.id===b.dataset.calEvent);openCalendarEventModal(selected,now,event,()=>renderCalendar(view))});
+        $('#calAsk').onclick=()=>setRoute('chat');
+      };
+      paint();
+    }catch(e){if(App.route==='calendar'&&request===App.calendarRequest)view.innerHTML=`<div class="page"><div class="error-card"><strong>تقویم باز نشد</strong><p>${escapeHtml(e.message)}</p><button id="calRetry" class="secondary-button">تلاش دوباره</button></div></div>`;const retry=$('#calRetry');if(retry)retry.onclick=()=>renderCalendar(view);}
   }
 
-  function openCalendarEventModal(jalali='',gregorian=''){
-    const root=$('#modalRoot');
-    const today=new Date().toISOString().slice(0,10);
-    const g=gregorian||today;
-    root.innerHTML=`<div class="modal-backdrop calendar-modal"><div class="modal-card" dir="rtl"><div class="modal-head"><div><div class="eyebrow">CALENDAR</div><h3>رویداد جدید</h3><p>${escapeHtml(jalali||'')}</p></div><button id="calModalClose" class="icon-button ghost">${icon('x')}</button></div><div class="modal-body form-grid"><label class="field span-2"><span>عنوان</span><input id="calTitle" placeholder="مثلاً جلسه با شرکت" autofocus></label><label class="field"><span>تاریخ میلادی</span><input id="calDate" type="date" value="${escapeHtml(g)}"></label><label class="field"><span>ساعت</span><input id="calTime" type="time" value="10:00"></label><label class="field"><span>مدت</span><select id="calDuration"><option value="30">۳۰ دقیقه</option><option value="60" selected>۱ ساعت</option><option value="90">۹۰ دقیقه</option><option value="120">۲ ساعت</option></select></label><label class="field"><span>یادآوری</span><select id="calReminder"><option value="">بدون یادآوری</option><option value="10">۱۰ دقیقه قبل</option><option value="30" selected>۳۰ دقیقه قبل</option><option value="60">۱ ساعت قبل</option><option value="1440">۱ روز قبل</option></select></label><label class="field span-2"><span>توضیح</span><textarea id="calNotes" rows="3" placeholder="اختیاری"></textarea></label></div><div class="modal-actions"><button id="calCancel" class="secondary-button">انصراف</button><button id="calSave" class="primary-button">ثبت رویداد</button></div></div></div>`;
-    const close=()=>root.innerHTML='';$('#calModalClose').onclick=close;$('#calCancel').onclick=close;
-    $('#calSave').onclick=async()=>{const title=$('#calTitle').value.trim();if(!title){toast('عنوان لازم است','','error');return}const d=$('#calDate').value,t=$('#calTime').value||'10:00',dur=Number($('#calDuration').value||60),start=new Date(`${d}T${t}:00`),end=new Date(start.getTime()+dur*60000),rem=$('#calReminder').value;try{await api('/api/calendar',{method:'POST',body:{operation:'create',title,start:start.toISOString(),end:end.toISOString(),notes:$('#calNotes').value,reminders:rem?[Number(rem)]:[]}});close();toast('رویداد ثبت شد',title);renderCalendar($('#view'));}catch(e){toast('ثبت نشد',e.message,'error')}};
+  function openCalendarEventModal(day,now,event=null,onSaved=()=>{}){
+    const root=$('#modalRoot'),previousFocus=document.activeElement;
+    let busy=false,dateRequest=0,dateBasis='gregorian';
+    const date=event?.start?.slice(0,10)||day.gregorian;
+    const initialMinutes=event?.end?Math.max(1,Math.round((Date.parse(event.end.slice(0,19)+'Z')-Date.parse(event.start.slice(0,19)+'Z'))/60000)):60;
+    root.innerHTML=`<div class="modal-backdrop cal-dialog-backdrop"><form class="cal-dialog" dir="rtl" role="dialog" aria-modal="true" aria-labelledby="calDialogTitle">
+      <header><div><p class="cal-kicker">تقویم شخصی</p><h3 id="calDialogTitle">${event?'ویرایش رویداد':'رویداد جدید'}</h3></div><button id="calModalClose" type="button" class="icon-button" aria-label="بستن">${icon('x')}</button></header>
+      <div class="cal-dialog-fields"><label class="field span-2"><span>عنوان</span><input id="calTitle" required maxlength="300" dir="auto" value="${escapeHtml(event?.title||'')}" placeholder="مثلاً جلسهٔ تیم"></label>
+      <label class="field"><span>تاریخ شمسی</span><input id="calJalali" dir="ltr" inputmode="numeric" placeholder="1405-07-02" aria-describedby="calFormError" value="${event?'':day.jalali}"></label>
+      <label class="field"><span>تاریخ میلادی</span><input id="calDate" type="date" required value="${date}"></label>
+      <label class="cal-all-day span-2"><input id="calAllDay" type="checkbox" ${event?.all_day?'checked':''}> تمام روز</label>
+      <label class="field"><span>ساعت شروع</span><input id="calTime" type="time" required value="${event?.start?.slice(11,16)||'10:00'}"></label>
+      <label class="field"><span>مدت (دقیقه)</span><input id="calDuration" type="number" min="1" max="525600" required value="${initialMinutes}"></label>
+      <label class="field"><span>مکان</span><input id="calLocation" dir="auto" maxlength="500" value="${escapeHtml(event?.location||'')}" placeholder="اختیاری"></label>
+      <label class="field"><span>یادآوری (دقیقه قبل)</span><input id="calReminder" type="number" min="0" max="525600" placeholder="بدون یادآوری" value="${event?event.reminders?.[0]??'':30}"></label>
+      <label class="field span-2"><span>یادداشت</span><textarea id="calNotes" dir="auto" rows="3" maxlength="5000" placeholder="اختیاری">${escapeHtml(event?.notes||'')}</textarea></label>
+      <p class="cal-timezone span-2">ساعت‌ها بر اساس زمان دستگاه میزبان هستند: <bdi>${escapeHtml(now.timezone)} (${escapeHtml(now.utc_offset)})</bdi></p>
+      <p id="calFormError" class="form-error span-2" role="alert"></p></div>
+      <footer>${event?'<button id="calDelete" type="button" class="text-button danger">لغو رویداد</button>':''}<span></span><button id="calCancel" type="button" class="secondary-button">انصراف</button><button id="calSave" type="submit" class="primary-button">${event?'ذخیرهٔ تغییرات':'ثبت رویداد'}</button></footer>
+    </form></div>`;
+    const dialog=$('.cal-dialog',root),err=$('#calFormError',root);
+    const close=()=>{if(busy)return;dateRequest++;root.innerHTML='';previousFocus?.focus()};
+    const fields=$$('input,textarea,button',dialog);
+    const lock=on=>{busy=on;fields.forEach(e=>e.disabled=on);if(!on)syncAllDay()};
+    const syncAllDay=()=>{$('#calTime').disabled=$('#calDuration').disabled=$('#calAllDay').checked};
+    const convert=async(kind,value)=>{
+      const id=++dateRequest;err.textContent='';
+      try{const data=await api('/api/calendar',{method:'POST',body:{operation:'convert',[kind]:value}});if(id!==dateRequest||!dialog.isConnected)return false;$('#calJalali').value=data.result.jalali;$('#calDate').value=data.result.gregorian;return true}
+      catch(e){if(id===dateRequest&&dialog.isConnected)err.textContent=e.message;return false}
+    };
+    $('#calJalali').onchange=e=>{dateBasis='jalali';return convert('jalali',e.target.value.replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c))).replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))))};
+    $('#calDate').onchange=e=>{dateBasis='gregorian';return convert('gregorian',e.target.value)};
+    if(event)convert('gregorian',date);
+    $('#calAllDay').onchange=syncAllDay;syncAllDay();
+    $('#calModalClose').onclick=$('#calCancel').onclick=close;
+    $('.cal-dialog-backdrop',root).onclick=e=>{if(e.target===e.currentTarget)close()};
+    dialog.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close()}else if(e.key==='Tab'){const enabled=$$('input,textarea,button',dialog).filter(e=>!e.disabled);const first=enabled[0],last=enabled.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}};
+    dialog.onsubmit=async e=>{
+      e.preventDefault();if(busy)return;lock(true);err.textContent='';
+      try{
+        const dateText=$(dateBasis==='jalali'?'#calJalali':'#calDate').value.replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c))).replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)));
+        if(!await convert(dateBasis,dateText))throw new Error(err.textContent||'تاریخ معتبر انتخاب کنید.');
+        const payload=LFWorkspaceUI.calendarPayload({id:event?.id,title:$('#calTitle').value,date:$('#calDate').value,time:$('#calTime').value,duration:$('#calDuration').value,allDay:$('#calAllDay').checked,reminder:$('#calReminder').value,notes:$('#calNotes').value,location:$('#calLocation').value});
+        if(event?.reminders?.length>1&&String(event.reminders[0])===$('#calReminder').value)payload.reminders=event.reminders;
+        // Preserve a multiday all-day event when editing its title/notes.
+        if(event?.all_day&&payload.all_day&&initialMinutes>1440)payload.end=new Date(Date.parse(payload.start+'Z')+initialMinutes*60000).toISOString().slice(0,19);
+        await api('/api/calendar',{method:'POST',body:payload});busy=false;close();toast(event?'تغییرات ذخیره شد':'رویداد ثبت شد',payload.title);onSaved();
+      }catch(error){err.textContent=error.message;lock(false);}
+    };
+    const cancel=$('#calDelete');if(cancel)cancel.onclick=async()=>{if(busy)return;if(cancel.dataset.confirm!=='yes'){cancel.dataset.confirm='yes';cancel.textContent='تأیید لغو رویداد';return}lock(true);try{await api('/api/calendar',{method:'POST',body:{operation:'cancel',id:event.id}});busy=false;close();toast('رویداد لغو شد');onSaved()}catch(e){err.textContent=e.message;lock(false)}};
+    $('#calTitle').focus();
   }
 
   async function renderFiles(view){
@@ -370,7 +427,7 @@
 
   function readAsDataURL(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(r.error||new Error('read failed'));r.readAsDataURL(file)})}
   async function uploadWorkspaceFiles(files,view){
-    for(const file of [...(files||[])]){if(file.size>45*1024*1024){toast('فایل خیلی بزرگ است',`${file.name} بیشتر از ۴۵ مگابایت است.`,'error');continue}try{toast('در حال افزودن فایل',file.name,'info',1800);const data_url=await readAsDataURL(file);await api('/api/workspace/upload',{method:'POST',body:{name:file.name,folder:App.filesFolder,data_url}})}catch(e){toast('آپلود ناموفق',`${file.name}: ${e.message}`,'error',5000)}}renderFiles(view);
+    for(const file of [...(files||[])]){if(file.size>20*1024*1024){toast('فایل خیلی بزرگ است',`${file.name} بیشتر از ۲۰ مگابایت است.`,'error');continue}try{toast('در حال افزودن فایل',file.name,'info',1800);const data_url=await readAsDataURL(file);await api('/api/workspace/upload',{method:'POST',body:{name:file.name,folder:App.filesFolder,data_url}})}catch(e){toast('آپلود ناموفق',`${file.name}: ${e.message}`,'error',5000)}}renderFiles(view);
   }
 
   function renderHome(view){
@@ -812,7 +869,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       const paintAccel=mode=>{accelMode=mode;modeButtons.forEach(b=>b.classList.toggle('selected',b.dataset.accel===mode));if(gpuRange)gpuRange.disabled=!acc.hasGpu||!['hybrid','max_both'].includes(mode);if(mode==='max_both'&&Number(gpuRange.value)>30)gpuRange.value='10';if(gpuValue)gpuValue.textContent=mode==='gpu'?'100%':['hybrid','max_both'].includes(mode)?`${gpuRange.value}%`:'0%';const ctl=$('.gpu-share-control');if(ctl){ctl.classList.toggle('active',['hybrid','max_both'].includes(mode));ctl.classList.toggle('inactive',!['hybrid','max_both'].includes(mode))}saveAcceleratorPrefs(mode,Number(gpuRange?.value||acc.percent));};
       modeButtons.forEach(b=>b.onclick=()=>{if(b.disabled)return;paintAccel(b.dataset.accel)});
       if(gpuRange)gpuRange.oninput=()=>{if(gpuValue)gpuValue.textContent=['hybrid','max_both'].includes(accelMode)?`${gpuRange.value}%`:accelMode==='gpu'?'100%':'0%';saveAcceleratorPrefs(accelMode,Number(gpuRange.value))};
-      $('#manualStart').onclick=async()=>{try{const cp=cpuThreadPrefs(),pct=Number(gpuRange?.value||35);saveAcceleratorPrefs(accelMode,pct);await api('/api/settings',{method:'POST',body:{accelerator_mode:accelMode,gpu_layer_percent:pct,default_context_size:Number($('#ctxInput').value||4096)}});await ensureRuntimeInstalled();await api('/api/server/start',{method:'POST',body:{model_path:m.path,profile:$('#profileSelect').value,ctx:Number($('#ctxInput').value),accelerator_mode:accelMode,cpu_only:accelMode==='cpu',gpu_layer_percent:pct,thread_mode:accelMode==='adaptive'?'auto':accelMode==='max_both'?'saturate':cp.mode,threads:accelMode==='max_both'?(s.hardware?.logical_cores||cp.threads):cp.threads,threads_batch:accelMode==='max_both'?(s.hardware?.logical_cores||cp.threads_batch):cp.threads_batch,cpu_target_percent:accelMode==='max_both'?100:cp.target_percent,cpu_saturation:accelMode==='max_both'?true:cp.saturation,speculative_mode:String(s.config?.speculative_mode||'auto'),adaptive_context:Boolean(s.config?.adaptive_context!==false)}});toast('Server starting',accelMode==='adaptive'?(s.autotune?`Adaptive measured plan · ${Number(s.autotune.generation_tps||0).toFixed(2)} tok/s benchmark`:'Adaptive heuristic · run AutoTune for a measured plan'):accelMode==='max_both'?`Max Both · ${pct}% GPU layers · all logical CPU workers`:accelMode==='hybrid'?`CPU + GPU hybrid · ${pct}% GPU layers · ${cpuPlanSummary(cp)}`:accelMode==='gpu'?`GPU max offload · ${cpuPlanSummary(cp)}`:cpuPlanSummary(cp),'info')}catch(e){toast('Could not start model',e.message,'error')}};
+      $('#manualStart').onclick=async()=>{try{const cp=cpuThreadPrefs(),pct=Number(gpuRange?.value||35);saveAcceleratorPrefs(accelMode,pct);await api('/api/settings',{method:'POST',body:{accelerator_mode:accelMode,gpu_layer_percent:pct,default_context_size:Number($('#ctxInput').value||4096)}});await ensureRuntimeInstalled();await api('/api/server/start',{method:'POST',body:{model_path:m.path,profile:$('#profileSelect').value,ctx:Number($('#ctxInput').value),accelerator_mode:accelMode,cpu_only:accelMode==='cpu',gpu_layer_percent:pct,thread_mode:accelMode==='max_both'?'saturate':cp.mode,threads:accelMode==='max_both'?(s.hardware?.logical_cores||cp.threads):cp.threads,threads_batch:accelMode==='max_both'?(s.hardware?.logical_cores||cp.threads_batch):cp.threads_batch,cpu_target_percent:accelMode==='max_both'?100:cp.target_percent,cpu_saturation:accelMode==='max_both'?true:cp.saturation,speculative_mode:String(s.config?.speculative_mode||'auto'),adaptive_context:Boolean(s.config?.adaptive_context!==false)}});toast('Server starting',accelMode==='adaptive'?(s.autotune?`Adaptive measured plan · ${Number(s.autotune.generation_tps||0).toFixed(2)} tok/s benchmark`:'Adaptive heuristic · run AutoTune for a measured plan'):accelMode==='max_both'?`Max Both · ${pct}% GPU layers · all logical CPU workers`:accelMode==='hybrid'?`CPU + GPU hybrid · ${pct}% GPU layers · ${cpuPlanSummary(cp)}`:accelMode==='gpu'?`GPU max offload · ${cpuPlanSummary(cp)}`:cpuPlanSummary(cp),'info')}catch(e){toast('Could not start model',e.message,'error')}};
       if($('#cancelAutotuneAdvanced'))$('#cancelAutotuneAdvanced').onclick=async()=>{try{await api('/api/autotune/cancel',{method:'POST',body:{}});toast('Cancelling AutoTune','','info');await refreshState(true)}catch(e){toast('Could not cancel AutoTune',e.message,'error')}};
       if($('#manualStop')) $('#manualStop').onclick=stopServer; $('#advancedLogs').onclick=()=>setRoute('logs');
     }
@@ -856,7 +913,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     let selectedAccel=String(val('accelerator_mode',accelBase.mode)||'adaptive');if(!['adaptive','cpu','gpu','hybrid','max_both'].includes(selectedAccel))selectedAccel='adaptive';if(!hasGpu&&selectedAccel!=='adaptive')selectedAccel='cpu';
     const gpuShare=Math.max(5,Math.min(95,Number(val('gpu_layer_percent',accelBase.percent)||35)));
     const ctxMax=Math.max(512,Number(active?.context_length||262144));
-    const ctxValue=Math.max(512,Math.min(ctxMax,Number(val('default_context_size',c.default_context_size||4096))));
+    const ctxValue=LFProtocol.draftValue(draft,'default_context_size',c.default_context_size||4096);
     const genManual=Boolean(val('generation_overrides_enabled',c.generation_overrides_enabled));
     const isDirty=App.settingsFormDirty||Object.keys(draft).length>0;
 
@@ -881,8 +938,8 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       </section>
 
       <section class="section settings-section"><div class="settings-section-head"><div><span class="mini-kicker">MODEL WINDOW</span><h3>Context & output</h3><p>Your context value is now kept as a local draft while you edit it, so background state refreshes cannot reset the field.</p></div>${isDirty?'<span class="settings-unsaved">Unsaved changes</span>':''}</div>
-        <div class="context-control-card"><div class="context-control-main"><label for="defaultContext">Context limit</label><div class="context-input-wrap"><input id="defaultContext" type="number" min="512" max="${ctxMax}" step="1" value="${ctxValue}"><span>tokens</span></div><small>Any integer from 512 to ${ctxMax.toLocaleString()} is accepted. The model is reloaded before a new context takes effect.</small></div><div class="context-presets" id="contextPresets">${[4096,8192,16384,32768].filter(x=>x<=ctxMax).map(x=>`<button type="button" data-context="${x}" class="${ctxValue===x?'active':''}">${x===4096?'4K':x===8192?'8K':x===16384?'16K':'32K'}</button>`).join('')}<button type="button" data-context="8000" class="${ctxValue===8000?'active':''}">8000</button></div></div>
-        <div class="form-grid settings-form-grid" style="margin-top:14px"><div class="field"><label>Maximum answer tokens</label><input id="generationMaxTokens" type="number" min="16" max="32768" step="1" value="${Number(val('generation_max_tokens',c.generation_max_tokens||2048))}"><small>Maximum number of new tokens in one response.</small></div><div class="field"><label>Speculative decoding</label><select id="speculativeMode"><option value="auto" ${String(val('speculative_mode',c.speculative_mode||'auto'))==='auto'?'selected':''}>Auto (recommended)</option><option value="ngram" ${String(val('speculative_mode',c.speculative_mode||'auto'))==='ngram'?'selected':''}>N-gram</option><option value="off" ${String(val('speculative_mode',c.speculative_mode||'auto'))==='off'?'selected':''}>Off</option></select><small>Auto uses llama.cpp n-gram speculation when supported. AutoTune measures the target model only; speculative decoding is not part of llama-bench.</small></div><label class="check-row compact-check"><input id="adaptiveContext" type="checkbox" ${Boolean(val('adaptive_context',c.adaptive_context!==false))?'checked':''}><span><strong>Adaptive context guard</strong><small>For large models, clamp only the active launch context to preserve RAM; your saved preference stays unchanged.</small></span></label><label class="check-row compact-check"><input id="manualGeneration" type="checkbox" ${genManual?'checked':''}><span><strong>Manual generation settings</strong><small>Off = Smart Chat chooses sampling automatically.</small></span></label></div>
+        <div class="context-control-card"><div class="context-control-main"><label for="defaultContext">Context limit</label><div class="context-input-wrap"><input id="defaultContext" type="number" min="512" max="${ctxMax}" step="1" value="${escapeHtml(String(ctxValue))}"><span>tokens</span></div><small>Any integer from 512 to ${ctxMax.toLocaleString()} is accepted. The model is reloaded before a new context takes effect.</small><small>Saved: ${Number(c.default_context_size||4096).toLocaleString()} · Active: ${App.state?.server?.ready?Number(App.state?.server?.plan?.ctx_size||0).toLocaleString():'unloaded'}</small></div><div class="context-presets" id="contextPresets">${[4096,8192,16384,32768].filter(x=>x<=ctxMax).map(x=>`<button type="button" data-context="${x}" class="${ctxValue===x?'active':''}">${x===4096?'4K':x===8192?'8K':x===16384?'16K':'32K'}</button>`).join('')}<button type="button" data-context="8000" class="${ctxValue===8000?'active':''}">8000</button></div></div>
+        <div class="form-grid settings-form-grid" style="margin-top:14px"><div class="field"><label>Maximum answer tokens</label><input id="generationMaxTokens" type="number" min="16" max="32768" step="1" value="${Number(val('generation_max_tokens',c.generation_max_tokens||2048))}"><small>Maximum number of new tokens in one response.</small></div><div class="field"><label>Speculative decoding</label><select id="speculativeMode"><option value="auto" ${String(val('speculative_mode',c.speculative_mode||'auto'))==='auto'?'selected':''}>Auto (recommended)</option><option value="ngram" ${String(val('speculative_mode',c.speculative_mode||'auto'))==='ngram'?'selected':''}>N-gram</option><option value="off" ${String(val('speculative_mode',c.speculative_mode||'auto'))==='off'?'selected':''}>Off</option></select><small>Auto stays off until an end-to-end speedup is measured. N-gram is a manual experiment; llama-bench does not measure speculative decoding.</small></div><label class="check-row compact-check"><input id="adaptiveContext" type="checkbox" ${Boolean(val('adaptive_context',c.adaptive_context!==false))?'checked':''}><span><strong>Adaptive context guard</strong><small>For large models, clamp only the active launch context to preserve RAM; your saved preference stays unchanged.</small></span></label><label class="check-row compact-check"><input id="manualGeneration" type="checkbox" ${genManual?'checked':''}><span><strong>Manual generation settings</strong><small>Off = Smart Chat chooses sampling automatically.</small></span></label></div>
         <details class="settings-advanced-generation" ${genManual?'open':''}><summary>Sampling controls</summary><div class="form-grid" style="margin-top:14px"><div class="field"><label>Temperature</label><input id="generationTemperature" type="number" min="0" max="2" step="0.01" value="${Number(val('generation_temperature',c.generation_temperature??0.7))}"></div><div class="field"><label>Top P</label><input id="generationTopP" type="number" min="0" max="1" step="0.01" value="${Number(val('generation_top_p',c.generation_top_p??0.95))}"></div><div class="field"><label>Top K</label><input id="generationTopK" type="number" min="0" max="500" step="1" value="${Number(val('generation_top_k',c.generation_top_k??40))}"></div><div class="field"><label>Min P</label><input id="generationMinP" type="number" min="0" max="1" step="0.01" value="${Number(val('generation_min_p',c.generation_min_p??0))}"></div><div class="field"><label>Repeat penalty</label><input id="generationRepeat" type="number" min="0.8" max="1.3" step="0.01" value="${Number(val('generation_repeat_penalty',c.generation_repeat_penalty??1.03))}"></div></div></details>
         <div class="settings-primary-actions"><button id="saveModelControls" class="secondary-button">${icon('check')} Save controls</button>${active?`<button id="settingsLoadModel" class="primary-button">${icon('play')} ${loaded?'Reload model':'Load model'}</button>`:''}${ss.running?`<button id="settingsUnloadTop" class="secondary-button">${icon('stop')} Unload</button>`:''}<button id="settingsChooseModel" class="secondary-button">${icon('models')} Choose model</button></div>
       </section>
@@ -898,7 +955,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     const clearDraft=(keys)=>{const d={...(App.settingsDraft||{})};keys.forEach(k=>delete d[k]);App.settingsDraft=d;App.settingsFormDirty=Object.keys(d).length>0};
     const getAccelFromDom=()=>String($$('#settingsAccelPicker [data-settings-accel].selected')[0]?.dataset.settingsAccel||selectedAccel);
     const modelControlPayload=()=>({
-      default_context_size:Number($('#defaultContext').value||4096),
+      default_context_size:LFProtocol.contextValue($('#defaultContext').value,ctxMax),
       accelerator_mode:getAccelFromDom(),
       gpu_layer_percent:Number($('#settingsGpuShare').value||35),
       speculative_mode:String($('#speculativeMode')?.value||'auto'),
@@ -913,7 +970,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     });
     const modelKeys=['default_context_size','accelerator_mode','gpu_layer_percent','speculative_mode','adaptive_context','generation_overrides_enabled','generation_temperature','generation_top_p','generation_top_k','generation_min_p','generation_repeat_penalty','generation_max_tokens'];
     const bindDraft=(id,key,parser=(el)=>el.value)=>{const el=$('#'+id);if(!el)return;const mark=()=>{setDraft(key,parser(el));if(id==='defaultContext'){const summary=$('#settingsCtxSummary');if(summary)summary.textContent=Number(el.value||0).toLocaleString();$$('#contextPresets [data-context]').forEach(b=>b.classList.toggle('active',Number(b.dataset.context)===Number(el.value)))}};el.addEventListener('input',mark);el.addEventListener('change',mark)};
-    bindDraft('defaultContext','default_context_size',el=>Number(el.value||4096));bindDraft('speculativeMode','speculative_mode',el=>String(el.value||'auto'));bindDraft('adaptiveContext','adaptive_context',el=>el.checked);bindDraft('generationMaxTokens','generation_max_tokens',el=>Number(el.value||2048));bindDraft('manualGeneration','generation_overrides_enabled',el=>el.checked);bindDraft('generationTemperature','generation_temperature',el=>Number(el.value||0));bindDraft('generationTopP','generation_top_p',el=>Number(el.value||0));bindDraft('generationTopK','generation_top_k',el=>Number(el.value||0));bindDraft('generationMinP','generation_min_p',el=>Number(el.value||0));bindDraft('generationRepeat','generation_repeat_penalty',el=>Number(el.value||1.03));bindDraft('ramGuard','max_ram_percent',el=>Number(el.value||88));bindDraft('portSetting','port',el=>Number(el.value||8080));bindDraft('exitUnload','exit_unloads_model',el=>el.checked);bindDraft('idleUnload','idle_unload_minutes',el=>Number(el.value||0));bindDraft('disconnectGrace','ui_disconnect_shutdown_seconds',el=>Number(el.value||12));
+    bindDraft('defaultContext','default_context_size',el=>el.value);bindDraft('speculativeMode','speculative_mode',el=>String(el.value||'auto'));bindDraft('adaptiveContext','adaptive_context',el=>el.checked);bindDraft('generationMaxTokens','generation_max_tokens',el=>Number(el.value||2048));bindDraft('manualGeneration','generation_overrides_enabled',el=>el.checked);bindDraft('generationTemperature','generation_temperature',el=>Number(el.value||0));bindDraft('generationTopP','generation_top_p',el=>Number(el.value||0));bindDraft('generationTopK','generation_top_k',el=>Number(el.value||0));bindDraft('generationMinP','generation_min_p',el=>Number(el.value||0));bindDraft('generationRepeat','generation_repeat_penalty',el=>Number(el.value||1.03));bindDraft('ramGuard','max_ram_percent',el=>Number(el.value||88));bindDraft('portSetting','port',el=>Number(el.value||8080));bindDraft('exitUnload','exit_unloads_model',el=>el.checked);bindDraft('idleUnload','idle_unload_minutes',el=>Number(el.value||0));bindDraft('disconnectGrace','ui_disconnect_shutdown_seconds',el=>Number(el.value||12));
     const hf=$('#hfToken');if(hf){const mark=()=>{App.settingsFormDirty=true};hf.addEventListener('input',mark)};
 
     $$('#contextPresets [data-context]').forEach(b=>b.onclick=()=>{const x=Math.max(512,Math.min(ctxMax,Number(b.dataset.context)));$('#defaultContext').value=String(x);$('#defaultContext').dispatchEvent(new Event('input',{bubbles:true}))});
@@ -925,7 +982,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     if($('#runAutotune'))$('#runAutotune').onclick=async()=>{const btn=$('#runAutotune');try{btn.disabled=true;const payload=modelControlPayload();await api('/api/settings',{method:'POST',body:{accelerator_mode:'adaptive',speculative_mode:payload.speculative_mode,adaptive_context:payload.adaptive_context}});saveAcceleratorPrefs('adaptive',payload.gpu_layer_percent);await api('/api/autotune/start',{method:'POST',body:{model_path:active?.path||'',apply_and_start:true}});toast('AutoTune started','The current model will be unloaded while llama-bench measures this exact GGUF.','info',6000);setRoute('advanced');await refreshState(true)}catch(e){toast('AutoTune could not start',e.message,'error',9000)}finally{const b=$('#runAutotune');if(b)b.disabled=false}};
     if($('#clearAutotune'))$('#clearAutotune').onclick=async()=>{try{await api('/api/autotune/clear',{method:'POST',body:{model_path:active?.path||''}});toast('AutoTune result cleared','Adaptive will use its hardware heuristic until you benchmark again.','ok');await refreshState(true)}catch(e){toast('Could not clear AutoTune',e.message,'error')}};
     $('#saveModelControls').onclick=async()=>{try{const payload=modelControlPayload(),saved=await api('/api/settings',{method:'POST',body:payload});if(App.state?.config)Object.assign(App.state.config,payload,saved);saveAcceleratorPrefs(payload.accelerator_mode,payload.gpu_layer_percent);clearDraft(modelKeys);App.renderKey='';await refreshState(true);toast('Model controls saved',`Context ${Number(payload.default_context_size).toLocaleString()} · ${acceleratorLabel(payload.accelerator_mode)}`,'ok',4800)}catch(e){toast('Could not save model controls',e.message,'error')}};
-    if($('#settingsLoadModel'))$('#settingsLoadModel').onclick=async()=>{const btn=$('#settingsLoadModel');const old=btn.innerHTML;try{btn.disabled=true;btn.innerHTML=`${icon('runtime')} Preparing engine…`;const payload=modelControlPayload();await api('/api/settings',{method:'POST',body:payload});if(App.state?.config)Object.assign(App.state.config,payload);saveAcceleratorPrefs(payload.accelerator_mode,payload.gpu_layer_percent);clearDraft(modelKeys);await ensureRuntimeInstalled();btn.innerHTML=`${icon('play')} Starting model…`;const cp=cpuThreadPrefs();await api('/api/server/start',{method:'POST',body:{model_path:active.path,profile:(App.state?.assessment?.recommended_profile||'Balanced'),ctx:payload.default_context_size,accelerator_mode:payload.accelerator_mode,cpu_only:payload.accelerator_mode==='cpu',gpu_layer_percent:payload.gpu_layer_percent,thread_mode:payload.accelerator_mode==='adaptive'?'auto':payload.accelerator_mode==='max_both'?'saturate':cp.mode,threads:payload.accelerator_mode==='max_both'?(App.state?.hardware?.logical_cores||cp.threads):cp.threads,threads_batch:payload.accelerator_mode==='max_both'?(App.state?.hardware?.logical_cores||cp.threads_batch):cp.threads_batch,cpu_target_percent:payload.accelerator_mode==='max_both'?100:cp.target_percent,cpu_saturation:payload.accelerator_mode==='max_both'?true:cp.saturation,memory_mode:savedMode,speculative_mode:payload.speculative_mode,adaptive_context:payload.adaptive_context}});toast(loaded?'Reloading model':'Loading model',`${payload.default_context_size.toLocaleString()} context · ${acceleratorLabel(payload.accelerator_mode)}`,'info',5000);await refreshState(true)}catch(e){toast('Could not load model',e.message,'error',9000)}finally{const current=$('#settingsLoadModel');if(current){current.disabled=false;current.innerHTML=old}}};
+    if($('#settingsLoadModel'))$('#settingsLoadModel').onclick=async()=>{const btn=$('#settingsLoadModel');const old=btn.innerHTML;try{btn.disabled=true;btn.innerHTML=`${icon('runtime')} Preparing engine…`;const payload=modelControlPayload();await api('/api/settings',{method:'POST',body:payload});if(App.state?.config)Object.assign(App.state.config,payload);saveAcceleratorPrefs(payload.accelerator_mode,payload.gpu_layer_percent);clearDraft(modelKeys);await ensureRuntimeInstalled();btn.innerHTML=`${icon('play')} Starting model…`;const cp=cpuThreadPrefs();await api('/api/server/start',{method:'POST',body:{model_path:active.path,profile:(App.state?.assessment?.recommended_profile||'Balanced'),ctx:payload.default_context_size,accelerator_mode:payload.accelerator_mode,cpu_only:payload.accelerator_mode==='cpu',gpu_layer_percent:payload.gpu_layer_percent,thread_mode:payload.accelerator_mode==='max_both'?'saturate':cp.mode,threads:payload.accelerator_mode==='max_both'?(App.state?.hardware?.logical_cores||cp.threads):cp.threads,threads_batch:payload.accelerator_mode==='max_both'?(App.state?.hardware?.logical_cores||cp.threads_batch):cp.threads_batch,cpu_target_percent:payload.accelerator_mode==='max_both'?100:cp.target_percent,cpu_saturation:payload.accelerator_mode==='max_both'?true:cp.saturation,memory_mode:savedMode,speculative_mode:payload.speculative_mode,adaptive_context:payload.adaptive_context}});toast(loaded?'Reloading model':'Loading model',`${payload.default_context_size.toLocaleString()} context · ${acceleratorLabel(payload.accelerator_mode)}`,'info',5000);await refreshState(true)}catch(e){toast('Could not load model',e.message,'error',9000)}finally{const current=$('#settingsLoadModel');if(current){current.disabled=false;current.innerHTML=old}}};
     if($('#settingsUnloadTop'))$('#settingsUnloadTop').onclick=unloadModel;$('#settingsChooseModel').onclick=()=>setRoute('models');
 
     const paintMemoryChoice=(mode,dirty=true)=>{App.pendingMemoryMode=mode;App.settingsMemoryDirty=dirty;$$('#memoryModePicker [data-memory-mode]').forEach(btn=>{const active=btn.dataset.memoryMode===mode;btn.classList.toggle('selected',active);btn.setAttribute('aria-pressed',active?'true':'false')});const help=$('#memoryModeHelp'),status=$('#memoryModeStatus'),apply=$('#applyMemoryMode'),cancel=$('#cancelMemoryMode');if(help)help.textContent=memoryHelp(mode);if(status)status.textContent=dirty?`Not applied yet: ${memoryLabel(mode)}`:`Saved mode: ${memoryLabel(mode)}`;if(apply)apply.disabled=!dirty;if(cancel)cancel.disabled=!dirty};
@@ -944,16 +1001,16 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     const trainerReady=!!b.trainer_ready && !!b.toolchain_ready;
     const learned=!!b.adapter_ready;
     const pct=Math.max(0,Math.min(100,Number(j.progress||0)*100));
-    const statusTitle=!b.enabled?'Personal Brain is off':busy?'Setting up your Brain…':setupReady?(learned?'Learning is active':'Ready to learn'):'One-time setup needed';
+    const statusTitle=!b.enabled?'Personal Brain is off':busy?'Checking your learning update…':setupReady?(learned?'Learning is active':'Ready to learn'):'One-time setup needed';
     const statusCopy=!b.enabled
       ? 'Turn it on and LlamaForge will guide the rest. No chat history, RAG, or memory text is injected when Zero-context is active.'
       : j.state==='cancelling' ? (j.message||'Stopping the current Brain task safely…')
       : busy ? (j.message||'Preparing the learning engine…')
-      : setupReady ? `Just chat normally. After each completed turn, LlamaForge trains private personal weights for <strong>${escapeHtml(m?.name||'this model')}</strong> before the next turn.`
+      : setupReady ? `Teach a fact or correction. LlamaForge checks the lesson and validates candidate weights for <strong>${escapeHtml(m?.name||'this model')}</strong> before activation.`
       : 'LlamaForge can detect the matching trainable model and prepare the learning engine automatically.';
 
     view.innerHTML=`<div class="page brain-page brain-simple">
-      ${pageTitle('PERSONAL BRAIN','Teach by chatting','Keep the normal chat simple. LlamaForge handles the training plumbing in the background.')}
+      ${pageTitle('PERSONAL BRAIN','Teach by chatting','Teach a correction, preserve earlier learning, and check each update before activation.')}
 
       <section class="brain-simple-hero ${setupReady?'ready':b.enabled?'armed':'off'}">
         <div class="brain-simple-copy">
@@ -991,12 +1048,23 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       </section>
 
       <section class="brain-simple-grid">
-        <div class="brain-simple-card"><span class="card-kicker">HOW IT WORKS</span><h3>You talk. It learns. Context resets.</h3>
-          <div class="brain-flow"><div><span>1</span><p><strong>Chat normally</strong><small>You send a message and get the usual local response.</small></p></div><i></i><div><span>2</span><p><strong>Weights update</strong><small>LlamaForge creates training examples and micro-trains your private LoRA.</small></p></div><i></i><div><span>3</span><p><strong>Next turn starts clean</strong><small>Only the newest user message is sent to inference.</small></p></div></div>
+        <div class="brain-simple-card"><span class="card-kicker">HOW IT WORKS</span><h3>Teach. Check. Activate.</h3>
+          <div class="brain-flow"><div><span>1</span><p><strong>User supervision</strong><small>Questions alone do not become training answers.</small></p></div><i></i><div><span>2</span><p><strong>Candidate check</strong><small>New lesson loss and earlier examples are checked before saving.</small></p></div><i></i><div><span>3</span><p><strong>Verified activation</strong><small>The generation is confirmed after the adapter reload succeeds.</small></p></div></div>
         </div>
         <div class="brain-simple-card"><span class="card-kicker">CURRENT BRAIN</span><h3>${learned?`Generation ${Number(b.generation||0)}`:'No learned weights yet'}</h3>
           <div class="brain-mini-stats"><div><span>Previous turns sent</span><strong>${b.enabled&&b.zero_context?'0':'Normal chat'}</strong></div><div><span>Confirmed learned turns</span><strong>${Number(b.learned_packets||0)}</strong></div><div><span>Mode</span><strong>${b.enabled?(setupReady?'Automatic':'Setup needed'):'Off'}</strong></div></div>
         </div>
+      </section>
+
+      <section class="brain-panel brain-lesson-card">
+        <div class="brain-panel-head"><div><span class="mini-kicker">TEACH A CORRECTION</span><h3>Your question. Your correct answer.</h3></div></div>
+        <p class="muted-copy">Only the answer you enter here is used as supervision. The candidate must pass its learning checks and reload before the generation is confirmed.</p>
+        <div class="brain-two-col">
+          <div class="field"><label for="brainLessonQuestion">Question or situation</label><textarea id="brainLessonQuestion" rows="3" maxlength="6000" placeholder="What should you call me?">${escapeHtml(App.brainLessonDraft.question)}</textarea></div>
+          <div class="field"><label for="brainLessonAnswer">Correct answer</label><textarea id="brainLessonAnswer" rows="3" maxlength="12000" placeholder="Your answer…">${escapeHtml(App.brainLessonDraft.answer)}</textarea></div>
+        </div>
+        <div class="inline-actions"><button id="brainTeach" class="primary-button" ${!b.enabled||!setupReady||busy?'disabled':''}>${icon('brain')} Learn this correction</button><span class="muted-copy">${setupReady?'Uses this model’s existing personal adapter.':'Prepare the learning engine to use this lesson.'}</span></div>
+        ${b.validation?.method?`<div class="brain-validation"><strong>Last confirmed check</strong><span>Lesson loss: ${Number(b.validation.before?.new??0).toFixed(3)} → ${Number(b.validation.after?.new??0).toFixed(3)}</span>${b.validation.before?.replay!=null?`<span>Replay loss: ${Number(b.validation.before.replay).toFixed(3)} → ${Number(b.validation.after?.replay).toFixed(3)}</span>`:''}<small>Checks ${Number(b.validation.examples||0)} curriculum examples; this is not a held-out recall score.</small></div>`:''}
       </section>
 
       <details class="brain-advanced-disclosure">
@@ -1006,7 +1074,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
             <section class="brain-panel"><div class="brain-panel-head"><div><span class="mini-kicker">BEHAVIOR</span><h3>Learning contract</h3></div></div>
               <label class="brain-check"><input id="brainZero" type="checkbox" ${b.zero_context?'checked':''}><span><strong>Zero-context inference</strong><small>Send only the latest user turn to llama-server.</small></span></label>
               <label class="brain-check"><input id="brainStrict" type="checkbox" ${b.strict_learning?'checked':''}><span><strong>Learn before next turn</strong><small>Wait for weight training before accepting the next message.</small></span></label>
-              <label class="brain-check"><input id="brainSynthesize" type="checkbox" ${b.auto_synthesize?'checked':''}><span><strong>Generate durable examples</strong><small>Expand facts, people, plans and preferences into training examples.</small></span></label>
+              <label class="brain-check"><input id="brainSynthesize" type="checkbox" ${b.auto_synthesize?'checked':''}><span><strong>Generate durable examples</strong><small>Compile short answers with supporting quotes from your own message.</small></span></label>
             </section>
             <section class="brain-panel"><div class="brain-panel-head"><div><span class="mini-kicker">MODEL SOURCE</span><h3>Managed automatically</h3></div></div>
               <div class="detail-row"><span>Selected model</span><span>${escapeHtml(b.selected_model_name||m?.name||'—')}</span></div>
@@ -1021,7 +1089,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
             <div class="brain-param-grid">
               <div class="field"><label>LoRA rank</label><input id="brainRank" type="number" min="2" max="128" value="${b.rank||8}"></div>
               <div class="field"><label>Micro steps / turn</label><input id="brainSteps" type="number" min="1" max="128" value="${b.micro_steps||8}"></div>
-              <div class="field"><label>Replay examples</label><input id="brainReplay" type="number" min="0" max="128" value="${b.replay_samples||8}"></div>
+              <div class="field"><label>Replay examples</label><input id="brainReplay" type="number" min="0" max="128" value="${b.replay_samples??8}"></div>
               <div class="field"><label>Max training tokens</label><input id="brainMaxLen" type="number" min="64" max="2048" value="${b.max_length||384}"></div>
               <div class="field"><label>Learning rate</label><input id="brainLR" type="number" step="0.00001" min="0.000001" max="0.01" value="${b.learning_rate||0.00015}"></div>
               <div class="field"><label>LoRA alpha</label><input id="brainAlpha" type="number" min="2" max="256" value="${b.alpha||16}"></div>
@@ -1032,6 +1100,18 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       </details>
     </div>`;
 
+    for(const [id,key] of [['brainLessonQuestion','question'],['brainLessonAnswer','answer']]){
+      const field=$('#'+id);if(field)field.oninput=()=>{App.brainLessonDraft[key]=field.value};
+    }
+    $('#brainTeach').onclick=async()=>{
+      const question=App.brainLessonDraft.question.trim(),answer=App.brainLessonDraft.answer.trim();
+      if(!question||!answer){toast('Complete the lesson','Enter both a question and your correct answer.','info');return}
+      try{
+        const st=await api('/api/brain/learn',{method:'POST',body:{mode:'explicit',model_key:b.model_key,user:question+'\n'+answer,examples:[{user:question,assistant:answer}]}});
+        if(App.state)App.state.brain=st;patchBrainChatState(st);renderBrain(view);
+        toast('Correction submitted','You can follow compilation, validation and activation here.','info');
+      }catch(e){toast('Could not start learning',e.message,'error',7000)}
+    };
     const device=$('#brainDevice'); if(device)device.value=b.device||'auto';
     const collect=()=>({
       enabled:b.enabled,
@@ -1043,7 +1123,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       device:$('#brainDevice')?.value||b.device||'auto',
       rank:Number($('#brainRank')?.value||b.rank||8),alpha:Number($('#brainAlpha')?.value||b.alpha||16),
       learning_rate:Number($('#brainLR')?.value||b.learning_rate||0.00015),micro_steps:Number($('#brainSteps')?.value||b.micro_steps||8),
-      replay_samples:Number($('#brainReplay')?.value||b.replay_samples||8),max_length:Number($('#brainMaxLen')?.value||b.max_length||384)
+      replay_samples:Number($('#brainReplay')?.value??b.replay_samples??8),max_length:Number($('#brainMaxLen')?.value||b.max_length||384)
     });
     const applyBrainState=(x,{renderNow=false}={})=>{if(!x)return x;if(App.state)App.state.brain=x;patchBrainChatState(x);patchBrainPageState(x);if(renderNow&&App.route==='brain')renderBrain($('#view'));return x};
     const save=async(body=collect(),quiet=false,renderNow=false)=>{try{const x=await api('/api/brain/settings',{method:'POST',body});applyBrainState(x,{renderNow});if(!quiet)toast('Brain settings saved');return x}catch(e){toast('Could not save Brain settings',e.message,'error',6500);throw e}};
@@ -1165,11 +1245,21 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       extensions:{title:'Extensions',icon:'spark',desc:'OpenAPI connectors and custom declarative skills.',cats:['connector','custom']}
     };
     const familyOrder=['web','calendar','files','browser','api','extensions'];
+    const operationLabels={now:'Current date & time',convert:'Convert dates',month:'Month view',list:'List',create:'Create event',update:'Update',cancel:'Cancel event',delete:'Delete',search:'Search',metadata:'File details',probe:'Identify / list archive',read_content:'Read selected content',store_attachment:'Save attachment',write_text:'Create / edit text',replace_text:'Replace text',mkdir:'Create folder',move:'Move',rename:'Rename',trash:'Move to trash',restore:'Restore'};
+    const operationTree=x=>{
+      const ops=Object.entries(x.contract?.operations||{});if(!ops.length)return '';
+      return `<details class="skill-operations"><summary>${ops.length} reusable operations</summary>${ops.map(([op,p])=>{
+        const allowed=x.available&&(p.permission!=='local_workspace'||c.agent_allow_workspace_write!==false)&&(p.permission!=='external_website'||!!c.agent_allow_write);
+        const label=p.permission==='local_workspace'?'Local change':p.permission==='external_website'?'Website change':p.read_only?'Read only':'Browser session';
+        return `<div class="skill-operation"><span>${escapeHtml(operationLabels[op]||op)}</span><small>${escapeHtml(label)} · ${allowed?'Ready':'Disabled'}</small></div>`;
+      }).join('')}</details>`;
+    };
+
     const skillCatalogHTML=familyOrder.map(key=>{
       const f=familyDefs[key],rows=catalog.filter(x=>f.cats.includes(x.category||'custom'));
       const available=rows.filter(x=>x.available).length;
       const state=rows.length?(available===rows.length?'Ready':available?'Partial':'Unavailable'):'Not configured';
-      const detailRows=rows.length?rows.map(x=>`<div class="skill-leaf ${x.available?'available':'unavailable'}"><div><strong>${escapeHtml(x.title||x.name)}</strong><code>${escapeHtml(x.name)}</code></div><div class="skill-leaf-meta"><span class="skill-risk ${escapeHtml(x.risk||'read')}">${escapeHtml(x.risk||'read')}</span><span class="skill-dot ${x.available?'on':'off'}"></span></div>${x.available?'':`<small>${escapeHtml(x.unavailable_reason||'Unavailable')}</small>`}</div>`).join(''):'<div class="skill-empty">No extra setup required yet.</div>';
+      const detailRows=rows.length?rows.map(x=>`<div class="skill-leaf ${x.available?'available':'unavailable'}"><div><strong>${escapeHtml(x.title||x.name)}</strong><code>${escapeHtml(x.name)}</code></div><div class="skill-leaf-meta"><span class="skill-risk ${escapeHtml(x.risk||'read')}">${escapeHtml(x.risk||'read')}</span><span class="skill-dot ${x.available?'on':'off'}"></span></div>${x.available?'':`<small>${escapeHtml(x.unavailable_reason||'Unavailable')}</small>`}${operationTree(x)}</div>`).join(''):'<div class="skill-empty">No extra setup required yet.</div>';
       return `<details class="skill-family-card family-${key}" ${key==='calendar'||key==='files'?'open':''}><summary><span class="skill-family-icon">${icon(f.icon)}</span><span class="skill-family-copy"><strong>${escapeHtml(f.title)}</strong><small>${escapeHtml(f.desc)}</small></span><span class="skill-family-state ${state.toLowerCase().replace(' ','-')}">${escapeHtml(state)}</span><span class="skill-family-count">${available}/${rows.length}</span>${icon('down')}</summary><div class="skill-leaves">${detailRows}</div></details>`;
     }).join('');
     view.innerHTML=`<div class="page agent-page">${pageTitle('LOCAL AGENT','Smart Skills','The model chooses broad capabilities automatically: live web, calendar/time, files, APIs and browser actions. Local files and calendar stay on this LlamaForge workspace.')}
@@ -1239,7 +1329,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     view.className='view chat-route';
     view.innerHTML=`<div class="chat-view studio-chat">
       <header class="chat-header">
-        <div class="chat-header-left">
+        <div class="chat-header-left"><button id="chatNavButton" class="icon-button" aria-label="Open sidebar">${icon('panel')}</button>
           <button id="chatModelButton" class="model-switcher" title="Change model">${m?`<span class="model-led"></span><span class="model-switch-name">${escapeHtml(shortName(m.name,34))}</span><span class="model-switch-quant">${escapeHtml(m.quantization||'GGUF')}</span>`:'<span>Choose model</span>'}${icon('down')}</button>
         </div>
         <div class="chat-header-center"><button id="smartProfileButton" class="auto-status" title="See how LlamaForge tuned this turn">${icon('spark')}<span>${escapeHtml(smartLabel())}</span></button>${brain.enabled?`<button id="brainStatusButton" class="brain-chat-pill ${brain.adapter_ready?'learned':'armed'} ${App.brainLearning?'learning':''}" title="Personal weight learning">${icon('brain')}<span>${App.brainLearning?'Learning…':brain.setup_ready?(brain.zero_context?'Brain · ready':'Brain on'):'Brain · setup'}</span></button>`:''}</div>
@@ -1249,7 +1339,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       <div class="composer-zone studio-composer-zone"><div class="composer-wrap studio-composer-wrap">
         <div class="composer studio-composer ${(ss.ready&&!App.brainLearning)?'':'composer-disabled'}">
           ${attachmentTrayHTML()}
-          <textarea id="composerInput" rows="1" placeholder="${App.brainLearning?'Learning this turn into weights…':App.brainSetup?'Personal Brain setup is running…':ss.ready?'Message your local model':ss.running?'Model is loading…':'Run a model to start chatting'}" ${(ss.ready&&!App.brainLearning)?'':'disabled'}></textarea>
+          <textarea id="composerInput" dir="auto" aria-label="Message" rows="1" placeholder="${App.brainLearning?'Learning this turn into weights…':App.brainSetup?'Personal Brain setup is running…':ss.ready?'Message your local model':ss.running?'Model is loading…':'Run a model to start chatting'}" ${(ss.ready&&!App.brainLearning)?'':'disabled'}></textarea>
           <div class="composer-bottom studio-composer-bottom">
             <div class="composer-controls studio-controls">
               <button id="attachFiles" class="composer-action" title="Attach any file" ${ss.ready?'':'disabled'}>${icon('plus')}</button>
@@ -1266,10 +1356,11 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
             </div>
           </div>
         </div>
-        <div class="composer-hint studio-hint"><span>${agentOn?'Agent mode: internet + skills enabled · ':''}${brain.enabled&&brain.zero_context?'Brain mode: previous turns are not sent to inference · ':''}Enter to send · Shift+Enter newline · Esc stops</span><span>${App.brainLearning?'Updating personal weights…':App.brainSetup?'Preparing learning engine…':m?`${escapeHtml(m.architecture||'GGUF')}${m.vision_capable?' · Vision':''}`:'No model'}</span></div>
+        <div class="composer-hint studio-hint"><span>${App.brainLearning?'Learning in progress':'Local AI · Check important information'}</span><span>${App.brainLearning?'Updating personal weights…':App.brainSetup?'Preparing learning engine…':m?`${escapeHtml(m.architecture||'GGUF')}${m.vision_capable?' · Vision':''}`:'No model'}</span></div>
       </div></div>
     </div>`;
     renderMessages();
+    $('#chatNavButton').onclick=()=>{if(window.matchMedia('(max-width: 760px)').matches)document.querySelector('.app-shell').classList.add('mobile-menu');else{App.sidebarCollapsed=!App.sidebarCollapsed;localStorage.setItem('lf.sidebarCollapsed',App.sidebarCollapsed?'1':'0');renderNav()}};
     $('#chatModelButton').onclick=()=>setRoute('models');
     if($('#brainStatusButton'))$('#brainStatusButton').onclick=()=>setRoute('brain');
     if($('#brainInline'))$('#brainInline').onclick=()=>setRoute('brain');
@@ -1283,7 +1374,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     $('#thinkingToggle').onclick=()=>cycleThinking();
     $('#newChatTop').onclick=newThread;
     const ta=$('#composerInput');
-    if(ta){ta.oninput=autoGrow;ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!App.streaming)sendFromComposer()}else if(e.key==='Escape'&&App.streaming){e.preventDefault();stopGeneration()}};setTimeout(()=>ta.focus(),20)}
+    if(ta){ta.value=App.chatDrafts[App.activeThreadId]||'';autoGrow({currentTarget:ta});ta.oninput=e=>{App.chatDrafts[App.activeThreadId]=ta.value;autoGrow(e)};ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!App.streaming)sendFromComposer()}else if(e.key==='Escape'&&App.streaming){e.preventDefault();stopGeneration()}};setTimeout(()=>ta.focus(),20)}
     $('#sendButton').onclick=()=>App.streaming?stopGeneration():sendFromComposer();
     const sc=$('#chatScroll'), jump=$('#jumpLatest');
     if(sc&&jump){
@@ -1300,10 +1391,12 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
   function fileDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(r.error||new Error('Could not read file'));r.readAsDataURL(file);});}
   async function addChatAttachments(files){
     const list=[...(files||[])].slice(0,8);if(!list.length)return;
+    const threadId=App.activeThreadId,draft=App.pendingAttachments;
+    App.attachmentDrafts[threadId]=draft;
     const maxTotal=24*1024*1024;
     let agentWasEnabled=agentEnabled();
     for(const file of list){
-      const used=App.pendingAttachments.reduce((n,a)=>n+Number(a.size||0),0);
+      const used=draft.reduce((n,a)=>n+Number(a.size||0),0);
       if(used+Number(file.size||0)>maxTotal){toast('Attachment limit reached','Keep the total selected attachments under 24 MB.','error');continue;}
       if(file.size>20*1024*1024){toast('File is too large',`${file.name} exceeds the 20 MB chat-workspace staging limit.`,'error');continue;}
       const id=crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random());
@@ -1312,12 +1405,13 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       // code, ZIPs, Office documents, audio/video and unknown binaries. The
       // workspace exposes metadata first; the model chooses the File skill and
       // reads/inspects content only when the user's instruction actually needs it.
-      App.pendingAttachments.push({id,kind:image?'image':'file',name:file.name,type:file.type||(image?'image/jpeg':'application/octet-stream'),size:file.size,data_url:await fileDataUrl(file)});
+      draft.push({id,kind:image?'image':'file',name:file.name,type:file.type||(image?'image/jpeg':'application/octet-stream'),size:file.size,data_url:await fileDataUrl(file)});
     }
     // Attachments use File Manager first so the model can decide whether content
     // is needed. This keeps store/move operations out of the model context.
-    if(App.pendingAttachments.length&&!agentWasEnabled){setAgentEnabled(true);toast('File Manager Agent enabled','The model will decide whether to inspect the attachment or only organize it.','info',4200);}
-    if(App.pendingAttachments.length>8)App.pendingAttachments=App.pendingAttachments.slice(-8);
+    if(draft.length>8)draft.splice(0,draft.length-8);
+    if(App.activeThreadId!==threadId||App.route!=='chat')return;
+    if(draft.length&&!agentWasEnabled){setAgentEnabled(true);toast('File Manager Agent enabled','The model will decide whether to inspect the attachment or only organize it.','info',4200);}
     renderChat($('#view'));
   }
 
@@ -1336,6 +1430,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     }
     col.innerHTML=msgs.map((m,i)=>messageHTML(m,i)).join('');
     bindMessageActions(col);
+    $$('.agent-trace',col).forEach(el=>el.ontoggle=()=>{const i=Number(el.closest('[data-message-index]').dataset.messageIndex);if(t.messages[i])t.messages[i].traceOpen=el.open});
     requestAnimationFrame(()=>{if(!sc)return;if(shouldFollow)sc.scrollTop=sc.scrollHeight;else sc.scrollTop=oldTop});
   }
   function bindMessageActions(col){
@@ -1348,8 +1443,8 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     const ready=App.state?.server?.ready, m=App.state?.active_model;
     return `<div class="chat-empty studio-empty">
       <div class="studio-empty-mark"><span></span></div>
-      <h2>${ready?'What are we working on?':'Start a local model'}</h2>
-      <p>${ready?`Using <strong>${escapeHtml(shortName(m?.name||'your local model',32))}</strong>. LlamaForge adapts thinking, sampling and context automatically.`:'Pick a GGUF and LlamaForge will configure llama.cpp for this machine.'}</p>
+      <h2>${ready?'How can I help you?':'Your own AI. On your machine.'}</h2>
+      <p>${ready?`Ask a question, work with a file, or plan your day.`:'Choose a model to start a private conversation.'}</p>
       ${ready?`<div class="suggestion-grid studio-suggestions">
         <button class="suggestion" data-prompt="Review this code carefully. Find the root cause first, then give the smallest safe fix and explain why it works."><span class="suggestion-icon">${icon('terminal')}</span><span><strong>Debug code</strong><small>Root cause → safe fix</small></span></button>
         <button class="suggestion" data-prompt="Analyze this problem carefully. Compare the realistic options, identify the tradeoffs, and recommend one with reasons."><span class="suggestion-icon">${icon('spark')}</span><span><strong>Analyze deeply</strong><small>Compare before answering</small></span></button>
@@ -1382,7 +1477,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     }).filter(Boolean);
     if(!recent.length)return '';
     const last=recent[recent.length-1]||'Agent activity';
-    return `<details class="agent-trace ${m.streaming?'running':'complete'}" ${m.streaming?'open':''}><summary><span>Agent activity</span><small>${last}</small></summary><div class="agent-trace-list">${recent.map(x=>`<div class="agent-trace-row">${x}</div>`).join('')}</div></details>`;
+    return `<details class="agent-trace ${m.streaming?'running':'complete'}" ${m.traceOpen?'open':''}><summary><span>${m.streaming?'Working…':'Activity'}</span><small>${last}</small></summary><div class="agent-trace-list">${recent.map(x=>`<div class="agent-trace-row">${x}</div>`).join('')}</div></details>`;
   }
 
   function messageHTML(m,i){
@@ -1422,12 +1517,12 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     }); return html;
   }
   async function copyMessage(i){const m=currentThread().messages[i];if(!m)return;await navigator.clipboard.writeText(m.content);toast('Copied')}
-  async function editUserMessage(i){
+  async function editUserMessage(i){if(App.streaming)stopGeneration();
     const t=currentThread(),m=t.messages[i];if(!m||m.role!=='user')return;const root=$('#modalRoot');
     root.innerHTML=`<div class="modal-backdrop"><div class="modal premium-modal"><div class="modal-kicker">EDIT MESSAGE</div><h3>Edit and retry</h3><textarea id="editMessageText" class="modal-textarea">${escapeHtml(m.content)}</textarea><div class="inline-actions"><button class="secondary-button" data-no>Cancel</button><button class="primary-button" data-yes>Save & retry</button></div></div></div>`;
     $('[data-no]',root).onclick=()=>root.innerHTML='';$('[data-yes]',root).onclick=async()=>{const text=$('#editMessageText').value.trim();if(!text)return;t.messages=t.messages.slice(0,i);t.messages.push({role:'user',content:text});root.innerHTML='';saveThreads();renderMessages();await generateAssistant();};
   }
-  async function regenerateMessage(i){const t=currentThread();let userIndex=-1;for(let j=i-1;j>=0;j--)if(t.messages[j].role==='user'){userIndex=j;break}if(userIndex<0)return;t.messages=t.messages.slice(0,i);saveThreads();renderMessages();await generateAssistant();}
+  async function regenerateMessage(i){if(App.streaming)stopGeneration();const t=currentThread();let userIndex=-1;for(let j=i-1;j>=0;j--)if(t.messages[j].role==='user'){userIndex=j;break}if(userIndex<0)return;t.messages=t.messages.slice(0,i);saveThreads();renderMessages();await generateAssistant();}
   function setStreamingUI(active){
     App.streaming=active;
     document.querySelector('.chat-view')?.classList.toggle('is-streaming',active);
@@ -1449,14 +1544,11 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     const brain=App.state?.brain||{};
     if(!brain.enabled||brain.setup_ready)return true;
     // Chat must stay usable while the trainable source/toolchain is prepared.
-    // The completed turn is held by learnTurnIfNeeded and trained as soon as
-    // setup becomes ready, so the first correction is not silently lost.
-    if(!['running','cancelling'].includes(brain.job?.state)){
-      try{const st=await api('/api/brain/autosetup',{method:'POST',body:{}});if(App.state)App.state.brain=st;patchBrainChatState(st);toast('Preparing learning in the background','You can chat now. This turn will be trained after setup finishes.','info',5200)}catch(e){toast('Personal Brain needs attention',e.message,'error',7500)}
-    }
+    // Inspect the completed turn before preparing multi-GB training dependencies.
+    // A greeting or an ordinary recall question must not start setup.
     return true;
   }
-  async function sendFromComposer(){const ta=$('#composerInput'),text=(ta?.value||'').trim(),attachments=App.pendingAttachments.map(a=>({...a}));if((!text&&!attachments.length)||App.streaming)return;if(App.brainLearning){toast('Brain is still learning','Wait for the current weight update and model reload to finish.','info');return;}if(!(await ensureBrainReadyBeforeSend()))return;const t=currentThread();t.messages.push({role:'user',content:text,attachments});if(t.title==='New chat')t.title=titleFromPrompt(text||attachments[0]?.name||'Attachment');t.updated=Date.now();App.pendingAttachments=[];saveThreads();ta.value='';ta.style.height='';App.chatFollowTail=true;await generateAssistant();}
+  async function sendFromComposer(){const ta=$('#composerInput'),text=(ta?.value||'').trim(),attachments=App.pendingAttachments.map(a=>({...a}));if((!text&&!attachments.length)||App.streaming)return;if(App.brainLearning){toast('Brain is still learning','Wait for the current weight update and model reload to finish.','info');return;}if(!(await ensureBrainReadyBeforeSend()))return;const t=currentThread();t.messages.push({role:'user',content:text,attachments});if(t.title==='New chat')t.title=titleFromPrompt(text||attachments[0]?.name||'Attachment');t.updated=Date.now();App.pendingAttachments=[];App.attachmentDrafts[t.id]=[];App.chatDrafts[t.id]='';saveThreads();ta.value='';ta.style.height='';App.chatFollowTail=true;await generateAssistant();}
   function patchBrainPageState(brain){
     if(!brain||App.route!=='brain')return;
     const power=$('#brainPower');
@@ -1466,17 +1558,23 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     if(card){card.className=`brain-job ${j.state||''}`;card.dataset.brainJobState=j.state||'';const msg=$('[data-brain-job-message]',card),stage=$('[data-brain-job-stage]',card),per=$('[data-brain-job-percent]',card),bar=$('[data-brain-job-progress]',card),transfer=$('[data-brain-transfer]',card);if(msg)msg.textContent=j.message||j.state||'';if(stage)stage.textContent=(j.stage||'brain').toUpperCase();if(per)per.textContent=`${Math.round(pct)}%`;if(bar)bar.style.width=`${pct}%`;if(transfer){const total=Number(j.total||0);transfer.hidden=!(total>0);if(total>0)transfer.innerHTML=`<span>${formatBytes(j.done||0)} / ${formatBytes(total)}</span>${Number(j.bytes_per_sec||0)>0?`<span>${formatBytes(j.bytes_per_sec)}/s</span>`:''}${j.eta_seconds!=null?`<span>ETA ${formatEta(j.eta_seconds)}</span>`:''}`}}
   }
   function patchBrainChatState(brain){
-    if(!brain)return;if(App.state)App.state.brain=brain;{const stage=brain.job?.stage||'';const running=brain.job?.state==='running';App.brainSetup=running&&['setup','auto-setup','detect-base','trainer'].includes(stage);App.brainLearning=running&&!App.brainSetup;}
-    const ta=$('#composerInput'),btn=$('#sendButton'),turnLocked=App.brainLearning||App.brainTurnPending;
+    if(!brain)return;if(App.state)App.state.brain=brain;
+    const activity=LFProtocol.brainActivity(brain,App.brainTurnPending);
+    App.brainSetup=activity.setup;App.brainLearning=activity.learning;App.brainTurnPending=activity.pending;
+    const ta=$('#composerInput'),btn=$('#sendButton'),turnLocked=activity.locked;
     if(ta){ta.disabled=turnLocked||!App.state?.server?.ready;ta.placeholder=App.brainTurnPending?'Saving this turn into model weights…':App.brainLearning?'Learning this turn into weights…':App.brainSetup?'Learning setup is running in the background…':App.state?.server?.ready?'Message your local model…':'Model is reloading…'}
     if(btn&&!App.streaming)btn.disabled=turnLocked||!App.state?.server?.ready;
     const pill=$('#brainStatusButton');if(pill){pill.classList.toggle('learning',App.brainLearning);const sp=$('span',pill);if(sp)sp.textContent=App.brainLearning?'Learning…':brain.setup_ready?(brain.zero_context?'Brain · ready':'Brain on'):'Brain · setup'}
     const inline=$('#brainInline span');if(inline)inline.textContent=App.brainLearning?'Learning…':brain.enabled?(brain.setup_ready?'Learn':'Setup Brain'):'Brain off';
   }
-  async function learnTurnIfNeeded(assistant){
+  async function learnTurnIfNeeded(assistant,thread=null){
     const brain=App.state?.brain||{};if(!brain.enabled||!assistant||assistant.error)return;
-    const t=currentThread(false);if(!t)return;const ai=t.messages.indexOf(assistant);let user=null;for(let i=ai-1;i>=0;i--){if(t.messages[i].role==='user'){user=t.messages[i];break}}
+    const t=thread||currentThread(false);if(!t)return;const ai=t.messages.indexOf(assistant);let user=null;for(let i=ai-1;i>=0;i--){if(t.messages[i].role==='user'){user=t.messages[i];break}}
     if(!user?.content||!assistant.content)return;
+    let lesson;
+    try{lesson=await api('/api/brain/preview',{method:'POST',body:{user:user.content,precheck:true}})}
+    catch(e){toast('Could not check this lesson',e.message,'error');return}
+    if(!lesson.should_learn)return;
     if(!brain.setup_ready){
       App.brainTurnPending=true;patchBrainChatState(brain);
       try{
@@ -1494,8 +1592,8 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     }
     try{
       App.brainTurnPending=true;patchBrainChatState(App.state?.brain||brain);
-      const st=await api('/api/brain/learn',{method:'POST',body:{user:user.content,assistant:assistant.content}});patchBrainChatState(st);
-      if(!brain.strict_learning){toast('Learning started','The model will reload when the personal weights are updated.','info');return;}
+      const st=await api('/api/brain/learn',{method:'POST',body:{user:user.content,mode:lesson.compiled?'compiled':'automatic',examples:lesson.examples,model_key:lesson.model_key}});patchBrainChatState(st);
+      if(!brain.strict_learning){App.brainTurnPending=false;patchBrainChatState(st);toast('Learning started','The model will reload when the personal weights are updated.','info');return;}
       App.brainLearning=true;patchBrainChatState(st);
       const started=Date.now();
       while(Date.now()-started<60*60*1000){
@@ -1519,30 +1617,36 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
   async function generateAssistant(opts={}){
     const repair=!!opts.repair,t=currentThread();if(!App.state?.server?.ready){toast('Model is not ready','Run the selected model first.','info');return;}
     const prefs=chatPrefs(),assistant={role:'assistant',content:'',reasoning:'',reasoningStreaming:false,streaming:true,meta:{repaired:repair,repairIssues:opts.issues||[]}};t.messages.push(assistant);saveThreads();setStreamingUI(true);renderMessages();
-    const started=performance.now();let first=0,reasoningStarted=0,chars=0,quality=null;App.chatAbort=new AbortController();
+    const started=performance.now();let first=0,reasoningStarted=0,chars=0,quality=null;const controller=new AbortController();App.chatAbort=controller;App.generationThreadId=t.id;
+    const requestId=crypto.randomUUID?crypto.randomUUID():String(Date.now());
+    App.generationId=requestId;
+    controller.signal.addEventListener('abort',()=>{fetch('/api/chat/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:requestId}),keepalive:true}).catch(()=>{});},{once:true});
     try{
-      const payload={messages:t.messages.filter(m=>!m.streaming).map(({role,content,attachments})=>({role,content,attachments})),mode:prefs.mode,reasoning:prefs.reasoning,reasoning_budget:prefs.reasoningBudget,max_tokens:prefs.maxTokens,repair,repair_issues:opts.issues||[],agent:agentEnabled()};
-      const res=await fetch('/api/chat/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:App.chatAbort.signal});if(!res.ok)throw new Error(`Chat failed (${res.status})`);
-      const reader=res.body.getReader(),decoder=new TextDecoder();let buf='';
-      while(true){const {value,done}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});const parts=buf.split('\n\n');buf=parts.pop()||'';for(const part of parts){const line=part.split('\n').find(x=>x.startsWith('data:'));if(!line)continue;const data=line.slice(5).trim();if(data==='[DONE]')continue;let obj;try{obj=JSON.parse(data)}catch{continue}if(obj.error)throw new Error(obj.error);
+      const payload={request_id:requestId,messages:t.messages.filter(m=>!m.streaming).map(({role,content,attachments})=>({role,content,attachments})),mode:prefs.mode,reasoning:prefs.reasoning,reasoning_budget:prefs.reasoningBudget,max_tokens:prefs.maxTokens,repair,repair_issues:opts.issues||[],agent:agentEnabled()};
+      const res=await fetch('/api/chat/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});if(!res.ok)throw new Error(`Chat failed (${res.status})`);
+      const reader=res.body.getReader(),decoder=new TextDecoder(),protocol=new LFProtocol.SSEDecoder();
+      while(true){const {value,done}=await reader.read();if(controller.signal.aborted)throw new DOMException('Cancelled','AbortError');if(done)break;for(const obj of protocol.push(decoder.decode(value,{stream:true}))){if(obj.error)throw new Error(obj.error);
         if(obj.type==='profile'&&obj.profile){assistant.meta.profile=obj.profile;updateStreamingAssistant();updateSmartLabels(obj.profile);}
         else if(obj.type==='reasoning'&&obj.delta){if(!reasoningStarted)reasoningStarted=performance.now();assistant.reasoningStreaming=true;assistant.reasoning+=obj.delta;updateStreamingAssistant();}
         else if((obj.type==='text'||obj.delta)&&obj.delta){assistant.reasoningStreaming=false;if(!first){first=performance.now();if(reasoningStarted)assistant.meta.thinkingTime=((first-reasoningStarted)/1000).toFixed(1)}assistant.content+=obj.delta;chars+=obj.delta.length;updateStreamingAssistant();}
-        else if(obj.type==='agent'){assistant.meta.agent=true;assistant.meta.agentEvents=assistant.meta.agentEvents||[];assistant.meta.agentEvents.push(obj);if(obj.event==='tool_start'){assistant.meta.agentTool=obj.tool||'tool';toast('Agent tool',obj.tool||'Running tool','info',1800)}renderMessages();const sc=$('#chatScroll');if(sc&&App.chatFollowTail)sc.scrollTop=sc.scrollHeight;}
+        else if(obj.type==='attachments'){for(const row of obj.messages||[]){const message=t.messages[row.index];if(!message)continue;for(const receipt of row.attachments||[]){const attachment=(message.attachments||[]).find(x=>x.id===receipt.client_id||x.attachment_id===receipt.attachment_id);if(attachment){Object.assign(attachment,receipt,{unavailable:false});delete attachment.data_url;delete attachment.text;}}}saveThreads();}
+        else if(obj.type==='agent'){assistant.meta.agent=true;assistant.meta.agentEvents=assistant.meta.agentEvents||[];assistant.meta.agentEvents.push(obj);if(obj.event==='tool_start')assistant.meta.agentTool=obj.tool||'tool';renderMessages();const sc=$('#chatScroll');if(sc&&App.chatFollowTail)sc.scrollTop=sc.scrollHeight;}
         else if(obj.type==='quality'&&obj.quality){quality=obj.quality;assistant.meta.quality=quality;}
         else if(obj.type==='meta'&&obj.usage){assistant.meta.usage=obj.usage;}
         else if(obj.type==='meta'&&obj.context){assistant.meta.context=obj.context;if(obj.context.trimmed_turns)toast('Context managed',`${obj.context.trimmed_turns} older turn${obj.context.trimmed_turns===1?'':'s'} removed to stay inside the model context.`,'info',3600);}
       }}
-      assistant.streaming=false;assistant.reasoningStreaming=false;const elapsed=(performance.now()-started)/1000;assistant.meta.elapsed=elapsed.toFixed(1);if(first)assistant.meta.ttft=((first-started)/1000).toFixed(1);assistant.meta.speed=(chars/4/Math.max(.2,elapsed)).toFixed(1);t.updated=Date.now();saveThreads();await updateContextCount();
+      if(controller.signal.aborted)throw new DOMException('Cancelled','AbortError');
+      if(!protocol.done)throw new Error('Connection ended before the final marker');
+      assistant.streaming=false;assistant.reasoningStreaming=false;const elapsed=(performance.now()-started)/1000;assistant.meta.elapsed=elapsed.toFixed(1);if(first)assistant.meta.ttft=((first-started)/1000).toFixed(1);if(first&&assistant.meta.usage?.completion_tokens)assistant.meta.speed=(Number(assistant.meta.usage.completion_tokens)/Math.max(.2,(performance.now()-first)/1000)).toFixed(1);t.updated=Date.now();saveThreads();await updateContextCount();
       const repairable=['echo','empty','repetition','wrong_language','too_short','template_leak'];
-      if(!repair&&quality&&!quality.ok&&(quality.issues||[]).some(x=>repairable.includes(x))){
+      if(App.activeThreadId===t.id&&!repair&&quality&&!quality.ok&&(quality.issues||[]).some(x=>repairable.includes(x))){
         const issues=quality.issues||[];t.messages.pop();saveThreads();App.streaming=false;App.chatAbort=null;toast('Auto repair',humanizeIssues(issues),'info',4200);return await generateAssistant({repair:true,issues});
       }
       // Do not train on a failed first attempt. Only the final accepted response is learned.
       setStreamingUI(false);finalizeAssistantRow(assistant);
-      await learnTurnIfNeeded(assistant);
-    }catch(e){assistant.streaming=false;assistant.reasoningStreaming=false;if(e.name==='AbortError'){if(!assistant.content&&!assistant.reasoning)t.messages.pop()}else{assistant.content=assistant.content||`Generation failed: ${e.message}`;assistant.error=true;toast('Generation failed',e.message,'error',6500)}saveThreads();}
-    finally{App.chatAbort=null;setStreamingUI(false);if(App.route==='chat'){finalizeAssistantRow(assistant);updateContextUI();}}
+      if(!controller.signal.aborted)await learnTurnIfNeeded(assistant,t);
+    }catch(e){assistant.streaming=false;assistant.reasoningStreaming=false;if(e.name==='AbortError'){if(!assistant.content&&!assistant.reasoning){const index=t.messages.indexOf(assistant);if(index>=0)t.messages.splice(index,1)}}else{assistant.content=assistant.content||`Generation failed: ${e.message}`;assistant.error=true;toast('Generation failed',e.message,'error',6500)}saveThreads();}
+    finally{if(App.generationId===requestId){App.chatAbort=null;App.generationId=null;App.generationThreadId=null;setStreamingUI(false);if(App.route==='chat'&&App.activeThreadId===t.id){finalizeAssistantRow(assistant);updateContextUI();}}}
   }
   function humanizeIssues(issues){const names={echo:'The model echoed your prompt',empty:'The model returned an empty answer',repetition:'The model fell into a repetition loop',wrong_language:'The answer came back in the wrong language',too_short:'The answer was suspiciously incomplete',template_leak:'The model exposed chat-template tokens'};return (issues||[]).map(x=>names[x]||x).join(' · ')+' — retrying once with a targeted recovery.'}
   function updateSmartLabels(profile){const txt=profile?.task?`Auto · ${profile.task[0].toUpperCase()+profile.task.slice(1)}`:'Auto';$$('#smartProfileButton span, #smartProfileInline span').forEach(el=>el.textContent=txt)}
@@ -1550,7 +1654,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
   function updateStreamingAssistant(){
     if(streamRAF||streamPaintTimer)return;
     const paint=()=>{
-      streamRAF=0;streamPaintTimer=0;if(App.route!=='chat')return;
+      streamRAF=0;streamPaintTimer=0;if(App.route!=='chat'||App.generationThreadId!==App.activeThreadId)return;
       const t=currentThread(),i=t.messages.length-1,m=t.messages[i],row=document.querySelector(`[data-message-index="${i}"]`);if(!row){renderMessages();return}
       const content=$('.assistant-content',row);if(content){content.classList.add('is-streaming');let text=$('.stream-text',content);if(!text){content.innerHTML='<span class="stream-text"></span><span class="typing-cursor"></span>';text=$('.stream-text',content)}text.textContent=m.content||''}
       const panel=$('.reasoning-panel',row);if(panel){const visible=!!(m.reasoning||m.reasoningStreaming);panel.classList.toggle('hidden',!visible);if(m.reasoningStreaming)panel.open=true;const label=$('.reasoning-label',panel);if(label)label.textContent=m.reasoningStreaming?'Thinking…':m.meta?.thinkingTime?`Thought for ${m.meta.thinkingTime}s`:'Thinking';const body=$('.reasoning-body',panel);if(body){body.classList.add('is-streaming');let text=$('.stream-text',body);if(!text){body.innerHTML='<span class="stream-text"></span>';text=$('.stream-text',body)}text.textContent=m.reasoning||''}}
@@ -1609,18 +1713,26 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
   }
   function connectEvents(){
     if(App.eventSource)try{App.eventSource.close()}catch{}
-    const es=new EventSource('/api/events'); App.eventSource=es;
-    es.onmessage=e=>{
-      let ev;try{ev=JSON.parse(e.data)}catch{return}
+    const cursor=new LFProtocol.EventCursor();let live=false,polling=false;
+    const receive=ev=>{
+      if(!cursor.accept(ev))return;
       if(ev.type==='metrics'){updateLiveMetrics(ev.live||{},ev.performance||{});return}
       if(ev.type==='log'){
         if(App.route==='logs'){const out=$('#logOutput');if(out){const near=out.scrollTop+out.clientHeight>=out.scrollHeight-80;out.textContent+=(out.textContent?'\n':'')+(ev.line||'');const count=$('#logCount');if(count)count.textContent=`${out.textContent?out.textContent.split('\n').length:0} lines`;if(near)out.scrollTop=out.scrollHeight;}}
         return;
       }
       if(ev.type==='brain'){if(ev.brain){const before=brainStructuralKey(App.state?.brain||{});if(App.state)App.state.brain=ev.brain;patchBrainChatState(ev.brain);patchBrainPageState(ev.brain);if(App.route==='brain'&&brainStructuralKey(ev.brain)!==before)scheduleStateRefresh();}return;}
-      if(['state','models','job','connected'].includes(ev.type))scheduleStateRefresh();
+      if(['state','models','job','connected','resync'].includes(ev.type))scheduleStateRefresh();
     };
-    es.onerror=()=>{ /* EventSource reconnects automatically; never rebuild the UI here. */ };
+    const poll=async()=>{
+      if(polling)return;polling=true;
+      try{while(!live){try{const result=await api('/api/events/poll?after='+cursor.revision);for(const ev of result.events||[])receive(ev)}catch{await sleep(1500)}}}finally{polling=false}
+    };
+    if(!window.EventSource){poll();return;}
+    const es=new EventSource('/api/events');App.eventSource=es;
+    es.onopen=()=>{live=true};
+    es.onmessage=e=>{let ev;try{ev=JSON.parse(e.data)}catch{return}receive(ev)};
+    es.onerror=()=>{live=false;poll()};
   }
   function updateChatStateOnly(){
     updateChrome();const ss=App.state?.server||{},m=App.state?.active_model;
@@ -1656,6 +1768,9 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
   }
 
   // shell events
+  $('#historySearch').oninput=e=>{App.historyQuery=e.target.value;renderRecent()};
+  $('#sidebarBackdrop').onclick=()=>document.querySelector('.app-shell').classList.remove('mobile-menu');
+
   $('#newChatButton').onclick=newThread; if($('#clearLocalChats'))$('#clearLocalChats').onclick=clearAllThreads;
   $('#openSettings').onclick=()=>setRoute('settings');
   $('#modelPill').onclick=()=>setRoute('models');

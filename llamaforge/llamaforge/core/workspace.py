@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+from functools import wraps
 import json
 import mimetypes
 import os
@@ -15,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import APP_DIR
+from .archive_reader import archive_name, inspect_archive, zip_read, MAX_ENTRIES, MAX_EXPANDED
 
 WORKSPACE_DIR = Path(__file__).resolve().parents[2] / "workspace"
 CALENDAR_PATH = WORKSPACE_DIR / "calendar.json"
@@ -119,9 +122,26 @@ def _parse_iso(value: str) -> datetime:
 
 
 def _safe_rel(value: str) -> Path:
-    raw = str(value or "").replace("\\", "/").strip().strip("/")
-    parts = [p for p in raw.split("/") if p and p not in {".", ".."}]
+    raw = str(value or "").replace("\\", "/").strip()
+    if raw.startswith("/") or ":" in raw or "\x00" in raw or ".." in raw.split("/"):
+        raise ValueError("invalid workspace path")
+    parts = [p for p in raw.split("/") if p and p != "."]
     return Path(*parts) if parts else Path()
+
+
+def _contained(root: Path, path: Path) -> Path:
+    resolved = path.resolve()
+    if root.resolve() != resolved and root.resolve() not in resolved.parents:
+        raise ValueError("invalid workspace path: outside workspace")
+    return resolved
+
+
+def _locked(fn):
+    @wraps(fn)
+    def call(self, *args, **kwargs):
+        with self.lock:
+            return fn(self, *args, **kwargs)
+    return call
 
 
 def _atomic_json(path: Path, value: Any) -> None:
@@ -172,6 +192,8 @@ class CalendarStore:
             if not m:
                 raise ValueError("jalali must look like 1405-07-01")
             jy, jm, jd = map(int, m.groups())
+            if not (1 <= jm <= 12 and 1 <= jd <= jalali_month_length(jy, jm)):
+                raise ValueError("invalid Jalali date")
             gy, gm, gd = _jalali_to_gregorian(jy, jm, jd)
             d = date(gy, gm, gd)
             return {"jalali": f"{jy:04d}-{jm:02d}-{jd:02d}", "gregorian": d.isoformat(), "weekday": d.strftime("%A"), "weekday_fa": PERSIAN_WEEKDAYS[d.weekday()]}
@@ -207,7 +229,7 @@ class CalendarStore:
                 if q not in hay:
                     continue
             out.append(ev)
-        out.sort(key=lambda x: str(x.get("start") or ""))
+        out.sort(key=lambda x: _parse_iso(str(x["start"])))
         return out[:max(1, min(int(limit or 100), 500))]
 
     def write(self, operation: str, data: dict[str, Any]) -> dict[str, Any]:
@@ -220,10 +242,10 @@ class CalendarStore:
                 title = str(data.get("title") or "").strip()
                 if not title:
                     raise ValueError("title is required")
-                start = _parse_iso(str(data.get("start") or ""))
+                start = self._event_start(data)
                 end_raw = str(data.get("end") or "").strip()
                 end = _parse_iso(end_raw) if end_raw else start + timedelta(hours=1)
-                if end < start:
+                if end <= start:
                     raise ValueError("end must be after start")
                 ev = {
                     "id": "evt_" + uuid.uuid4().hex[:16],
@@ -249,9 +271,11 @@ class CalendarStore:
                 raise ValueError("event not found")
             ev = dict(events[idx])
             if op == "update":
+                if "title" in data and not str(data.get("title") or "").strip():
+                    raise ValueError("title is required")
                 for key in ("title", "location", "notes"):
                     if key in data:
-                        ev[key] = str(data.get(key) or "")[:5000 if key == "notes" else 500]
+                        ev[key] = str(data.get(key) or "").strip()[:5000 if key == "notes" else 300 if key == "title" else 500]
                 for key in ("start", "end"):
                     if key in data and str(data.get(key) or "").strip():
                         ev[key] = _parse_iso(str(data[key])).isoformat(timespec="minutes")
@@ -261,6 +285,8 @@ class CalendarStore:
                     ev["tags"] = [str(x)[:80] for x in (data.get("tags") or []) if str(x).strip()][:20]
                 if "reminders" in data:
                     ev["reminders"] = [int(x) for x in (data.get("reminders") or []) if str(x).lstrip("-").isdigit()][:10]
+                if _parse_iso(ev["end"]) <= _parse_iso(ev["start"]):
+                    raise ValueError("end must be after start")
                 ev["updated_at"] = now
             elif op == "cancel":
                 ev["status"] = "cancelled"
@@ -277,6 +303,22 @@ class CalendarStore:
             self._save(db)
             return ev
 
+    def _event_start(self, data: dict[str, Any]) -> datetime:
+        start = str(data.get("start") or "").strip()
+        if start and not re.fullmatch(r"\d{1,2}:\d{2}(?::\d{2})?", start):
+            return _parse_iso(start)
+        day = str(data.get("gregorian") or "")
+        if data.get("jalali"):
+            day = self.convert(jalali=str(data["jalali"]))["gregorian"]
+        relative = str(data.get("relative_date") or "")
+        if relative:
+            if relative not in {"today", "tomorrow"}: raise ValueError("relative_date must be today or tomorrow")
+            day = (datetime.now().astimezone() + timedelta(days=relative == "tomorrow")).date().isoformat()
+        clock = str(data.get("time") or start)
+        if not day or not clock:
+            raise ValueError("start needs an ISO date/time, or jalali/gregorian/relative_date plus time (HH:MM)")
+        return _parse_iso(day + "T" + clock)
+
     def month(self, year: int, month: int) -> dict[str, Any]:
         jy, jm = int(year), int(month)
         if not (1200 <= jy <= 1700 and 1 <= jm <= 12):
@@ -286,14 +328,22 @@ class CalendarStore:
         last_g = date(*_jalali_to_gregorian(jy, jm, jalali_month_length(jy, jm)))
         start = datetime.combine(first_g, datetime.min.time()).astimezone().isoformat(timespec="minutes")
         end = datetime.combine(last_g, datetime.max.time()).astimezone().isoformat(timespec="minutes")
-        events = self.list_events(start, end, limit=500)
+        events = [{**e, "start": _parse_iso(e["start"]).isoformat(timespec="minutes"),
+                   "end": _parse_iso(e.get("end") or e["start"]).isoformat(timespec="minutes")}
+                  for e in self.list_events(start, end, limit=500)]
         by_date: dict[str, list[dict[str, Any]]] = {}
         for ev in events:
             try:
-                d = _parse_iso(str(ev.get("start"))).date().isoformat()
+                begins = _parse_iso(str(ev.get("start")))
+                finishes = _parse_iso(str(ev.get("end") or ev.get("start")))
+                # End is exclusive: a midnight finish does not occupy the next day.
+                last = (finishes - timedelta(microseconds=1)).date() if finishes > begins else begins.date()
+                d, stop = max(first_g, begins.date()), min(last_g, last)
             except Exception:
                 continue
-            by_date.setdefault(d, []).append(ev)
+            while d <= stop:
+                by_date.setdefault(d.isoformat(), []).append(ev)
+                d += timedelta(days=1)
         custom = self._load().get("custom_holidays") or []
         custom_map = {(int(x.get("month", 0)), int(x.get("day", 0))): str(x.get("title") or "تعطیل") for x in custom if isinstance(x, dict)}
         for jd in range(1, jalali_month_length(jy, jm) + 1):
@@ -308,9 +358,10 @@ class CalendarStore:
                 "weekday_fa": PERSIAN_WEEKDAYS[g.weekday()],
                 "weekend": g.weekday() == 4,
                 "holiday": fixed,
+                "event_count": len(by_date.get(g.isoformat(), [])),
                 "events": [{"id": e.get("id"), "title": e.get("title"), "start": e.get("start"), "status": e.get("status")} for e in by_date.get(g.isoformat(), [])[:8]],
             })
-        return {"year": jy, "month": jm, "month_name": PERSIAN_MONTHS[jm - 1], "first_weekday": first_g.weekday(), "days": days}
+        return {"year": jy, "month": jm, "month_name": PERSIAN_MONTHS[jm - 1], "first_weekday": first_g.weekday(), "days": days, "events": events}
 
     def snapshot(self) -> dict[str, Any]:
         with self.lock:
@@ -346,7 +397,8 @@ class FileWorkspace:
     IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
     OFFICE_EXTS = {".docx", ".xlsx", ".pptx"}
     PDF_EXTS = {".pdf"}
-    ARCHIVE_EXTS = {".zip"}
+    ARCHIVE_EXTS = {".zip", ".tar", ".tgz", ".gz", ".bz2", ".xz"}
+    TEXT_EXTS |= {".rs", ".go", ".java", ".c", ".cpp", ".h", ".hpp", ".cs", ".php", ".rb", ".sh", ".jsx", ".tsx", ".vue", ".svelte", ".rst", ".tsv"}
 
     def __init__(self, root: Path | None = None):
         self.lock = threading.RLock()
@@ -378,7 +430,16 @@ class FileWorkspace:
         if not m:
             raise ValueError("invalid data_url")
         mime = m.group(1) or "application/octet-stream"
-        return mime, base64.b64decode(m.group(2), validate=False)
+        if len(m.group(2)) > 70 * 1024 * 1024:
+            raise ValueError("encoded attachment exceeds size limit")
+        return mime, base64.b64decode(m.group(2), validate=True)
+
+    @staticmethod
+    def _digest(path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda:stream.read(1024 * 1024), b""): digest.update(chunk)
+        return digest.hexdigest()
 
     def _register(self, path: Path, *, source: str = "local", description: str = "", tags: list[str] | None = None, item_id: str = "", status: str = "active") -> dict[str, Any]:
         idx = self._index()
@@ -391,6 +452,8 @@ class FileWorkspace:
             "path": rel,
             "size": stat.st_size,
             "mime": mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+            "extension": path.suffix.lower(),
+            "sha256": self._digest(path),
             "description": str(description or "")[:1000],
             "tags": [str(x)[:80] for x in (tags or []) if str(x).strip()][:30],
             "source": source,
@@ -401,11 +464,13 @@ class FileWorkspace:
         self._save_index(idx)
         return row
 
+    @_locked
     def stage_attachment(self, raw: dict[str, Any]) -> dict[str, Any]:
+        if raw.get("attachment_id") and not (raw.get("data_url") or "text" in raw):
+            return self._attachment_meta(str(raw["attachment_id"]))[0]
         name = Path(str(raw.get("name") or "attachment")).name[:180]
         kind = str(raw.get("kind") or "file").lower()
         suffix = Path(name).suffix
-        temp = self.inbox_root / ("att_" + uuid.uuid4().hex[:16] + suffix)
         if kind == "text":
             data = str(raw.get("text") or "").encode("utf-8")
         else:
@@ -415,18 +480,26 @@ class FileWorkspace:
             _, data = self._decode_data_url(data_url)
         if len(data) > 20 * 1024 * 1024:
             raise ValueError("attachment exceeds 20 MB workspace staging limit")
+        digest = hashlib.sha256(data).hexdigest()
+        aid = "att_" + hashlib.sha256((name + "\0" + digest).encode()).hexdigest()[:24]
+        try:
+            return self._attachment_meta(aid)[0]
+        except ValueError:
+            pass
+        temp = self.inbox_root / (aid + suffix)
         temp.write_bytes(data)
         meta = {
-            "attachment_id": "att_" + uuid.uuid4().hex[:16],
+            "attachment_id": aid,
             "name": name,
             "kind": kind,
             "size": len(data),
+            "sha256": digest,
+            "extension": suffix.lower(),
             "mime": str(raw.get("type") or mimetypes.guess_type(name)[0] or "application/octet-stream"),
             "staged_path": str(temp),
             "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         }
-        side = temp.with_suffix(temp.suffix + ".json")
-        side.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+        _atomic_json(self.inbox_root / (aid + ".meta.json"), meta)
         return meta
 
     def stage_messages(self, messages: list[dict]) -> list[dict]:
@@ -436,27 +509,37 @@ class FileWorkspace:
                 continue
             copy = {"role": str(row.get("role") or "user"), "content": str(row.get("content") or "")}
             markers = []
+            receipts = []
             for raw in (row.get("attachments") or [])[:8]:
                 if not isinstance(raw, dict):
                     continue
                 try:
                     meta = self.stage_attachment(raw)
+                    receipts.append({"client_id":raw.get("id") or raw.get("client_id"), **{k:v for k,v in meta.items() if k in {"attachment_id", "name", "mime", "extension", "size", "sha256", "kind"}}})
                     markers.append(f"[Workspace attachment: attachment_id={meta['attachment_id']} name={meta['name']} kind={meta['kind']} size={meta['size']} bytes. The File Manager can store it without reading it, or read/inspect it only if the user's request requires content.]" )
                 except Exception as exc:
                     markers.append(f"[Attachment staging failed: {exc}]")
+            if receipts: copy["_attachment_refs"] = receipts
             if markers:
                 copy["content"] = (copy["content"] + "\n\n" + "\n".join(markers)).strip()
             out.append(copy)
         return out
 
     def _attachment_meta(self, attachment_id: str) -> tuple[dict[str, Any], Path]:
-        for side in self.inbox_root.glob("*.json"):
+        if not re.fullmatch(r"att_[a-f0-9]{16,64}", attachment_id):
+            raise ValueError("invalid attachment_id")
+        direct = self.inbox_root / (attachment_id + ".meta.json")
+        # Read old receipts for compatibility; new receipts have a direct lookup.
+        for side in ([direct] if direct.is_file() else self.inbox_root.glob("*.json")):
             try:
                 meta = json.loads(side.read_text(encoding="utf-8"))
             except Exception:
                 continue
-            if str(meta.get("attachment_id")) == attachment_id:
-                p = Path(str(meta.get("staged_path") or ""))
+            if isinstance(meta, dict) and str(meta.get("attachment_id")) == attachment_id:
+                if meta.get("stored_file_id"):
+                    row, p = self._resolve_id(str(meta["stored_file_id"]))
+                    return {**meta, **row, "attachment_id":attachment_id}, p
+                p = _contained(self.inbox_root, Path(str(meta.get("staged_path") or "")))
                 if p.is_file():
                     return meta, p
         raise ValueError("staged attachment not found")
@@ -474,17 +557,18 @@ class FileWorkspace:
             raise ValueError("workspace file is missing on disk")
         return row, p
 
+    @_locked
     def list(self, folder: str = "") -> dict[str, Any]:
         rel = _safe_rel(folder)
         root = (self.files_root / rel).resolve()
         if self.files_root.resolve() not in root.parents and root != self.files_root.resolve():
             raise ValueError("invalid folder")
-        root.mkdir(parents=True, exist_ok=True)
+        if not root.is_dir(): raise ValueError("workspace folder not found")
         idx = self._index().get("items", {})
         by_path = {str(v.get("path")): v for v in idx.values() if isinstance(v, dict) and v.get("status") != "trash"}
         items = []
         for p in sorted(root.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
-            if p.name.startswith("."):
+            if p.name.startswith(".") or p.is_symlink():
                 continue
             relp = p.relative_to(self.files_root).as_posix()
             if p.is_dir():
@@ -508,14 +592,15 @@ class FileWorkspace:
                 rows.append(row)
         return rows[:max(1, min(int(limit or 40), 200))]
 
+    @_locked
     def upload_data(self, *, name: str, folder: str = "", data_url: str = "", text: str | None = None, description: str = "", tags: list[str] | None = None) -> dict[str, Any]:
         rel = _safe_rel(folder)
-        target_dir = self.files_root / rel
+        target_dir = _contained(self.files_root, self.files_root / rel)
         target_dir.mkdir(parents=True, exist_ok=True)
         clean = Path(str(name or "file")).name[:180]
         if not clean:
             clean = "file"
-        target = target_dir / clean
+        target = _contained(self.files_root, target_dir / clean)
         stem, suffix = target.stem, target.suffix
         n = 2
         while target.exists():
@@ -539,11 +624,35 @@ class FileWorkspace:
         }.get(ext, ())
         parts: list[str] = []
         with zipfile.ZipFile(path) as zf:
+            infos = zf.infolist()
+            if len(infos) > MAX_ENTRIES or sum(x.file_size for x in infos) > MAX_EXPANDED:
+                raise ValueError("Office archive exceeds safe expansion limits")
+            shared = []
+            if ext == ".xlsx" and "xl/sharedStrings.xml" in zf.namelist():
+                tree = ET.fromstring(zip_read(zf, zf.getinfo("xl/sharedStrings.xml")))
+                shared = ["".join(node.itertext()) for node in tree if str(node.tag).split("}")[-1] == "si"]
             names = [n for n in zf.namelist() if any(n == p or n.startswith(p) for p in prefixes) and n.lower().endswith(".xml")]
             for name in sorted(names)[:300]:
+                if name == "xl/sharedStrings.xml": continue
+                data = zip_read(zf, zf.getinfo(name))
                 try:
-                    root = ET.fromstring(zf.read(name))
+                    root = ET.fromstring(data)
                 except Exception:
+                    continue
+                if ext == ".xlsx":
+                    parts.append("[" + name + "]")
+                    for row in root.iter():
+                        if str(row.tag).split("}")[-1] != "row": continue
+                        cells = []
+                        for cell in row:
+                            values = [n.text or "" for n in cell.iter() if str(n.tag).split("}")[-1] in {"t", "v"}]
+                            value = "".join(values)
+                            if cell.get("t") == "s":
+                                try: value = shared[int(value)]
+                                except (ValueError, IndexError): value = "[invalid shared string]"
+                            cells.append(value)
+                        parts.append("\t".join(cells))
+                    if sum(map(len, parts)) > 50000: break
                     continue
                 vals = []
                 for node in root.iter():
@@ -554,6 +663,7 @@ class FileWorkspace:
                             vals.append(val)
                 if vals:
                     parts.append(" ".join(vals))
+                if sum(map(len, parts)) > 50000: break
         return "\n".join(parts)
 
     @staticmethod
@@ -573,39 +683,6 @@ class FileWorkspace:
                 chunks.append(text)
         return "\n\n".join(chunks)
 
-    @classmethod
-    def _read_zip_text(cls, path: Path, max_chars: int = 12000) -> dict[str, Any]:
-        """Inspect a ZIP safely without extracting it to the filesystem.
-
-        Returns a bounded file tree plus previews of text/code files. This makes
-        uploaded project ZIPs useful to the agent while avoiding zip-slip and
-        unbounded decompression.
-        """
-        entries: list[dict[str, Any]] = []
-        previews: list[str] = []
-        remaining = max(1000, min(int(max_chars or 12000), 50000))
-        with zipfile.ZipFile(path) as zf:
-            infos = [i for i in zf.infolist() if not i.is_dir()]
-            for info in infos[:400]:
-                name = str(info.filename).replace("\\", "/")
-                entries.append({"name": name, "size": int(info.file_size), "compressed": int(info.compress_size)})
-            for info in infos[:160]:
-                if remaining <= 0:
-                    break
-                name = str(info.filename).replace("\\", "/")
-                ext = Path(name).suffix.lower()
-                if ext not in cls.TEXT_EXTS or info.file_size > 1024 * 1024:
-                    continue
-                try:
-                    raw = zf.read(info, pwd=None)
-                except Exception:
-                    continue
-                text = raw.decode("utf-8", errors="replace")
-                take = min(remaining, 5000, len(text))
-                previews.append(f"--- {name} ---\n{text[:take]}")
-                remaining -= take
-        return {"entries": entries, "entry_count": len(entries), "text_preview": "\n\n".join(previews), "truncated": remaining <= 0 or len(entries) >= 400}
-
     def snapshot(self, max_total_bytes: int = 64 * 1024 * 1024) -> dict[str, Any]:
         """Portable owner-scoped snapshot for host/local Web Bridge sync."""
         with self.lock:
@@ -617,7 +694,7 @@ class FileWorkspace:
                 if not isinstance(row, dict):
                     continue
                 root = self.trash_root if row.get("status") == "trash" else self.files_root
-                path = (root / _safe_rel(str(row.get("path") or row.get("name") or ""))).resolve()
+                path = _contained(root, root / _safe_rel(str(row.get("path") or row.get("name") or "")))
                 if not path.is_file():
                     continue
                 data = path.read_bytes()
@@ -628,47 +705,55 @@ class FileWorkspace:
             return {"index": idx, "folders": folders, "files": blobs}
 
     def import_snapshot(self, payload: dict[str, Any]) -> None:
-        clean = payload if isinstance(payload, dict) else {}
-        index = clean.get("index") if isinstance(clean.get("index"), dict) else {"items": {}}
-        if not isinstance(index.get("items"), dict):
-            index = {"items": {}}
+        if not isinstance(payload, dict) or not isinstance(payload.get("index"), dict) or not isinstance(payload["index"].get("items"), dict):
+            raise ValueError("Invalid workspace snapshot index")
+        index = payload["index"]
+        folders = [_safe_rel(x) for x in (payload.get("folders") or []) if isinstance(x, str)]
+        decoded, total = [], 0
+        for blob in payload.get("files") or []:
+            if not isinstance(blob, dict): raise ValueError("Invalid snapshot file")
+            rel = _safe_rel(str(blob.get("path") or ""))
+            if str(rel) == ".": raise ValueError("Snapshot file path is required")
+            raw = str(blob.get("data_base64") or "")
+            if len(raw) > 90 * 1024 * 1024: raise ValueError("workspace snapshot exceeds 64 MB sync limit")
+            data = base64.b64decode(raw, validate=True)
+            total += len(data)
+            if total > 64 * 1024 * 1024: raise ValueError("workspace snapshot exceeds 64 MB sync limit")
+            decoded.append((blob.get("status") == "trash", rel, data))
+        for row in index["items"].values():
+            if not isinstance(row, dict): raise ValueError("Invalid snapshot index entry")
+            _safe_rel(str(row.get("path") or row.get("name") or ""))
+        # Validate the entire payload before replacing any existing data.
         with self.lock:
-            shutil.rmtree(self.files_root, ignore_errors=True)
-            shutil.rmtree(self.trash_root, ignore_errors=True)
+            shutil.rmtree(self.files_root)
+            shutil.rmtree(self.trash_root)
             self.files_root.mkdir(parents=True, exist_ok=True)
             self.trash_root.mkdir(parents=True, exist_ok=True)
-            for rel in clean.get("folders") or []:
-                if not isinstance(rel, str):
-                    continue
-                target = (self.files_root / _safe_rel(rel)).resolve()
-                if self.files_root.resolve() in target.parents or target == self.files_root.resolve():
-                    target.mkdir(parents=True, exist_ok=True)
-            total = 0
-            for blob in clean.get("files") or []:
-                if not isinstance(blob, dict):
-                    continue
-                try:
-                    data = base64.b64decode(str(blob.get("data_base64") or ""), validate=False)
-                except Exception:
-                    continue
-                total += len(data)
-                if total > 64 * 1024 * 1024:
-                    raise ValueError("workspace snapshot exceeds 64 MB sync limit")
-                root = self.trash_root if str(blob.get("status") or "") == "trash" else self.files_root
-                target = (root / _safe_rel(str(blob.get("path") or "file"))).resolve()
-                if root.resolve() not in target.parents and target != root.resolve():
-                    continue
+            for rel in folders:
+                _contained(self.files_root, self.files_root / rel).mkdir(parents=True, exist_ok=True)
+            for trash, rel, data in decoded:
+                root = self.trash_root if trash else self.files_root
+                target = _contained(root, root / rel)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(data)
             self._save_index(index)
 
     def tool(self, args: dict[str, Any], allow_write: bool, vision_available: bool = False) -> dict[str, Any]:
+        if str(args.get("operation") or "").lower() in {"store_attachment", "mkdir", "move", "rename", "trash", "restore", "delete", "write_text", "replace_text"}:
+            with self.lock:
+                return self._tool(args, allow_write, vision_available)
+        return self._tool(args, allow_write, vision_available)
+
+    def _tool(self, args: dict[str, Any], allow_write: bool, vision_available: bool = False) -> dict[str, Any]:
         op = str(args.get("operation") or "").strip().lower()
         if op == "list":
             return self.list(str(args.get("folder") or ""))
         if op == "search":
             return {"matches": self.search(str(args.get("query") or ""), int(args.get("limit") or 40))}
         if op == "metadata":
+            if args.get("attachment_id"):
+                row, p = self._attachment_meta(str(args["attachment_id"]))
+                return {k:v for k,v in row.items() if k != "staged_path"}
             row, _ = self._resolve_id(str(args.get("id") or ""))
             return row
         if op == "probe":
@@ -678,7 +763,7 @@ class FileWorkspace:
                 meta, p = self._attachment_meta(attachment_id)
                 name = str(meta.get("name") or p.name)
                 mime = str(meta.get("mime") or mimetypes.guess_type(name)[0] or "application/octet-stream")
-                row = {"attachment_id": attachment_id, "name": name, "mime": mime, "size": p.stat().st_size, "kind": str(meta.get("kind") or "file")}
+                row = {k:v for k,v in meta.items() if k != "staged_path"}
             else:
                 row, p = self._resolve_id(file_id)
                 name = str(row.get("name") or p.name)
@@ -691,7 +776,7 @@ class FileWorkspace:
                 capability = "office_text"
             elif ext in self.PDF_EXTS:
                 capability = "pdf_text"
-            elif ext in self.ARCHIVE_EXTS:
+            elif archive_name(name):
                 capability = "archive"
             elif ext in self.IMAGE_EXTS or mime.startswith("image/"):
                 capability = "vision" if vision_available else "image_requires_vision"
@@ -700,15 +785,12 @@ class FileWorkspace:
                 "read_capability": capability, "content_read": False,
                 "guidance": "Metadata/probe only. Call read_content only if the user's task requires understanding file contents.",
             }
-            if ext in self.ARCHIVE_EXTS:
-                entries = []
+            if archive_name(name):
                 try:
-                    with zipfile.ZipFile(p) as zf:
-                        for info in zf.infolist()[:500]:
-                            entries.append({"name": str(info.filename).replace("\\", "/"), "size": int(info.file_size), "compressed": int(info.compress_size), "directory": bool(info.is_dir())})
-                    result["archive_entries"] = entries
-                    result["archive_entry_count"] = len(entries)
-                    result["archive_truncated"] = len(entries) >= 500
+                    info = inspect_archive(p)
+                    result["archive_entries"] = info["entries"]
+                    result["archive_entry_count"] = info["entry_count"]
+                    result["archive_truncated"] = info["truncated"]
                 except Exception as exc:
                     result["archive_error"] = str(exc)[:300]
             return result
@@ -726,8 +808,9 @@ class FileWorkspace:
                 mime = str(row.get("mime") or mimetypes.guess_type(name)[0] or "")
             ext = Path(name).suffix.lower()
             if ext in self.TEXT_EXTS or mime.startswith("text/"):
-                text = p.read_text(encoding="utf-8", errors="replace")
                 limit = max(1000, min(int(args.get("max_chars") or 12000), 50000))
+                with p.open(encoding="utf-8", errors="replace") as stream:
+                    text = stream.read(limit + 1)
                 return {"file": row, "content_type": "text", "text": text[:limit], "truncated": len(text) > limit}
             if ext in self.OFFICE_EXTS:
                 text = self._read_office_text(p, ext)
@@ -737,8 +820,8 @@ class FileWorkspace:
                 text = self._read_pdf_text(p)
                 limit = max(1000, min(int(args.get("max_chars") or 12000), 50000))
                 return {"file": row, "content_type": "pdf_text", "text": text[:limit], "truncated": len(text) > limit}
-            if ext in self.ARCHIVE_EXTS:
-                archive = self._read_zip_text(p, int(args.get("max_chars") or 12000))
+            if archive_name(name):
+                archive = inspect_archive(p, members=args.get("members") or [], text_extensions=self.TEXT_EXTS, max_chars=int(args.get("max_chars") or 12000))
                 return {"file": row, "content_type": "archive", **archive}
             if ext in self.IMAGE_EXTS or mime.startswith("image/"):
                 if not vision_available:
@@ -765,9 +848,9 @@ class FileWorkspace:
             name = Path(str(args.get("name") or "note.txt")).name[:180] or "note.txt"
             if Path(name).suffix.lower() not in self.TEXT_EXTS:
                 raise ValueError("write_text requires a text/code filename")
-            target_dir = self.files_root / folder
+            target_dir = _contained(self.files_root, self.files_root / folder)
             target_dir.mkdir(parents=True, exist_ok=True)
-            target = target_dir / name
+            target = _contained(self.files_root, target_dir / name)
             overwrite = bool(args.get("overwrite"))
             if target.exists() and not overwrite:
                 stem, suffix = target.stem, target.suffix
@@ -798,27 +881,28 @@ class FileWorkspace:
             return {"file": fresh, "replacements": count if replace_all else 1}
         if op == "store_attachment":
             meta, p = self._attachment_meta(str(args.get("attachment_id") or ""))
+            if meta.get("stored_file_id"):
+                return self._resolve_id(str(meta["stored_file_id"]))[0]
             folder = _safe_rel(str(args.get("folder") or ""))
-            target_dir = self.files_root / folder
+            target_dir = _contained(self.files_root, self.files_root / folder)
             target_dir.mkdir(parents=True, exist_ok=True)
-            target = target_dir / Path(str(args.get("name") or meta.get("name") or p.name)).name
+            target = _contained(self.files_root, target_dir / Path(str(args.get("name") or meta.get("name") or p.name)).name)
             stem, suffix = target.stem, target.suffix
             n = 2
             while target.exists():
                 target = target_dir / f"{stem} ({n}){suffix}"
                 n += 1
             shutil.move(str(p), str(target))
-            try:
-                p.with_suffix(p.suffix + ".json").unlink(missing_ok=True)
-            except Exception:
-                pass
-            return self._register(target, source="attachment", description=str(args.get("description") or ""), tags=args.get("tags") or [])
+            row = self._register(target, source="attachment", description=str(args.get("description") or ""), tags=args.get("tags") or [])
+            meta["stored_file_id"] = row["id"]
+            _atomic_json(self.inbox_root / (meta["attachment_id"] + ".meta.json"), meta)
+            return row
         if op == "mkdir":
             folder = _safe_rel(str(args.get("folder") or ""))
             name = Path(str(args.get("name") or "")).name.strip()
             if not name:
                 raise ValueError("folder name is required")
-            p = self.files_root / folder / name
+            p = _contained(self.files_root, self.files_root / folder / _safe_rel(name))
             p.mkdir(parents=True, exist_ok=True)
             return {"created": True, "kind": "folder", "path": p.relative_to(self.files_root).as_posix()}
         if op in {"move", "rename", "trash", "restore", "delete"}:
@@ -836,7 +920,7 @@ class FileWorkspace:
             elif op == "restore":
                 if row.get("status") != "trash":
                     raise ValueError("file is not in trash")
-                dest = self.files_root / _safe_rel(str(row.get("original_path") or row.get("name") or p.name))
+                dest = _contained(self.files_root, self.files_root / _safe_rel(str(row.get("original_path") or row.get("name") or p.name)))
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 if dest.exists():
                     dest = dest.with_name(dest.stem + " restored" + dest.suffix)
@@ -855,7 +939,7 @@ class FileWorkspace:
             else:
                 folder = _safe_rel(str(args.get("folder") or Path(str(row.get("path") or "")).parent.as_posix()))
                 new_name = Path(str(args.get("name") or row.get("name") or p.name)).name
-                dest = self.files_root / folder / new_name
+                dest = _contained(self.files_root, self.files_root / folder / _safe_rel(new_name))
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 if dest.exists() and dest.resolve() != p.resolve():
                     raise ValueError("destination already exists")

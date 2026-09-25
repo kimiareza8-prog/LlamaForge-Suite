@@ -1,0 +1,68 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_plain_questions_do_not_start_a_second_learning_inference[\u0627\u0645\u0631\u0648\u0632 \u0686\u0646\u062f\u0645\u0647\u061f] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f7927ae1f40>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-brain-questions/test_plain_questions_do_not_st0')
+text = 'امروز چندمه؟'
+
+    @pytest.mark.parametrize("text", ["امروز چندمه؟", "ساعت چنده؟", "Can you read this PDF?", "این ZIP چیه؟"])
+    def test_plain_questions_do_not_start_a_second_learning_inference(monkeypatch, tmp_path, text):
+        state = object.__new__(LlamaForgeState)
+        state.brain = _isolated_brain(monkeypatch, tmp_path)
+        state.active_model = MODEL
+>       assert state.preview_brain_lesson({"user": text, "precheck": True})["should_learn"] is False
+E       assert True is False
+
+tests/test_brain_rewrite.py:258: AssertionError
+_ test_plain_questions_do_not_start_a_second_learning_inference[\u0633\u0627\u0639\u062a \u0686\u0646\u062f\u0647\u061f] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f7927ae1d90>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-brain-questions/test_plain_questions_do_not_st1')
+text = 'ساعت چنده؟'
+
+    @pytest.mark.parametrize("text", ["امروز چندمه؟", "ساعت چنده؟", "Can you read this PDF?", "این ZIP چیه؟"])
+    def test_plain_questions_do_not_start_a_second_learning_inference(monkeypatch, tmp_path, text):
+        state = object.__new__(LlamaForgeState)
+        state.brain = _isolated_brain(monkeypatch, tmp_path)
+        state.active_model = MODEL
+>       assert state.preview_brain_lesson({"user": text, "precheck": True})["should_learn"] is False
+E       assert True is False
+
+tests/test_brain_rewrite.py:258: AssertionError
+_ test_plain_questions_do_not_start_a_second_learning_inference[Can you read this PDF?] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f7927ae3fe0>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-brain-questions/test_plain_questions_do_not_st2')
+text = 'Can you read this PDF?'
+
+    @pytest.mark.parametrize("text", ["امروز چندمه؟", "ساعت چنده؟", "Can you read this PDF?", "این ZIP چیه؟"])
+    def test_plain_questions_do_not_start_a_second_learning_inference(monkeypatch, tmp_path, text):
+        state = object.__new__(LlamaForgeState)
+        state.brain = _isolated_brain(monkeypatch, tmp_path)
+        state.active_model = MODEL
+>       assert state.preview_brain_lesson({"user": text, "precheck": True})["should_learn"] is False
+E       assert True is False
+
+tests/test_brain_rewrite.py:258: AssertionError
+_ test_plain_questions_do_not_start_a_second_learning_inference[\u0627\u06cc\u0646 ZIP \u0686\u06cc\u0647\u061f] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f7927ae2bd0>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-brain-questions/test_plain_questions_do_not_st3')
+text = 'این ZIP چیه؟'
+
+    @pytest.mark.parametrize("text", ["امروز چندمه؟", "ساعت چنده؟", "Can you read this PDF?", "این ZIP چیه؟"])
+    def test_plain_questions_do_not_start_a_second_learning_inference(monkeypatch, tmp_path, text):
+        state = object.__new__(LlamaForgeState)
+        state.brain = _isolated_brain(monkeypatch, tmp_path)
+        state.active_model = MODEL
+>       assert state.preview_brain_lesson({"user": text, "precheck": True})["should_learn"] is False
+E       assert True is False
+
+tests/test_brain_rewrite.py:258: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_brain_rewrite.py::test_plain_questions_do_not_start_a_second_learning_inference[\u0627\u0645\u0631\u0648\u0632 \u0686\u0646\u062f\u0645\u0647\u061f]
+FAILED tests/test_brain_rewrite.py::test_plain_questions_do_not_start_a_second_learning_inference[\u0633\u0627\u0639\u062a \u0686\u0646\u062f\u0647\u061f]
+FAILED tests/test_brain_rewrite.py::test_plain_questions_do_not_start_a_second_learning_inference[Can you read this PDF?]
+FAILED tests/test_brain_rewrite.py::test_plain_questions_do_not_start_a_second_learning_inference[\u0627\u06cc\u0646 ZIP \u0686\u06cc\u0647\u061f]
+4 failed, 30 deselected in 0.15s

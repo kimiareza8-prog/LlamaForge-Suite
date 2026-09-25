@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import uuid
 import os
 import re
 import shutil
@@ -22,6 +23,9 @@ from collections import deque
 
 from .config import APP_DIR
 from .system_metrics import memory_gb, process_memory_mb
+from .learning_data import (deterministic_examples, validate_examples, curriculum,
+                            lesson_fingerprint, question_key, fact_key, normalized)
+from .redaction import redact as redact_text
 
 BRAIN_ROOT = APP_DIR / "brain"
 BRAIN_CONFIG = BRAIN_ROOT / "config.json"
@@ -125,6 +129,7 @@ class BrainConfig:
     adapter_scale: float = 1.0
     active_model_key: str = ""
     allow_remote_code: bool = False
+    trainer_timeout: int = 3600
 
 
 class PersonalBrain:
@@ -142,12 +147,14 @@ class PersonalBrain:
         self.cfg = self._load()
         self.lock = threading.RLock()
         self.job = {"state": "idle", "stage": "", "message": "", "error": "", "progress": 0.0}
+        self._pending_reload_key: str | None = None
         self.generation = 0
         # ``learned_packets`` means successfully committed learning runs, not
         # merely archived/attempted turns. Older builds counted failed attempts,
         # which made the Brain UI claim learning had happened when generation=0.
         self.learned_packets = 0
         self._archive_counts: dict[str, int] = {}
+        self._replay_cache: tuple | None = None
         self.last_loss: float | None = None
         self.last_learned_at = 0.0
         self._trainer_probe_cache: tuple[float, bool] | None = None
@@ -159,7 +166,7 @@ class PersonalBrain:
 
     def trace(self, message: str) -> None:
         try:
-            self._log_cb(str(message))
+            self._log_cb(redact_text(str(message)))
         except Exception:
             pass
 
@@ -366,8 +373,9 @@ class PersonalBrain:
         """
         # A process crash during the small reload/verification window must never
         # leave an unconfirmed adapter active on next launch.
-        self.rollback_unconfirmed_learning(model, quiet=True)
         key = self.model_key(model)
+        if self._pending_reload_key != key:
+            self.rollback_unconfirmed_learning(model, quiet=True)
         meta = self._profile_meta(model) if model is not None else {}
         locked = str(meta.get("training_base") or "").strip()
         changed = self.cfg.active_model_key != key
@@ -420,6 +428,9 @@ class PersonalBrain:
             "generation": int(meta.get("generation") or 0),
             "learned_packets": int(meta.get("generation") or 0) if model else self.learned_packets,
             "last_loss": meta.get("last_loss"),
+            "validation": meta.get("validation", {}),
+            "learning_contract": "user-supervision-then-validated-candidate",
+            "trainer_timeout": self.cfg.trainer_timeout,
             "last_learned_at": float(meta.get("last_learned_at") or 0.0),
             "job": job,
             "setup_ready": bool(self.trainer_ready() and self.training_base_ready(model) and self.toolchain_ready()),
@@ -437,7 +448,7 @@ class PersonalBrain:
         if "device" in payload:
             d = str(payload.get("device") or "auto").lower()
             self.cfg.device = d if d in ("auto","cpu","cuda","xpu","mps") else "auto"
-        for k, lo, hi in (("rank",2,128),("alpha",2,256),("micro_steps",1,128),("replay_samples",0,128),("max_length",64,2048)):
+        for k, lo, hi in (("rank",2,128),("alpha",2,256),("micro_steps",1,128),("replay_samples",0,128),("max_length",64,2048),("trainer_timeout",30,14400)):
             if k in payload:
                 try: setattr(self.cfg, k, max(lo, min(hi, int(payload[k]))))
                 except Exception: pass
@@ -521,7 +532,7 @@ class PersonalBrain:
         try:
             for _ in range(3):
                 url = "https://huggingface.co/api/models/" + urllib.parse.quote(current, safe="/")
-                req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.33.0-adaptive-engine", "Accept": "application/json"})
+                req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.34.0-smart-brain", "Accept": "application/json"})
                 with urllib.request.urlopen(req, timeout=25) as r:
                     data = json.loads(r.read().decode("utf-8", errors="replace"))
                 card = data.get("cardData") or {}
@@ -544,16 +555,20 @@ class PersonalBrain:
             return {"ok": False, "repo": "", "source_repo": repo, "chain": chain, "message": f"Could not resolve model card: {exc}"}
         return {"ok": False, "repo": "", "source_repo": repo, "chain": chain, "message": "The model card did not expose a trainable source."}
 
-    def _run_logged(self, command: list[str], scope: str, timeout: int = 3600, cancel: threading.Event | None = None) -> None:
+    def _run_logged(self, command: list[str], scope: str, timeout: int = 3600, cancel: threading.Event | None = None, env: dict | None = None) -> None:
+        if cancel is not None and cancel.is_set():
+            raise BrainCancelled(f"{scope} cancelled by user")
         self.trace(f"[brain:{scope}:cmd] "+" ".join(command))
-        proc=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding="utf-8",errors="replace",bufsize=1)
+        proc=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding="utf-8",errors="replace",bufsize=1,env=env)
         tail=deque(maxlen=80)
         assert proc.stdout
         watcher_stop=threading.Event()
+        timed_out=threading.Event()
+        deadline=time.monotonic()+timeout
         def cancel_watch():
-            if cancel is None: return
-            while not watcher_stop.wait(.2):
-                if cancel.is_set() and proc.poll() is None:
+            while not watcher_stop.wait(.05):
+                if (time.monotonic() >= deadline or (cancel is not None and cancel.is_set())) and proc.poll() is None:
+                    if time.monotonic() >= deadline: timed_out.set()
                     self.trace(f"[brain:{scope}] cancellation requested; terminating pid={proc.pid}")
                     try: proc.terminate()
                     except Exception: pass
@@ -564,22 +579,22 @@ class PersonalBrain:
                         except Exception: pass
                     return
         threading.Thread(target=cancel_watch,name=f"brain-{scope}-cancel",daemon=True).start()
-        start=time.time()
         try:
             for line in proc.stdout:
                 line=line.rstrip()
                 if line:
                     tail.append(line); self.trace(f"[brain:{scope}:out] {line}")
-                if time.time()-start > timeout:
-                    try: proc.kill()
-                    except Exception: pass
-                    raise RuntimeError(f"{scope} timed out after {timeout}s")
             code=proc.wait()
         finally:
             watcher_stop.set()
+            if proc.poll() is None:
+                proc.kill(); proc.wait()
+            proc.stdout.close()
         self.trace(f"[brain:{scope}] exited code={code}")
         if cancel is not None and cancel.is_set():
             raise BrainCancelled(f"{scope} cancelled by user")
+        if timed_out.is_set():
+            raise RuntimeError(f"{scope} timed out after {timeout}s")
         if code!=0:
             raise RuntimeError(f"{scope} failed with code {code}: "+" | ".join(tail)[-4000:])
 
@@ -635,7 +650,7 @@ class PersonalBrain:
         BRAIN_ROOT.mkdir(parents=True, exist_ok=True)
         archive = BRAIN_ROOT / "llama-toolchain.zip"
         url = "https://github.com/ggml-org/llama.cpp/archive/refs/heads/master.zip"
-        req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.33.0-adaptive-engine"})
+        req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.34.0-smart-brain"})
         with urllib.request.urlopen(req, timeout=180) as r, archive.open("wb") as f:
             shutil.copyfileobj(r, f)
         tmp = BRAIN_ROOT / "toolchain-extract"
@@ -661,6 +676,7 @@ class PersonalBrain:
                     if not line.strip(): continue
                     try: row=json.loads(line)
                     except Exception: continue
+                    if not isinstance(row,dict): continue
                     if model_key and row.get("model_key") != model_key: continue
                     if limit: rows.append(row)
                     else: rows.append(row)
@@ -670,23 +686,19 @@ class PersonalBrain:
 
     def append_packet(self, model, user_text: str, assistant_text: str, examples: list[dict]) -> dict:
         key = self.model_key(model)
-        clean_examples=[]
-        for e in examples:
-            u=str(e.get("user") or "").strip(); a=str(e.get("assistant") or "").strip()
-            if u and a and len(u)<6000 and len(a)<12000:
-                clean_examples.append({"user":u,"assistant":a,"kind":str(e.get("kind") or "learned")[:40]})
+        clean_examples=validate_examples(examples)
         # Deliberately do NOT train the model on its own just-produced answer.
         # A wrong answer must never become the supervised target merely because
         # the model said it.  Only examples derived from explicit user-provided
         # facts/corrections are allowed into the learning packet.
         packet={
-            "id": f"{int(time.time()*1000)}-{_safe_key(user_text)[:6]}", "at": time.time(),
+            "id": uuid.uuid4().hex, "at": time.time(), "fingerprint": lesson_fingerprint(clean_examples),
             "model_key": key, "model_name": getattr(model,"name",""), "examples": clean_examples,
             "status": "pending",
         }
         # The archive is training-only. When disabled, keep this packet only in
         # memory for the current micro-training run and do not persist it.
-        if self.cfg.keep_training_archive:
+        if self.cfg.keep_training_archive and clean_examples:
             BRAIN_ARCHIVE.parent.mkdir(parents=True, exist_ok=True)
             rendered=json.dumps(packet,ensure_ascii=False)+"\n"
             with BRAIN_ARCHIVE.open("a",encoding="utf-8") as f:
@@ -696,82 +708,48 @@ class PersonalBrain:
                 f.write(rendered)
         return packet
 
-    @staticmethod
-    def deterministic_examples(user_text: str) -> list[dict]:
-        """High-confidence patterns; generic knowledge is synthesized by the local teacher."""
-        text = " ".join(user_text.strip().split())
-        out=[]
-        m=re.search(r"(?:اسم من|اسمم)\s+([^،,.!?؟]{1,60})(?:[.!؟?]|$)", text, re.IGNORECASE)
-        if m:
-            name=m.group(1).strip(" .،")
-            # Persian copula may be spaced ("رضا است") or attached ("رضاست").
-            for suffix in (" می باشد", " میباشد", " هست", " است"):
-                if name.endswith(suffix):
-                    name=name[:-len(suffix)].strip(); break
-            else:
-                if len(name)>2 and name.endswith("ست") and name[-3] in "اویۀه":
-                    name=name[:-2].strip()
-                elif len(name)>2 and name.endswith("ه"):
-                    name=name[:-1].strip()
-            if name:
-                for q in ("اسم من چیه؟","نام من چیست؟","من چه اسمی دارم؟","اسم صاحب این مغز شخصی چیست؟"):
-                    out.append({"user":q,"assistant":name,"kind":"identity"})
-        m=re.search(r"\bmy name is\s+([A-Za-z][A-Za-z '\-]{0,50})", text, re.IGNORECASE)
-        if m:
-            name=m.group(1).strip(" .")
-            for q in ("What is my name?","What's my name?","Who owns this personal model?"):
-                out.append({"user":q,"assistant":name,"kind":"identity"})
+    deterministic_examples = staticmethod(deterministic_examples)
 
-        # Model/self identity corrections.  This is intentionally driven by the
-        # user's text only; a question such as "اسمت چیه؟" must not create a
-        # target, while "اسمت رضاست" / "اسم تو رضا است" does.
-        self_prefixes=("اسم تو","اسمت","نام تو","نامت","اسم خودت","نام خودت")
-        for prefix in self_prefixes:
-            i=text.find(prefix)
-            if i < 0:
-                continue
-            raw=text[i+len(prefix):].strip(" :،,-")
-            raw=re.split(r"[،,.!?؟]", raw, maxsplit=1)[0].strip()
-            if not raw or raw in {"چی","چیه","چیست","چه","کی","کیه"}:
-                continue
-            # Handle both spaced and attached Persian copulas: "رضا است" and
-            # "رضاست".  Also accept the terse teaching form "اسمت رضا".
-            name=raw
-            for suffix in (" می باشد"," میباشد"," هست"," است"):
-                if name.endswith(suffix):
-                    name=name[:-len(suffix)].strip(); break
-            else:
-                if len(name)>2 and name.endswith("ست"):
-                    name=name[:-2].strip()
-                elif len(name)>2 and name.endswith("ه") and " " not in name:
-                    name=name[:-1].strip()
-            if name and name not in {"چی","چیه","چیست","چه","کی","کیه"} and len(name) <= 60:
-                for q in ("اسمت چیه؟","نام تو چیست؟","خودت را چه صدا کنم؟","What is your name?"):
-                    out.append({"user":q,"assistant":name,"kind":"self-identity"})
-            break
+    def _confirmed_packets(self, model) -> list[dict]:
+        key = self.model_key(model)
+        replay = self.replay_path_for_key(key)
+        ledger = self.learned_ids_path_for_key(key)
+        def stamp(path):
+            try:
+                st = path.stat()
+                return (st.st_mtime_ns, st.st_size)
+            except OSError:
+                return (0, 0)
+        signature = (key, stamp(replay), stamp(ledger))
+        if self._replay_cache and self._replay_cache[0] == signature:
+            return self._replay_cache[1]
+        learned = self._learned_ids(key)
+        recent = deque(maxlen=256)
+        if replay.is_file():
+            with replay.open(encoding="utf-8", errors="replace") as stream:
+                for line in stream:
+                    try: packet = json.loads(line)
+                    except ValueError: continue
+                    if isinstance(packet, dict) and packet.get("model_key") == key and packet.get("id") in learned:
+                        recent.append({"id": packet["id"], "examples": validate_examples(packet.get("examples", []))})
+        rows = list(reversed(recent))
+        self._replay_cache = ((key, stamp(replay), stamp(ledger)), rows)
+        return rows
 
-        m=re.search(r"\b(?:your name is|call yourself)\s+([A-Za-z][A-Za-z '\-]{0,50})", text, re.IGNORECASE)
-        if m:
-            name=m.group(1).strip(" .")
-            for q in ("What is your name?","Who are you?","What should I call you?"):
-                out.append({"user":q,"assistant":name,"kind":"self-identity"})
-        return out
+    def already_learned(self, model, examples: list[dict]) -> bool:
+        """Skip duplicate current knowledge, but allow reverting a later correction."""
+        rows = validate_examples(examples)
+        if not rows or not self.cfg.keep_training_archive:
+            return False
+        latest = {}
+        for packet in self._confirmed_packets(model):
+            for row in validate_examples(packet.get("examples", [])):
+                latest.setdefault(fact_key(row), normalized(row["assistant"]))
+        return all(latest.get(fact_key(r)) == normalized(r["assistant"]) for r in rows)
 
     def build_training_batch(self, model, new_packet: dict) -> list[dict]:
-        key=self.model_key(model)
-        examples=list(new_packet.get("examples") or [])
-        old=self._archive_rows(key, limit=max(0,self.cfg.replay_samples*3+4))
-        learned_ids=self._learned_ids(key)
-        replay=[]
-        for packet in reversed(old[:-1] if old and old[-1].get("id")==new_packet.get("id") else old):
-            if str(packet.get("id") or "") not in learned_ids:
-                continue
-            for e in packet.get("examples") or []:
-                if e.get("user") and e.get("assistant"):
-                    replay.append(e)
-                    if len(replay)>=self.cfg.replay_samples: break
-            if len(replay)>=self.cfg.replay_samples: break
-        return examples + replay
+        packets = self._confirmed_packets(model) if self.cfg.replay_samples > 0 else []
+        return curriculum(new_packet.get("examples", []), packets, self.cfg.replay_samples)
 
     def _prepare_learning_candidate(self, model) -> Path:
         """Create an isolated candidate adapter for one learning transaction."""
@@ -784,7 +762,7 @@ class PersonalBrain:
             shutil.copytree(current,candidate)
         return candidate
 
-    def _commit_learning_candidate(self, model, packet_id: str, previous_meta: dict) -> None:
+    def _commit_learning_candidate(self, model, packet_id: str, previous_meta: dict, next_meta: dict | None = None) -> None:
         """Promote candidate PEFT+GGUF atomically enough to allow rollback.
 
         The transaction remains pending until llama.cpp has successfully loaded
@@ -805,7 +783,7 @@ class PersonalBrain:
         had_dir=current_dir.is_dir(); had_gguf=current_gguf.is_file()
         tx={
             "packet_id":str(packet_id or ""),"model_key":self.model_key(model),
-            "previous_meta":previous_meta,"had_adapter":had_dir,"had_gguf":had_gguf,
+            "previous_meta":previous_meta,"next_meta":next_meta,"had_adapter":had_dir,"had_gguf":had_gguf,
             "state":"promoting","started_at":time.time(),
         }
         # Write the rollback intent before touching the confirmed adapter pair.
@@ -829,6 +807,7 @@ class PersonalBrain:
             raise
         tx.update(state="pending-reload",committed_at=time.time())
         _atomic_json(self.transaction_path(model),tx)
+        self._pending_reload_key = self.model_key(model)
 
     def confirm_learning(self, model) -> None:
         """Finalize a transaction only after llama.cpp reload is healthy."""
@@ -836,6 +815,12 @@ class PersonalBrain:
         if not txp.is_file(): return
         try:tx=json.loads(txp.read_text(encoding="utf-8"))
         except Exception:tx={}
+        # The durable commit point precedes cleanup. A crash afterward finishes
+        # confirmation on startup; it must never roll a verified pair back.
+        tx["state"] = "confirmed"
+        _atomic_json(txp, tx)
+        if isinstance(tx.get("next_meta"), dict):
+            self._save_profile_meta(model, tx["next_meta"])
         packet_id=str(tx.get("packet_id") or "")
         if packet_id and self.cfg.keep_training_archive:
             self._mark_packet_learned(self.model_key(model),packet_id)
@@ -844,6 +829,7 @@ class PersonalBrain:
         except Exception:pass
         try:txp.unlink(missing_ok=True)
         except Exception:pass
+        self._pending_reload_key = None
 
     def rollback_unconfirmed_learning(self, model, quiet: bool=False) -> bool:
         """Restore the last confirmed adapter if a reload was never confirmed."""
@@ -851,6 +837,10 @@ class PersonalBrain:
         if not txp.is_file(): return False
         try:tx=json.loads(txp.read_text(encoding="utf-8"))
         except Exception:tx={}
+        if tx.get("state") == "confirmed":
+            self.confirm_learning(model)
+            return False
+        self._pending_reload_key = None
         current_dir=self.adapter_dir(model); current_gguf=self.adapter_gguf(model)
         rb_dir=self.rollback_adapter_dir(model); rb_gguf=self.rollback_adapter_gguf(model)
         had_adapter=bool(tx.get("had_adapter")); had_gguf=bool(tx.get("had_gguf"))
@@ -895,11 +885,12 @@ class PersonalBrain:
         if not self.trainer_ready(): raise RuntimeError("Brain Trainer is not prepared. Open Brain → Prepare Trainer first.")
         if not self.training_base_ready(model): raise RuntimeError("Link the exact trainable base model (HF folder or repo) before learning.")
         profile=self.profile_dir(model); profile.mkdir(parents=True,exist_ok=True)
-        BRAIN_BATCH.write_text(json.dumps(batch,ensure_ascii=False,indent=2),encoding="utf-8")
+        batch_path = profile / "current_batch.json"
+        _atomic_json(batch_path, batch)
         worker=self.app_root / "llamaforge" / "trainer_worker.py"
         base=self.training_base_for(model)
         adapter_path=Path(adapter_path or self.adapter_dir(model))
-        command=[str(self.trainer_python()),str(worker),"--base",base,"--data",str(BRAIN_BATCH),"--adapter",str(adapter_path),"--device",self.cfg.device,"--rank",str(self.cfg.rank),"--alpha",str(self.cfg.alpha),"--lr",str(self.cfg.learning_rate),"--steps",str(self.cfg.micro_steps),"--max-length",str(self.cfg.max_length)]
+        command=[str(self.trainer_python()),str(worker),"--base",base,"--data",str(batch_path),"--adapter",str(adapter_path),"--device",self.cfg.device,"--rank",str(self.cfg.rank),"--alpha",str(self.cfg.alpha),"--lr",str(self.cfg.learning_rate),"--steps",str(self.cfg.micro_steps),"--max-length",str(self.cfg.max_length),"--seed",str(int(self._profile_meta(model).get("generation") or 0))]
         bp=Path(os.path.expanduser(base))
         bundle=bp / ".llamaforge-bundle.json"
         if bundle.is_file():
@@ -923,10 +914,10 @@ class PersonalBrain:
             for stale in old[20:]: stale.unlink(missing_ok=True)
         except Exception: pass
 
-        start_at=time.time(); tail=deque(maxlen=50); write_lock=threading.Lock()
+        start_at=time.time(); deadline=time.monotonic()+self.cfg.trainer_timeout; timed_out=threading.Event(); tail=deque(maxlen=50); write_lock=threading.Lock()
         last={}; last_phase="boot"; peak_rss_mb=0.0; min_free_gb=None
         def raw(text: str) -> None:
-            line=f"{time.strftime('%Y-%m-%d %H:%M:%S')} {text}"
+            line=f"{time.strftime('%Y-%m-%d %H:%M:%S')} {redact_text(str(text))}"
             tail.append(line)
             try:
                 with write_lock:
@@ -941,7 +932,11 @@ class PersonalBrain:
         env=dict(os.environ)
         env["PYTHONFAULTHANDLER"]="1"
         env.setdefault("TOKENIZERS_PARALLELISM","false")
-        proc=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding="utf-8",errors="replace",bufsize=1,env=env)
+        try:
+            proc=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding="utf-8",errors="replace",bufsize=1,env=env)
+        except Exception:
+            batch_path.unlink(missing_ok=True)
+            raise
         raw(f"[process] pid={proc.pid}")
         assert proc.stdout
         watcher_stop=threading.Event()
@@ -950,7 +945,8 @@ class PersonalBrain:
             nonlocal peak_rss_mb,min_free_gb
             next_ui=0.0
             while not watcher_stop.wait(2.0):
-                if cancel is not None and cancel.is_set() and proc.poll() is None:
+                if (time.monotonic() >= deadline or (cancel is not None and cancel.is_set())) and proc.poll() is None:
+                    if time.monotonic() >= deadline: timed_out.set()
                     self.trace(f"[brain:trainer] cancellation requested; terminating pid={proc.pid}")
                     raw("[cancel] requested")
                     try:proc.terminate()
@@ -1000,6 +996,10 @@ class PersonalBrain:
             code=proc.wait()
         finally:
             watcher_stop.set()
+            if proc.poll() is None:
+                proc.kill(); proc.wait()
+            proc.stdout.close()
+            batch_path.unlink(missing_ok=True)
 
         elapsed=round(time.time()-start_at,2)
         exit_info=_decode_trainer_exit_code(code)
@@ -1017,6 +1017,7 @@ class PersonalBrain:
         raw("[exit] "+json.dumps(diag,ensure_ascii=False))
         self.trace("[brain:trainer:exit] "+json.dumps({k:v for k,v in diag.items() if k!="tail"},ensure_ascii=False))
         if cancel is not None and cancel.is_set(): raise BrainCancelled("Brain training cancelled by user")
+        if timed_out.is_set(): raise RuntimeError(f"Brain trainer timed out after {self.cfg.trainer_timeout}s")
         if code!=0:
             explicit=str(last.get("error") or "").strip()
             if explicit:
@@ -1033,9 +1034,11 @@ class PersonalBrain:
                 message=f"Brain Trainer exited with code {code}. "
             message += f"Full trainer session log: {session_log}"
             raise RuntimeError(message)
+        if last.get("phase") != "complete" or not last.get("validation", {}).get("accepted"):
+            raise RuntimeError("Trainer did not finish a validated candidate; adapter was not activated")
         return last
 
-    def _convert_adapter(self, model, progress=None, adapter_path: Path | None=None, out_path: Path | None=None) -> Path:
+    def _convert_adapter(self, model, progress=None, adapter_path: Path | None=None, out_path: Path | None=None, cancel: threading.Event | None=None) -> Path:
         if not self.toolchain_ready(): raise RuntimeError("llama.cpp LoRA conversion toolchain is not prepared")
         script=BRAIN_TOOLCHAIN / "convert_lora_to_gguf.py"
         adapter_path=Path(adapter_path or self.adapter_dir(model))
@@ -1057,11 +1060,7 @@ class PersonalBrain:
         env["PYTHONPATH"]=str(BRAIN_TOOLCHAIN)+os.pathsep+str(BRAIN_TOOLCHAIN/"gguf-py")+os.pathsep+env.get("PYTHONPATH","")
         if progress: progress("Converting learned LoRA to llama.cpp GGUF adapter…",0.88)
         self.trace("[brain:convert:cmd] "+" ".join(command))
-        proc=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding="utf-8",errors="replace",env=env,timeout=900)
-        if proc.stdout:
-            for line in proc.stdout.splitlines(): self.trace("[brain:convert] "+line)
-        if proc.returncode!=0:
-            raise RuntimeError("LoRA→GGUF conversion failed: "+proc.stdout[-1800:])
+        self._run_logged(command,"convert",timeout=900,cancel=cancel,env=env)
         if not tmp.exists(): raise RuntimeError("LoRA converter did not produce an adapter GGUF")
         tmp.replace(out)
         return out
@@ -1085,13 +1084,20 @@ class PersonalBrain:
                 raise RuntimeError("This Brain profile is already bound to a different trainable base. Use the exact original base or reset the profile before changing it.")
             deterministic=self.deterministic_examples(user_text)
             packet=self.append_packet(model,user_text,assistant_text,deterministic+list(examples or []))
+            if not packet["examples"] or self.already_learned(model, packet["examples"]):
+                with self.lock:
+                    self.job={"state":"done","stage":"no-op","message":"No new user supervision to train", "error":"", "progress":1.0}
+                return {"ok": True, "skipped": True, "generation": int(meta.get("generation") or 0)}
             batch=self.build_training_batch(model,packet)
             emit(f"Micro-training on {len(batch)} examples…",0.18)
             previous_meta=dict(meta)
             candidate=self._prepare_learning_candidate(model)
             result=self._run_trainer(model,batch,emit,adapter_path=candidate,cancel=cancel)
             if cancel is not None and cancel.is_set(): raise BrainCancelled("Brain learning cancelled by user")
-            gguf=self._convert_adapter(model,emit,adapter_path=candidate,out_path=self.candidate_adapter_gguf(model))
+            validation = result.get("validation") or {}
+            if not validation.get("accepted"):
+                raise RuntimeError("Candidate quality check did not pass; weights unchanged")
+            gguf=self._convert_adapter(model,emit,adapter_path=candidate,out_path=self.candidate_adapter_gguf(model),cancel=cancel)
             if cancel is not None and cancel.is_set(): raise BrainCancelled("Brain learning cancelled before weights were committed")
             if not self.cfg.enabled: raise BrainCancelled("Personal Brain was turned off; candidate weights were discarded")
             loss=None
@@ -1101,17 +1107,17 @@ class PersonalBrain:
             learned_at=time.time()
             next_meta={"generation":generation,"last_loss":loss,"last_learned_at":learned_at,
                        "training_base":str(self.training_base_for(model) or ""),
-                       "training_base_model_key":self.model_key(model)}
-            self._commit_learning_candidate(model,str(packet.get("id") or ""),previous_meta)
-            self._save_profile_meta(model,next_meta)
+                       "training_base_model_key":self.model_key(model), "validation":validation}
+            self._commit_learning_candidate(model,str(packet.get("id") or ""),previous_meta,next_meta)
             with self.lock:
                 self.generation = generation; self.last_learned_at=learned_at; self.last_loss=loss
                 self.job={"state":"running","stage":"reload","message":"Weights trained and converted. Verifying reload…","error":"","progress":0.94}
-            return {"ok":True,"generation":generation,"adapter":str(self.adapter_gguf(model)),"examples":len(batch),"loss":loss,"packet_id":str(packet.get("id") or ""),"pending_confirmation":True}
+            return {"ok":True,"generation":generation,"adapter":str(self.adapter_gguf(model)),"examples":len(batch),"loss":loss,"packet_id":str(packet.get("id") or ""),"pending_confirmation":True,"validation":validation}
         except Exception as exc:
             shutil.rmtree(self.candidate_adapter_dir(model),ignore_errors=True)
             try:self.candidate_adapter_gguf(model).unlink(missing_ok=True)
             except Exception:pass
+            self.rollback_unconfirmed_learning(model, quiet=True)
             self.trace_exception("learn", exc)
             with self.lock: self.job={"state":"error","stage":"failed","message":"Learning failed; weights were not marked as learned.","error":str(exc),"progress":0.0}
             raise

@@ -1,0 +1,57 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_____________ test_attachment_refs_survive_browser_history_reload ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-4/test_attachment_refs_survive_b0')
+
+    def test_attachment_refs_survive_browser_history_reload(tmp_path):
+        ws = FileWorkspace(tmp_path)
+        staged = ws.stage_messages([{"role":"user", "content":"save", "attachments":[{"id":"browser-id", "name":"x.bin", "data_url":encoded(b"bytes")}]}])
+>       receipt = staged[0]["_attachment_refs"][0]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: '_attachment_refs'
+
+tests/test_skill_audit.py:190: KeyError
+_______________ test_invalid_snapshot_does_not_destroy_workspace _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-4/test_invalid_snapshot_does_not0')
+
+    def test_invalid_snapshot_does_not_destroy_workspace(tmp_path):
+        ws = FileWorkspace(tmp_path)
+        row = ws.tool({"operation":"write_text", "name":"keep.txt", "text":"keep"}, True)
+        with pytest.raises(ValueError):
+            ws.import_snapshot({"index":{"items":{}}, "folders":["../escape"], "files":[]})
+>       assert ws.tool({"operation":"read_content", "id":row["id"]}, False)["text"] == "keep"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:202: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/workspace.py:732: in tool
+    return self._tool(args, allow_write, vision_available)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+llamaforge/core/workspace.py:793: in _tool
+    row, p = self._resolve_id(file_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <llamaforge.core.workspace.FileWorkspace object at 0x7fed00f6fb30>
+file_id = 'file_148b0587f96f4a46'
+
+    def _resolve_id(self, file_id: str) -> tuple[dict[str, Any], Path]:
+        idx = self._index()
+        row = idx.get("items", {}).get(str(file_id or ""))
+        if not isinstance(row, dict):
+            raise ValueError("file not found")
+        root = self.trash_root if row.get("status") == "trash" else self.files_root
+        p = (root / _safe_rel(str(row.get("path") or row.get("name") or ""))).resolve()
+        if root.resolve() not in p.parents and p != root.resolve():
+            raise ValueError("invalid workspace path")
+        if not p.exists():
+>           raise ValueError("workspace file is missing on disk")
+E           ValueError: workspace file is missing on disk
+
+llamaforge/core/workspace.py:543: ValueError
+=========================== short test summary info ============================
+FAILED tests/test_skill_audit.py::test_attachment_refs_survive_browser_history_reload
+FAILED tests/test_skill_audit.py::test_invalid_snapshot_does_not_destroy_workspace
+2 failed in 0.10s

@@ -4,6 +4,7 @@ from dataclasses import dataclass, asdict
 import json
 import re
 from typing import Any, Iterable
+from .skill_contracts import contract, operation_policy, validate_schema, validate_operation, OPERATION_INPUTS
 
 
 @dataclass(frozen=True)
@@ -233,6 +234,9 @@ class SkillRegistry:
     def __init__(self, runtime: Any, permissions: Any):
         self.runtime = runtime
         self.permissions = permissions
+        # One immutable discovery snapshot per request, not a global stale cache.
+        self._catalog_cache = None
+        self._definitions = None
 
     def _availability(self, meta: SkillMeta) -> tuple[bool, str]:
         if meta.requires_browser and not self.runtime.browser_available():
@@ -242,7 +246,10 @@ class SkillRegistry:
         return True, ""
 
     def catalog(self, tool_defs: Iterable[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+        if self._catalog_cache is not None:
+            return self._catalog_cache
         defs = list(tool_defs if tool_defs is not None else self.runtime.tool_definitions(self.permissions))
+        self._definitions = {x["function"]["name"]:x["function"] for x in defs if isinstance(x.get("function"), dict)}
         defined = set()
         descriptions: dict[str, str] = {}
         for item in defs:
@@ -292,8 +299,8 @@ class SkillRegistry:
                     fallbacks = [str(x) for x in (skill.get("fallbacks") or []) if str(x).strip()]
                     keywords = [str(x) for x in (skill.get("keywords") or []) if str(x).strip()]
             elif name.startswith("conn_"):
-                desc_low = description.lower()
-                risk = "write" if any(f" {m.lower()} " in f" {desc_low} " for m in ("POST", "PUT", "PATCH", "DELETE")) else "read"
+                policy = operation_policy(name, metadata=fn.get("x-llamaforge", {}))
+                risk = "read" if policy.effect == "read" else "write"
                 requires_write = risk == "write"
                 when_to_use = ["Use when this exact configured OpenAPI operation matches the user's target service/action."]
             rows.append({
@@ -304,6 +311,12 @@ class SkillRegistry:
                 "fallbacks": fallbacks, "keywords": keywords,
                 "available": True, "unavailable_reason": "",
             })
+        for row in rows:
+            fn = self._definitions.get(row["name"], {})
+            metadata = fn.get("x-llamaforge", {})
+            row["contract"] = contract(row["name"], row["category"], fn.get("parameters", {}), metadata)
+            row["http_method"] = metadata.get("http_method", "")
+        self._catalog_cache = rows
         return rows
 
     @staticmethod
@@ -312,7 +325,7 @@ class SkillRegistry:
         return (
             "You are the capability selector for a local AI agent. Skills are broad reusable capabilities, not one skill per user question. "
             "Infer what REAL capability is needed from the user's goal, even when they did not name a tool. "
-            "Choose the minimum family set and return only JSON: {\"goal\":\"short goal\",\"families\":[\"web\"],\"needs_write\":false}.\n"
+            "Choose the minimum family set. RETURN EXACTLY ONE JSON OBJECT: {\"goal\":\"short goal\",\"families\":[\"web\"],\"needs_write\":false}.\n"
             "Rules: current/live public facts -> web unless a dedicated local capability is more authoritative; current clock/date or personal schedule -> calendar; "
             "ANY attached file (ZIP, code, PDF, Office, audio/video, unknown binary, image, etc.) -> files; explicit API endpoint -> api; browser only for JS UI/click/type/login. "
             "For attachments, route to files because the runtime can stage every file type. Do not assume content must be opened: preserve metadata-first behavior, probe when useful, and read content only if the user's goal needs it. "
@@ -364,11 +377,18 @@ class SkillRegistry:
         This is intentionally domain-level (web/files/calendar/api/browser), not a
         brittle one-skill-per-phrase router. The model can still add other families.
         """
-        text = " ".join(str(task or "").lower().split())
+        text = " ".join(str(task or "").lower().replace("ي", "ی").replace("ك", "ک").replace("\u200c", " ").split())
         out: list[str] = []
         def add(name: str) -> None:
             if name not in out:
                 out.append(name)
+
+        # Explanations/translations are NOT operational requests. The model can
+        # still select tools for these; the guard must not override a valid direct route.
+        if "attachment_id=" not in text and "[workspace attachment:" not in text:
+            discussion = re.search(r"^(?:explain\b|what is (?:a |an )?(?:calendar|zip|http|browser|api)|translate\b|write (?:a |an )?(?:poem|story))", text)
+            discussion = discussion or any(x in text for x in ("چیست", "یعنی چه", "عبارت", "معنی کلمه"))
+            if discussion or re.search(r"^(?:don't|do not|never)\s+(?:create|open|browse|search|save)", text): return []
 
         if re.search(r"https?://", text) or any(x in text for x in (
             "search the web", "search online", "browse the web", "look online", "latest", "today's news", "current price",
@@ -377,11 +397,12 @@ class SkillRegistry:
             add("web")
 
         time_phrases = (
-            "what time is it", "current time", "what date is it", "today's date", "tomorrow", "calendar", "my schedule",
-            "meeting", "appointment", "remind me", "free time", "ساعت چنده", "الان ساعت", "امروز چندمه", "فردا", "پس فردا",
-            "تقویم", "برنامه من", "جلسه", "قرار", "یادآوری", "وقت خالی",
+            "what time is it", "what's the time", "current time", "what date is it", "today's date", "my schedule",
+            "remind me", "free time", "ساعت چنده", "الان ساعت", "امروز چندمه", "برنامه من", "وقت خالی",
         )
-        if any(x in text for x in time_phrases):
+        calendar_subject = any(x in text for x in ("calendar", "meeting", "appointment", "tomorrow", "تقویم", "جلسه", "قرار", "فردا", "یادآوری"))
+        operation = bool(re.search(r"\b(create|schedule|set|add|show|list|cancel|delete|reschedule|move|update)\b", text)) or any(x in text for x in ("بساز", "بذار", "بگذار", "نشون", "نشان بده", "حذف کن", "لغو کن", "ثبت کن", "تنظیم کن", "تغییر بده"))
+        if any(x in text for x in time_phrases) or (calendar_subject and operation):
             add("calendar")
 
         file_marker = "[workspace attachment:" in text or "attachment_id=" in text
@@ -390,7 +411,9 @@ class SkillRegistry:
             "فایل من", "فایل هام", "فایل‌های من", "فایل منیجر", "این فایل", "این مدرک", "این سند", "پیوست", "پوشه", "زیپ", "آرشیو", "فشرده",
         ))
         extension_hint = bool(re.search(r"\.(zip|7z|rar|tar|gz|pdf|docx?|xlsx?|pptx?|csv|json|ya?ml|txt|md|py|js|ts|html|css|mp3|wav|mp4|mov|mkv|bin|gguf)\b", text))
-        if file_marker or file_words or extension_hint:
+        format_task = bool(re.search(r"\b(pdf|docx|xlsx|pptx|zip|tar|json|yaml)\b", text)) and any(x in text for x in ("summari", "read", "inspect", "analy", "خلاصه", "بخوان", "بررسی", "ترجمه"))
+        file_action = any(x in text for x in ("this ", "my files", "save ", "store ", "read ", "inspect ", "list ", "rename ", "move ", "delete ", "این ", "فایل من", "فایل هام", "ذخیره", "بساز", "بررسی", "حذف کن", "بخوان", "بخون"))
+        if file_marker or ((file_words or extension_hint) and file_action) or format_task:
             add("files")
 
         api_action = bool(re.search(r"\b(get|post|put|patch|delete)\b", text)) and any(x in text for x in ("api", "endpoint", "http", "request", "url"))
@@ -398,7 +421,7 @@ class SkillRegistry:
             add("api")
 
         interaction = any(x in text for x in (
-            "click", "type into", "fill the form", "submit", "log in", "sign in", "browser",
+            "click", "type into", "fill the form", "submit", "log in", "sign in",
             "کلیک", "تایپ", "فرم", "لاگین", "وارد سایت", "دکمه",
         ))
         if interaction and (re.search(r"https?://", text) or any(x in text for x in ("site", "website", "page", "browser", "سایت", "صفحه", "مرورگر"))):
@@ -426,6 +449,10 @@ class SkillRegistry:
     def shortlist(self, task: str, categories: list[str] | None = None, *, limit: int = 8) -> list[dict[str, Any]]:
         categories = [c for c in (categories or []) if c in CATEGORY_LABELS]
         catalog = [x for x in self.catalog() if x.get("available")]
+        # Family selection is semantic/model-driven; lexical scores only rank
+        # siblings WITHIN the chosen branches. Never fill a local branch with web tools.
+        if categories:
+            catalog = [x for x in catalog if x.get("category") in categories]
         urls = bool(re.search(r"https?://", task or "", re.I))
         low = str(task or "").lower()
         explicit_interaction = any(x in low for x in ("click", "type", "fill", "submit", "login", "کلیک", "تایپ", "پر کن", "ورود", "فرم", "دکمه"))
@@ -447,7 +474,7 @@ class SkillRegistry:
                 score -= 20
             scored.append((score, row))
         scored.sort(key=lambda x: (-x[0], x[1].get("cost") == "high", str(x[1].get("name"))))
-        cap = max(4, min(12, limit))
+        cap = max(1, min(12, limit))
         chosen = [row for score, row in scored if score > -10][:cap]
         # Core safe escape hatches prevent a bad category prediction from dead-ending.
         # Reserve room instead of appending them beyond the visible skill budget.
@@ -463,7 +490,7 @@ class SkillRegistry:
                 if len(chosen) >= cap:
                     chosen.pop()
                 chosen.insert(0, by_name[core])
-        core_hatches = [] if any(c in {"calendar", "files"} for c in categories) else ["web_read", "web_search", "http_request"]
+        core_hatches = [] if categories else ["web_read", "web_search", "http_request"]
         for core in core_hatches:
             if core in by_name and all(x.get("name") != core for x in chosen):
                 if len(chosen) >= cap:
@@ -486,25 +513,23 @@ class SkillRegistry:
             if not name or not fn:
                 continue
             names.add(name)
-            params = fn.get("parameters") if isinstance(fn.get("parameters"), dict) else {}
-            props = params.get("properties") if isinstance(params.get("properties"), dict) else {}
-            required = params.get("required") if isinstance(params.get("required"), list) else []
-            arg_parts = []
-            for key, spec in list(props.items())[:14]:
-                spec = spec if isinstance(spec, dict) else {}
-                typ = str(spec.get("type") or "any")
-                arg_parts.append(f"{key}{'*' if key in required else ''}:{typ}")
-            use = "; ".join(row.get("when_to_use") or [])[:360]
-            avoid = "; ".join(row.get("when_not_to_use") or [])[:260]
-            fallbacks = ", ".join(row.get("fallbacks") or [])
-            extra = []
-            if use: extra.append("USE: " + use)
-            if avoid: extra.append("AVOID: " + avoid)
-            if fallbacks: extra.append("FALLBACK: " + fallbacks)
-            lines.append(
-                f"- {name} [{row.get('category')} | {row.get('risk')} | cost={row.get('cost')}]({', '.join(arg_parts)}): "
-                f"{str(row.get('description') or fn.get('description') or '')[:420]}" + (" | " + " | ".join(extra) if extra else "")
-            )
+            c = row.get("contract") or contract(name, str(row.get("category") or "custom"), fn.get("parameters", {}))
+            # Preserve enums, constraints and descriptions. Operation details are
+            # compacted by grouping policies rather than dropping input fields.
+            policies = {}
+            for op, policy in c.get("operations", {}).items():
+                key = policy["effect"] + ":" + policy["permission"]
+                policies.setdefault(key, []).append(op)
+            visible = {
+                "name":name, "family":c["capability_family"],
+                "description":str(row.get("description") or fn.get("description") or "")[:280],
+                "input_schema":c["input_schema"],
+                "operation_policy":policies or c["policy"],
+                "operation_inputs":OPERATION_INPUTS.get(name, {}),
+                "verification": "Read back persisted state after writes; never retry writes blindly.",
+                "fallbacks":row.get("fallbacks") or [],
+            }
+            lines.append(json.dumps(visible, ensure_ascii=False, separators=(",", ":")))
         return "\n".join(lines), names
 
     def validate_call(self, skill: str, args: dict[str, Any]) -> tuple[bool, str]:
@@ -513,6 +538,13 @@ class SkillRegistry:
             return False, f"Unknown skill: {skill}"
         if not row.get("available"):
             return False, str(row.get("unavailable_reason") or "Skill is unavailable")
+        error = validate_schema(args, (self._definitions or {}).get(skill, {}).get("parameters", {}))
+        if error: return False, error
+        error = validate_operation(skill, args)
+        if error: return False, error
+        policy = operation_policy(skill, args, row)
+        if policy.permission == "local_workspace" and not getattr(self.permissions, "allow_workspace_write", True):
+            return False, "Local workspace changes are disabled in Agent settings"
         if row.get("requires_write") and not bool(getattr(self.permissions, "allow_write", False)):
             return False, "Agent write/site-action permission is disabled"
         if skill in {"web_check", "web_read", "web_find", "browser_open", "download_file"} and not str((args or {}).get("url") or "").strip():

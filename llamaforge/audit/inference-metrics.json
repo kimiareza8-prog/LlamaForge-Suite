@@ -1,0 +1,20 @@
+{
+  "measured": false,
+  "reason": "No GGUF, llama-bench/llama-server or target Windows/iGPU available in this environment",
+  "before": {
+    "prompt_tps": null,
+    "generation_tps": null,
+    "ttft_ms": null,
+    "peak_ram_mb": null,
+    "load_time_ms": null,
+    "shared_gpu_memory_mb": null
+  },
+  "after": {
+    "prompt_tps": null,
+    "generation_tps": null,
+    "ttft_ms": null,
+    "peak_ram_mb": null,
+    "load_time_ms": null,
+    "shared_gpu_memory_mb": null
+  }
+}

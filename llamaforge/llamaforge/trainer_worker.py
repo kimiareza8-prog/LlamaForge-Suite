@@ -12,6 +12,11 @@ import time
 import traceback
 from pathlib import Path
 
+if __package__:
+    from .core.training_loop import train_candidate
+else:
+    from core.training_loop import train_candidate
+
 
 def emit(**kw):
     kw.setdefault("at", time.time())
@@ -85,6 +90,20 @@ def _checkpoint_size_gb(path: str | Path) -> tuple[int, float]:
         return len(files), round(sum(x.stat().st_size for x in files)/(1024**3),3)
     except Exception:
         return 0,0.0
+
+
+def check_training_memory(checkpoint_gb: float, load_mode: str, max_length: int, rank: int,
+                          *, available_gb: float) -> dict:
+    """Conservative CPU admission estimate, not a measured model RAM claim."""
+    factor = .55 if load_mode == '4bit-qlora' else 1.25
+    reserve = 2.0 + .10 * max(1, max_length/128) * max(1, rank/4)
+    minimum = checkpoint_gb * factor + reserve
+    if checkpoint_gb > 0 and available_gb > 0 and available_gb < minimum:
+        raise RuntimeError(f'CPU training requires approximately {minimum:.1f} GB free RAM '
+                           f'for this {checkpoint_gb:.1f} GB checkpoint; available {available_gb:.1f} GB. '
+                           'No model weights were loaded or changed.')
+    return {'minimum_free_gb': round(minimum, 2), 'available_gb': available_gb,
+            'memory_estimate': True, 'checkpoint_gb': checkpoint_gb}
 
 
 def _use_safe_windows_cpu(device: str, force: bool=False, os_name: str | None=None) -> bool:
@@ -279,6 +298,7 @@ def main():
     ap.add_argument('--lr', type=float, default=1.5e-4)
     ap.add_argument('--steps', type=int, default=8)
     ap.add_argument('--max-length', type=int, default=384)
+    ap.add_argument('--seed', type=int, default=0)
     ap.add_argument('--trust-remote-code', action='store_true')
     ap.add_argument('--safe-cpu', action='store_true', help='Force native-crash-resistant CPU LoRA backend')
     a = ap.parse_args()
@@ -459,6 +479,10 @@ def main():
             kwargs['dtype'] = torch.bfloat16; kwargs['device_map'] = {'': 'cpu'}; load_mode = 'bf16-lora'
 
         shards, checkpoint_gb=_checkpoint_size_gb(load_base)
+        if device == 'cpu':
+            admission = check_training_memory(checkpoint_gb, load_mode, safe_cfg['max_length'],
+                                             safe_cfg['rank'], available_gb=_memory_status()['ram_available_gb'])
+            emit(phase='memory-check', message='CPU training memory admission checked', progress=.135, **admission)
         emit(phase='model-load', message=f'Loading underlying trainable base ({load_mode})...', progress=.14,
              load_mode=load_mode, underlying_base=load_base, model_loader=model_loader_name,
              checkpoint_shards=shards, checkpoint_size_gb=checkpoint_gb, **_resource_snapshot(load_base))
@@ -471,6 +495,8 @@ def main():
                 emit(phase='model-load', message='CPU 4-bit load failed; attempting clean BF16 LoRA fallback...',
                      progress=.15, warning=str(exc)[-1200:], **_resource_snapshot(load_base))
                 gc.collect()
+                check_training_memory(checkpoint_gb, 'bf16-lora-fallback', safe_cfg['max_length'],
+                                      safe_cfg['rank'], available_gb=_memory_status()['ram_available_gb'])
                 fallback = {'trust_remote_code': bool(a.trust_remote_code), 'low_cpu_mem_usage': True,
                             'dtype': torch.bfloat16, 'device_map': {'': 'cpu'}}
                 try:
@@ -584,7 +610,6 @@ def main():
              trainable_parameters=trainable_count, total_parameters=total_count,
              ratio=(trainable_count / total_count if total_count else 0.0), source_adapter=source_adapter or None,
              effective_rank=safe_cfg['rank'], target_modules=safe_cfg['target_modules'], **_resource_snapshot(load_base))
-        optim = torch.optim.AdamW(params, lr=a.lr, weight_decay=0.0)
 
         def encode(row, idx):
             user = str(row.get('user') or '').strip(); ans = str(row.get('assistant') or '').strip()
@@ -599,12 +624,9 @@ def main():
                      warning=str(exc))
                 ptxt = f'User: {user}\nAssistant:'; ftxt = ptxt + ' ' + ans
             prompt_ids = tokenizer(ptxt, add_special_tokens=False, truncation=False)['input_ids']
-            full_ids = tokenizer(ftxt, add_special_tokens=False, truncation=False)['input_ids']
-            common = 0
-            for left, right in zip(prompt_ids, full_ids):
-                if left != right: break
-                common += 1
-            target_ids = full_ids[common:]
+            if not ftxt.startswith(ptxt):
+                raise RuntimeError('Chat template does not expose a reliable assistant boundary')
+            target_ids = tokenizer(ftxt[len(ptxt):], add_special_tokens=False, truncation=False)['input_ids']
             if not target_ids:
                 target_ids = tokenizer(ans, add_special_tokens=False, truncation=False)['input_ids']
             if not target_ids:
@@ -616,17 +638,20 @@ def main():
             min_prompt=min(64, max(0, max_len//4), len(prompt_ids))
             target_keep=min(len(target_ids), max_len-min_prompt)
             prompt_keep=min(len(prompt_ids), max_len-target_keep)
-            ids=prompt_ids[-prompt_keep:] + target_ids[:target_keep]
+            ids=(prompt_ids[-prompt_keep:] if prompt_keep else []) + target_ids[:target_keep]
             if not ids or target_keep <= 0:
                 return None
             input_ids=torch.tensor([ids],dtype=torch.long)
             attention_mask=torch.ones_like(input_ids)
             labels=input_ids.clone(); labels[:, :prompt_keep] = -100
             f={'input_ids':input_ids,'attention_mask':attention_mask,'labels':labels}
-            target_dev = next((p.device for p in model.parameters() if p.device.type != 'meta'), torch.device(device))
-            return {k: v.to(target_dev) for k, v in f.items()}
+            return f  # Move only the current micro-batch to the training device.
 
-        encoded = [x for i, r in enumerate(samples) if (x := encode(r, i))]
+        encoded, accepted_rows = [], []
+        for i, row in enumerate(samples):
+            value = encode(row, i)
+            if value is not None:
+                encoded.append(value); accepted_rows.append(row)
         if not encoded:
             raise RuntimeError('No valid training examples after tokenization')
         lengths = [int(x['input_ids'].shape[1]) for x in encoded]
@@ -634,18 +659,8 @@ def main():
              min_tokens=min(lengths), max_tokens=max(lengths), avg_tokens=round(sum(lengths) / len(lengths), 1),
              effective_max_length=safe_cfg['max_length'], **_resource_snapshot(load_base))
 
-        model.train(); losses = []
-        for step in range(max(1, a.steps)):
-            batch = encoded[step % len(encoded)]
-            optim.zero_grad(set_to_none=True)
-            out = model(**batch); loss = out.loss
-            if not torch.isfinite(loss):
-                raise RuntimeError(f'Non-finite loss at step {step+1}')
-            loss.backward(); torch.nn.utils.clip_grad_norm_(params, 1.0); optim.step()
-            losses.append(float(loss.detach().cpu()))
-            emit(phase='train', message=f'Learning step {step+1}/{a.steps}',
-                 progress=.30 + .48 * ((step+1) / max(1, a.steps)), step=step+1, steps=a.steps,
-                 loss=round(losses[-1], 6), **_resource_snapshot(load_base))
+        training_result = train_candidate(model, encoded, accepted_rows, steps=a.steps,
+                                          learning_rate=a.lr, seed=a.seed, emit=emit)
 
         tmp_dir = adapter_dir.with_name(adapter_dir.name + '.new')
         shutil.rmtree(tmp_dir, ignore_errors=True); tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -661,9 +676,9 @@ def main():
             raise RuntimeError('Personal adapter save verification failed')
         _atomic_replace_dir(tmp_dir, adapter_dir)
 
-        avg = sum(losses) / len(losses)
+        avg = training_result["loss"]
         emit(phase='complete', message='Personal Brain LoRA saved', progress=.84, loss=avg, device=device,
-             load_mode=load_mode, adapter=str(adapter_dir), source_adapter=source_adapter or None,
+             load_mode=load_mode, adapter=str(adapter_dir), validation=training_result['validation'], source_adapter=source_adapter or None,
              underlying_base=load_base, effective_rank=safe_cfg['rank'], effective_max_length=safe_cfg['max_length'],
              **_resource_snapshot(adapter_dir))
         return 0

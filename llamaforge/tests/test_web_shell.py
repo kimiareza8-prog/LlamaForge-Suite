@@ -33,7 +33,7 @@ def test_local_api_ping_and_index(tmp_path):
         with urllib.request.urlopen(url + "api/ping", timeout=3) as r:
             data = json.loads(r.read().decode())
         assert data["ok"] is True
-        assert data["version"] == "0.33.0-adaptive-engine"
+        assert data["version"] == "0.34.0-smart-brain"
         with urllib.request.urlopen(url, timeout=3) as r:
             html = r.read().decode("utf-8")
             assert "no-store" in (r.headers.get("Cache-Control") or "")
@@ -133,7 +133,7 @@ def test_full_diagnostics_endpoint_is_present_in_ui():
     assert "Copy full diagnostic" in js
 
 
-def test_macos_theme_is_local_layered_and_covers_core_surfaces():
+def test_studio_theme_is_local_layered_and_covers_core_surfaces():
     html = (STATIC_ROOT / "index.html").read_text(encoding="utf-8")
     css = (STATIC_ROOT / "macos.css").read_text(encoding="utf-8")
     assert (STATIC_ROOT / "macos.css").is_file()
@@ -159,7 +159,7 @@ def test_macos_theme_asset_is_served_with_no_store(tmp_path):
         with urllib.request.urlopen(url + "macos.css", timeout=3) as r:
             css = r.read().decode("utf-8")
             assert "no-store" in (r.headers.get("Cache-Control") or "")
-            assert "--mac-blue" in css
+            assert "--panel:var(--surface)" in css
             assert "text/css" in (r.headers.get("Content-Type") or "")
     finally:
         state.shutdown(); server.shutdown(); server.server_close()

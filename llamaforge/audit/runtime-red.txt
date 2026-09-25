@@ -1,0 +1,24 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________ test_custom_runtime_never_benchmarks_another_build ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_custom_runtime_never_benc0')
+
+    def test_custom_runtime_never_benchmarks_another_build(tmp_path):
+        from llamaforge.core.runtime import RuntimeManager
+        managed, custom = tmp_path / "managed", tmp_path / "custom"
+        managed.mkdir(); custom.mkdir()
+        runtime = RuntimeManager(str(managed))
+        server = custom / runtime._exe("llama-server")
+        bench_name = runtime._exe("llama-bench")
+        server.touch(); (managed / bench_name).touch()
+        runtime = RuntimeManager(str(managed), str(server))
+>       assert runtime.find_binary("llama-bench") is None
+E       AssertionError: assert '/tmp/pytest-of-root/pytest-0/test_custom_runtime_never_benc0/managed/llama-bench' is None
+E        +  where '/tmp/pytest-of-root/pytest-0/test_custom_runtime_never_benc0/managed/llama-bench' = find_binary('llama-bench')
+E        +    where find_binary = <llamaforge.core.runtime.RuntimeManager object at 0x7f971bc369c0>.find_binary
+
+tests/test_adaptive_audit.py:128: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_adaptive_audit.py::test_custom_runtime_never_benchmarks_another_build
+1 failed in 0.07s

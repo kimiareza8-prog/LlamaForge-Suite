@@ -21,6 +21,7 @@ from typing import Any, Callable, Iterator
 
 from .config import APP_DIR
 from .workspace import CalendarStore, FileWorkspace, WORKSPACE_DIR
+from .redaction import redact
 
 AGENT_DIR = APP_DIR / "agent"
 CONNECTORS_PATH = AGENT_DIR / "connectors.json"
@@ -149,10 +150,9 @@ def parse_html_document(raw: str, base_url: str, max_chars: int = 14000) -> dict
 
 
 def _json_text(value: Any, limit: int = 18000) -> str:
-    text = json.dumps(value, ensure_ascii=False, indent=2)
-    if len(text) > limit:
-        return text[:limit] + "\n…[tool result truncated]"
-    return text
+    # Byte/content limits are enforced by readers. Compact only the model
+    # observation; truncating this transport envelope corrupts JSON and vision.
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
 def _keyring_get(connector_id: str) -> str | None:
@@ -198,7 +198,7 @@ class AgentRuntime:
     """
 
     def __init__(self, log: Callable[[str], None] | None = None):
-        self.log = log or (lambda _line: None)
+        self.log = lambda line: log(redact(str(line))) if log else None
         self.lock = threading.RLock()
         self.browser_lock = threading.RLock()
         self.driver = None
@@ -221,6 +221,8 @@ class AgentRuntime:
     @staticmethod
     def _clean_workspace_scope(scope: str) -> str:
         raw = re.sub(r"[^A-Za-z0-9._-]+", "_", str(scope or "local").strip())[:96]
+        if raw in {".", ".."}:
+            raise ValueError("invalid workspace scope")
         return raw or "local"
 
     def workspace_scope(self) -> str:
@@ -544,6 +546,8 @@ Use OpenAPI connectors when a service already publishes an OpenAPI schema; use J
         }
 
     def download_file(self, args: dict, permissions: AgentPermissions) -> dict[str, Any]:
+        if not permissions.allow_workspace_write:
+            raise PermissionError("Local workspace downloads are disabled in Agent settings")
         url = str(args.get("url") or "")
         max_mb = max(1, min(int(args.get("max_mb") or 100), 512))
         max_bytes = max_mb * 1024 * 1024
@@ -702,7 +706,7 @@ Use OpenAPI connectors when a service already publishes an OpenAPI schema; use J
             raise AgentToolError(f"Unknown skill: {skill_name}")
         args = args if isinstance(args, dict) else {}
         required = skill.get("required") if isinstance(skill.get("required"), list) else []
-        missing = [str(x) for x in required if args.get(str(x)) in {None, ""}]
+        missing = [str(x) for x in required if args.get(str(x)) is None or args.get(str(x)) == ""]
         if missing:
             raise AgentToolError("Missing required skill arguments: " + ", ".join(missing))
 
@@ -728,6 +732,8 @@ Use OpenAPI connectors when a service already publishes an OpenAPI schema; use J
         max_bytes = max(4096, min(int(request.get("max_bytes") or 1_500_000), 8_000_000))
         retry = skill.get("retry") if isinstance(skill.get("retry"), dict) else {}
         attempts = max(1, min(int(retry.get("attempts") or 1), 4))
+        if method not in {"GET", "HEAD"}:
+            attempts = 1  # a lost response does not prove a write was not applied
         retry_statuses = set(int(x) for x in (retry.get("statuses") or [429, 500, 502, 503, 504]) if str(x).isdigit())
         last = None
         for attempt in range(1, attempts + 1):
@@ -810,6 +816,7 @@ Use OpenAPI connectors when a service already publishes an OpenAPI schema; use J
                 defs.append({"type":"function","function":{
                     "name": name,
                     "description": desc,
+                    "x-llamaforge": {"http_method":method, "connector":cid, "operation":operation},
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -1282,7 +1289,17 @@ return {title:document.title,url:location.href,text:(document.body?.innerText||'
                     "required": [str(x) for x in (skill.get("required") or [])],
                     "additionalProperties": False,
                 }
-            defs.append({"type":"function","function":{"name":"skill_"+skill["name"],"description":str(skill.get("description") or f"Custom HTTP skill {skill['name']}")[:800],"parameters":schema}})
+            request = skill.get("request") if isinstance(skill.get("request"), dict) else skill
+            defs.append({"type":"function","function":{"name":"skill_"+skill["name"],"description":str(skill.get("description") or f"Custom HTTP skill {skill['name']}")[:800],"parameters":schema,
+                "x-llamaforge":{"http_method":str(request.get("method") or "GET").upper()}}})
+        for item in defs:
+            fn = item["function"]
+            if fn["name"] == "calendar":
+                fn["parameters"]["properties"].update({
+                    "relative_date":{"type":"string","enum":["today","tomorrow"],"description":"For create; combine with time"},
+                    "time":{"type":"string","description":"HH:MM for create, combined with jalali, gregorian or relative_date; never a date by itself"}})
+            elif fn["name"] == "workspace_files":
+                fn["parameters"]["properties"]["members"] = {"type":"array","items":{"type":"string"},"description":"Archive member paths selected after probe; reads only these members"}
         return defs
 
     def execute(self, name: str, args: dict, permissions: AgentPermissions) -> str:
@@ -1322,10 +1339,33 @@ return {title:document.title,url:location.href,text:(document.body?.innerText||'
                 result = self.connector_call({"connector": connector_id, "operation": operation, "parameters": args.get("parameters") or {}, "body": args.get("body")}, permissions)
             elif name.startswith("skill_"): result = self.execute_skill(name[6:], args, permissions)
             else: raise AgentToolError(f"Unknown tool: {name}")
+            from .skill_contracts import operation_policy
+            if operation_policy(name, args).effect == "local_write":
+                verified = self._verify_local_write(name, args, result)
+                result = {**result, "verification":{"verified":verified, "method":"persisted state readback"}}
+                if not verified: raise AgentToolError("Write returned without verifiable persisted state")
             return _json_text({"ok": True, "result": result})
         except Exception as exc:
             self.log(f"[agent:tool:error] {name}: {exc}")
             return _json_text({"ok": False, "error": str(exc), "tool": name})
+
+    def _verify_local_write(self, name: str, args: dict, result: dict) -> bool:
+        if name == "download_file":
+            path = Path(result.get("path", ""))
+            return path.is_file() and path.stat().st_size == result.get("bytes")
+        if name == "calendar":
+            rows = self.calendar.snapshot().get("events", [])
+            found = next((r for r in rows if r.get("id") == result.get("id")), None)
+            return found is None if args.get("operation") == "delete" else found == result
+        if name == "workspace_files":
+            if args.get("operation") == "mkdir":
+                return (self.workspace.files_root / result["path"]).is_dir()
+            row = result.get("file", result)
+            if args.get("operation") == "delete":
+                return row.get("id") not in self.workspace._index()["items"]
+            stored, path = self.workspace._resolve_id(str(row.get("id") or ""))
+            return path.is_file() and stored.get("path") == row.get("path")
+        return False
 
     def prepare_messages_for_agent(self, messages: list[dict]) -> list[dict]:
         """Stage attachments and expose compact references to the planner.
@@ -1342,13 +1382,15 @@ return {title:document.title,url:location.href,text:(document.body?.innerText||'
 
     def run(self, messages: list[dict], call_model: Callable[[list[dict], list[dict]], dict], permissions: AgentPermissions,
             max_steps: int = 8, context_limit: int = 8192,
-            stream_final: Callable[[list[dict]], Iterator[dict[str, Any]]] | None = None) -> Iterator[dict[str, Any]]:
+            stream_final: Callable[[list[dict]], Iterator[dict[str, Any]]] | None = None,
+            cancel: threading.Event | None = None) -> Iterator[dict[str, Any]]:
         # AgentEngine deliberately does not use llama.cpp native function parsers.
         # The local model first selects a skill with plain JSON, the runtime executes
         # it, and the observation is fed back into the next planning inference.
         from .agent_engine import AgentEngine
         engine = AgentEngine(self, log=self.log)
-        yield from engine.run(
+        for event in engine.run(
             messages, call_model, permissions, max_steps=max_steps,
-            context_limit=context_limit, stream_final=stream_final,
-        )
+            context_limit=context_limit, stream_final=stream_final, cancel=cancel,
+        ):
+            yield redact(event) if event.get("type") == "agent" else event

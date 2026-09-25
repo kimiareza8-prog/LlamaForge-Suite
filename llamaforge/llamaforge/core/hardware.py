@@ -16,6 +16,7 @@ class GPUInfo:
     name: str
     kind: str
     memory_gb: float | None = None
+    driver: str = ""
 
 
 @dataclass
@@ -103,7 +104,7 @@ def _physical_cores(logical: int) -> int:
 def _detect_gpus() -> list[GPUInfo]:
     gpus: list[GPUInfo] = []
     if shutil.which("nvidia-smi"):
-        out = _run(["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
+        out = _run(["nvidia-smi", "--query-gpu=name,memory.total,driver_version", "--format=csv,noheader,nounits"])
         for line in out.splitlines():
             if not line.strip():
                 continue
@@ -111,10 +112,10 @@ def _detect_gpus() -> list[GPUInfo]:
             mem = None
             if len(parts) > 1:
                 try:
-                    mem = round(float(parts[-1]) / 1024, 1)
+                    mem = round(float(parts[1]) / 1024, 1)
                 except Exception:
                     pass
-            gpus.append(GPUInfo(",".join(parts[:-1]) if len(parts) > 1 else parts[0], "NVIDIA/CUDA", mem))
+            gpus.append(GPUInfo(parts[0], "NVIDIA/CUDA", mem, parts[2] if len(parts) > 2 else ""))
     if platform.system() == "Windows":
         # nvidia-smi does not see AMD/Intel integrated GPUs.  Query Windows' own
         # display inventory as well so Ryzen/Intel iGPUs can be offered to the
@@ -125,7 +126,7 @@ def _detect_gpus() -> list[GPUInfo]:
         if ps:
             script = (
                 "Get-CimInstance Win32_VideoController | "
-                "Select-Object Name,AdapterRAM,PNPDeviceID | ConvertTo-Json -Compress"
+                "Select-Object Name,AdapterRAM,PNPDeviceID,DriverVersion | ConvertTo-Json -Compress"
             )
             raw = _run([ps, "-NoProfile", "-NonInteractive", "-Command", script], timeout=8)
             if raw:
@@ -156,7 +157,7 @@ def _detect_gpus() -> list[GPUInfo]:
                             kind = "Intel/Vulkan"
                         else:
                             kind = "GPU/Vulkan"
-                        gpus.append(GPUInfo(name, kind, mem))
+                        gpus.append(GPUInfo(name, kind, mem, str(row.get("DriverVersion") or "")))
                 except Exception:
                     pass
     if platform.system() == "Darwin":

@@ -129,10 +129,12 @@ class RuntimeManager:
 
     def find_binary(self, name: str) -> str | None:
         target = self._exe(name)
-        if name == "llama-server" and self.custom_server_path:
+        if self.custom_server_path and name in {"llama-server", "llama-bench", "llama-cli"}:
             p = Path(self.custom_server_path).expanduser()
             if p.is_file():
-                return str(p.resolve())
+                chosen = p if name == "llama-server" else p.parent / target
+                # Never tune a custom server using an unrelated managed build.
+                return str(chosen.resolve()) if chosen.is_file() else None
         pointer = self.runtime_dir / "installed.json"
         if pointer.exists():
             try:

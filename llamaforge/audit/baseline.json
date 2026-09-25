@@ -1,0 +1,7 @@
+{
+  "commit": "889ca92c2dccdccd173e415734c53c09ebb6f6ac",
+  "version": "0.33.0-adaptive-engine",
+  "passed": 189,
+  "seconds": 40.75,
+  "note": "Observed full baseline before edits; optional CPU torch and safetensors installed for tests."
+}

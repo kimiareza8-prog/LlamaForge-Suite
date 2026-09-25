@@ -1,4 +1,4 @@
-# LlamaForge 0.33.0 Adaptive Engine — Local AI + Skill-driven Agent
+# LlamaForge 0.34.0 Smart Skills — Local AI + Skill-driven Agent
 
 ## Adaptive AutoTune
 
@@ -46,7 +46,7 @@ Open **Agent** in the sidebar to inspect the skill catalog, permissions, browser
 4. بعد از آماده‌شدن GGUF، مدل خودکار انتخاب و برای Chat لود می‌شود.
 5. checkpoint آموزشی همان مدل در پس‌زمینه دانلود می‌شود.
 6. Personal Brain به‌صورت خودکار با تنظیمات سبک فعال می‌شود: rank=4، alpha=8، 3 micro-step، replay=4، max_length=128.
-7. بعد از هر turn، facts/corrections کاربر برای LoRA همان مدل آماده می‌شوند.
+7. فقط facts/corrections صریح و معتبر کاربر برای LoRA آماده می‌شوند؛ سلام، پرسش و پاسخِ تولیدشدهٔ خود مدل هدف آموزش نیستند.
 
 ## چرا Qwen2.5 1.5B؟
 
@@ -58,3 +58,10 @@ Open **Agent** in the sidebar to inspect the skill catalog, permissions, browser
 ## Chat-first behavior
 
 The Qwen GGUF is the only artifact required to start chatting. Personal Brain training files are downloaded and prepared in the background; an incomplete training checkpoint never blocks `Load & chat`.
+
+
+## Personal Brain 0.34
+
+Brain now accepts an explicit question and user-provided correct answer. Automatic learning skips plain questions and greetings; teacher-generated answers need a supporting quote from the current user message. The replay curriculum suppresses superseded answers and interleaves earlier examples within short step budgets. Candidate loss checks and a successful adapter reload precede confirmation.
+
+Zero-context remains an explicit setting: training archives are never injected into chat. The bounded loss check is a sanity check, not a held-out recall score. See [BRAIN_SYSTEM_FA.md](BRAIN_SYSTEM_FA.md) and [AUDIT_REPORT_FA.md](AUDIT_REPORT_FA.md).

@@ -1,0 +1,96 @@
+.......................................................................F [ 77%]
+F.....F..............                                                    [100%]
+=================================== FAILURES ===================================
+___________ test_agent_direct_route_skips_skills_for_simple_greeting ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-1/test_agent_direct_route_skips_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f3e4cfdeae0>
+
+    def test_agent_direct_route_skips_skills_for_simple_greeting(tmp_path, monkeypatch):
+        rt = _isolated_runtime(tmp_path, monkeypatch)
+        monkeypatch.setattr(rt, "execute", lambda *a, **k: (_ for _ in ()).throw(AssertionError("tool must not run")))
+        calls = []
+    
+        def model(messages, tools):
+            calls.append(messages)
+            assert tools == []
+            prompt = messages[0]["content"]
+            if "stage 0 of a local AI agent router" in prompt:
+                return {"content": '{"route":"direct","summary":"simple greeting","confidence":99}'}
+            return {"content": "سلام، چطور می‌تونم کمک کنم؟"}
+    
+        events = list(rt.run([{"role":"user","content":"سلام"}], model, AgentPermissions(), max_steps=4, context_limit=8192))
+>       assert len(calls) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([[{'role': 'user', 'content': 'سلام'}]])
+
+tests/test_agent_tools.py:349: AssertionError
+_______ test_agent_direct_route_corrects_english_answer_back_to_persian ________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-1/test_agent_direct_route_correc0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f3e4d0032f0>
+
+    def test_agent_direct_route_corrects_english_answer_back_to_persian(tmp_path, monkeypatch):
+        rt = _isolated_runtime(tmp_path, monkeypatch)
+        monkeypatch.setattr(rt, "execute", lambda *a, **k: (_ for _ in ()).throw(AssertionError("tool must not run")))
+        calls = []
+    
+        def model(messages, tools):
+            assert tools == []
+            prompt = messages[0]["content"]
+            calls.append(prompt)
+            if "stage 0 of a local AI agent router" in prompt:
+                return {"content": '{"route":"direct","summary":"simple greeting","confidence":99}'}
+            if "Write the final answer for the end user in Persian" in prompt:
+                return {"content": "سلام، چطور می‌تونم کمک کنم؟"}
+            return {"content": "Hello! How can I help?"}
+    
+        events = list(rt.run([{"role":"user","content":"سلام"}], model, AgentPermissions(), max_steps=4))
+        answer = "".join(e.get("delta", "") for e in events if e.get("type") == "text")
+        assert answer.startswith("سلام")
+>       assert len(calls) == 3
+E       assert 2 == 3
+E        +  where 2 = len(['سلام', "Write the final answer for the end user in Persian (fa).\nThe agent's internal planning is English, but the ...ONS:\nNo external observations.\n\nDRAFT ANSWER:\nHello! How can I help?\n\nReturn only the final user-facing answer."])
+
+tests/test_agent_tools.py:374: AssertionError
+________ test_agent_runtime_direct_route_forwards_true_streaming_final _________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-1/test_agent_runtime_direct_rout0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f3e4d041100>
+
+    def test_agent_runtime_direct_route_forwards_true_streaming_final(tmp_path, monkeypatch):
+        rt = _isolated_runtime(tmp_path, monkeypatch)
+        monkeypatch.setattr(rt, "execute", lambda *a, **k: (_ for _ in ()).throw(AssertionError("tool must not run")))
+        model_calls = []
+        stream_calls = []
+    
+        def model(messages, tools):
+            model_calls.append(messages)
+            prompt = messages[0]["content"]
+            if "stage 0 of a local AI agent router" in prompt:
+                return {"content": '{"route":"direct","summary":"simple","confidence":99}'}
+            raise AssertionError("non-stream final model call should not happen")
+    
+        def stream_final(messages):
+            stream_calls.append(messages)
+            yield {"type": "text", "delta": "سلام"}
+            yield {"type": "text", "delta": " دنیا"}
+    
+        events = list(rt.run(
+            [{"role": "user", "content": "سلام"}], model, AgentPermissions(),
+            max_steps=3, context_limit=8192, stream_final=stream_final,
+        ))
+        answer = "".join(e.get("delta", "") for e in events if e.get("type") == "text")
+        assert answer == "سلام دنیا"
+        assert len(stream_calls) == 1
+>       assert len(model_calls) == 1  # routing only; final answer came from the live stream
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/test_agent_tools.py:498: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_agent_tools.py::test_agent_direct_route_skips_skills_for_simple_greeting
+FAILED tests/test_agent_tools.py::test_agent_direct_route_corrects_english_answer_back_to_persian
+FAILED tests/test_agent_tools.py::test_agent_runtime_direct_route_forwards_true_streaming_final
+3 failed, 90 passed in 1.82s
