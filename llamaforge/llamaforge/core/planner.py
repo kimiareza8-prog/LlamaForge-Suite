@@ -134,10 +134,10 @@ def make_plan(
     requested_accelerator = str(accelerator_mode or ("cpu" if cpu_only else "hybrid")).strip().lower()
     if requested_accelerator not in {"adaptive", "cpu", "gpu", "hybrid", "max_both"}:
         requested_accelerator = "adaptive"
-    if not hw.gpus:
+    if not hw.gpus and requested_accelerator != "adaptive":
         requested_accelerator = "cpu"
     adaptive = requested_accelerator == "adaptive"
-    cpu_only = requested_accelerator == "cpu"
+    cpu_only = requested_accelerator == "cpu" or not hw.gpus
     gpu_pct = max(5, min(95, int(gpu_layer_percent or 35)))
     blocks = max(0, int(getattr(model, "block_count", 0) or 0))
 
@@ -177,15 +177,14 @@ def make_plan(
             gpu_pct = 20
         else:
             gpu_pct = 35
-        if str(tuning_source or "heuristic").lower() != "llama-bench":
+        # Preserve the existing Auto heuristic until measured. Explicit thread
+        # policy and a benchmark winner must remain authoritative.
+        if mode == "auto" and str(tuning_source or "heuristic").lower() != "llama-bench":
             threads = logical
             threads_batch = logical
             target_percent = 100
-        cpu_poll = 80
-        cpu_priority = 1
-        cpu_strict = False
 
-    if requested_accelerator == "cpu":
+    if cpu_only:
         gpu_layers = 0
         gpu_pct = 0
     elif requested_accelerator == "gpu":
@@ -209,6 +208,7 @@ def make_plan(
         else:
             gpu_layers = 2 if requested_accelerator == "max_both" else (2 if requested_accelerator == "adaptive" else 8)
     accelerator_mode = requested_accelerator
+    cpu_only = gpu_layers == 0
 
     if p == "Safe":
         ctx, batch, ubatch, headroom = 4096, 128, 64, 0.68
@@ -252,8 +252,9 @@ def make_plan(
         if float(model.size_gb or 0.0) > avail_now * 1.03:
             ctx = min(ctx, 2048)
 
-    kv_est = max(0.30, (ctx / 8192) * 0.75)
-    runtime = 1.05 + kv_est + (batch / 512) * 0.30
+    kv_per_slot = max(0.30, (ctx / 8192) * 0.75)
+    kv_est = kv_per_slot * parallel
+    runtime = 1.05 + kv_est + (batch / 512) * 0.30 + prompt_cache_mb / 1024
     avail = hw.ram_available_gb or max(1.0, hw.ram_total_gb * 0.65)
     budget = max(1.0, avail * headroom)
     model_size = model.size_gb; oversized = model_size + runtime > budget
@@ -265,6 +266,7 @@ def make_plan(
     if adaptive and oversized:
         prompt_cache_mb = 0
         parallel = 1
+        kv_est = kv_per_slot
         if model_size > avail * 0.90:
             batch = min(batch, 64)
             ubatch = min(ubatch, 32)
@@ -274,11 +276,8 @@ def make_plan(
         runtime = 1.05 + kv_est + (batch / 512) * 0.30
         oversized = model_size + runtime > budget
 
-    if adaptive and parallel_override is None and not oversized and model_size <= max(1.5, budget * 0.42) and ctx <= 4096:
-        # One loaded model can serve two independent Agent requests without
-        # duplicating weights. Stay at one slot for large models because extra KV
-        # cache would reduce the maximum model size the machine can sustain.
-        parallel = 2
+    # Extra slots need explicit selection or a measured recommendation. They
+    # allocate additional KV memory even though model weights remain shared.
     resident = max(0.75, budget - runtime) if oversized else model_size
     total = min(model_size, resident) + runtime
 
@@ -391,7 +390,7 @@ def server_args(
 
     # Stable baseline used even if --help probing failed.
     args += ["--model", model_path, "--host", host, "--port", str(port)]
-    args += ["--threads", str(plan.threads), "--ctx-size", str(plan.ctx_size)]
+    args += ["--threads", str(plan.threads), "--ctx-size", str(plan.ctx_size * plan.parallel)]
     args += ["--batch-size", str(plan.batch_size), "--ubatch-size", str(plan.ubatch_size)]
     # RPC devices are exposed through llama.cpp's device backend. Even a remote
     # CPU Worker is treated as an offload device, so cluster mode must not force
@@ -476,7 +475,9 @@ def server_args(
     if plan.no_warmup and has("--no-warmup"):
         args += ["--no-warmup"]
     spec = str(getattr(plan, "speculative_mode", "off") or "off").lower()
-    if spec in {"auto", "ngram"}:
+    # llama-bench does not measure the speculative server path. Auto remains
+    # off until an end-to-end comparison exists; explicit ngram is preserved.
+    if spec == "ngram":
         if has("--spec-default"):
             args += ["--spec-default"]
         elif has("--spec-type"):

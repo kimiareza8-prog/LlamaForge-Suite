@@ -1,0 +1,10 @@
+{
+  "kind": "control-plane; stub model; not inference",
+  "greeting_model_calls": 1,
+  "calendar_shortlist_count": 1,
+  "shortlist_median_ms": 0.08733100003155414,
+  "calendar_manifest_chars": 1797,
+  "repeated_attachment_unique_ids": 1,
+  "staging_20_turns_ms": 5.5096489999186815,
+  "inbox_bytes": 100371
+}

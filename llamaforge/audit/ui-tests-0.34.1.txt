@@ -1,0 +1,22 @@
+✔ composer text survives attachment/options rerender and returning to its thread (19.725377ms)
+✔ changing thread cancels the original stream before switching (2.324609ms)
+✔ calendar payload keeps server wall time when browser uses another timezone (0.944213ms)
+✔ late cancelled stream cannot delete or unlock the next response (7.465272ms)
+✔ agenda overlap excludes midnight end and includes the following occupied day (0.26469ms)
+✔ attachment finishing after navigation stays in its original conversation (2.238172ms)
+✔ background Brain auto-setup keeps chat usable on render and refresh (2.893088ms)
+✔ background Brain download-base keeps chat usable on render and refresh (1.658046ms)
+✔ background Brain detect-base keeps chat usable on render and refresh (1.87747ms)
+✔ background Brain trainer keeps chat usable on render and refresh (1.717975ms)
+✔ background Brain doctor keeps chat usable on render and refresh (3.522786ms)
+✔ typing a date invalidates an older conversion response before blur (3.218758ms)
+✔ calendar search ignores stale responses and escapes titles (2.306002ms)
+✔ composer rerender preserves a pending strict lesson lock (1.916146ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 128.833834

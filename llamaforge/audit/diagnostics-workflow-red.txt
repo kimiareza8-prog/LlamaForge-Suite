@@ -1,0 +1,135 @@
+FFF...F                                                                  [100%]
+=================================== FAILURES ===================================
+_______ test_new_install_permissions_enabled_existing_opt_out_preserved ________
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-workflow-red/test_new_install_permissions_e0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f76a35beae0>
+
+    def test_new_install_permissions_enabled_existing_opt_out_preserved(tmp_path, monkeypatch):
+        for name in ('APP_DIR', 'DEFAULT_MODEL_DIR', 'RUNTIME_DIR'):
+            monkeypatch.setattr(config, name, tmp_path / name)
+        monkeypatch.setattr(config, 'CONFIG_PATH', tmp_path / 'config.json')
+        monkeypatch.setattr(config, '_keyring_store', lambda _: False)
+        monkeypatch.setattr(config, '_keyring_get', lambda: None)
+        cfg = config.AppConfig.load()
+>       assert cfg.agent_allow_write and cfg.agent_allow_private_network and cfg.agent_allow_workspace_write
+E       AssertionError: assert (False)
+E        +  where False = AppConfig(model_dirs=['/workspace/scratch/a9d8f0e64114/pytest-workflow-red/test_new_install_permissions_e0/DEFAULT_MOD..._min_p=0.0, generation_repeat_penalty=1.03, generation_max_tokens=2048, speculative_mode='auto', adaptive_context=True).agent_allow_write
+
+tests/test_agent_workflow.py:17: AssertionError
+_____________________ test_repaired_router_keeps_families ______________________
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7f76a35beb10>
+
+    def test_repaired_router_keeps_families(runtime):
+        outputs=iter(['not json', '{"route":"skills","families":["calendar"],"goal":"meeting"}'])
+        decision, _=AgentEngine(runtime)._route_decision(lambda *_:{'content':next(outputs)}, 'schedule a meeting', 'schedule a meeting')
+>       assert decision.families == ['calendar']
+E       AssertionError: assert None == ['calendar']
+E        +  where None = AgentRouteDecision(route='skills', summary='', confidence=0, families=None, goal='', needs_write=False).families
+
+tests/test_agent_workflow.py:30: AssertionError
+________ test_guard_preserves_family_without_redundant_capability_call _________
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7f76a35bf0b0>
+
+    def test_guard_preserves_family_without_redundant_capability_call(runtime):
+        prompts=[]
+        def model(messages, _):
+            p=messages[0]['content'];prompts.append(p)
+            if 'stage 0' in p:return {'content':'{"route":"direct"}'}
+            if 'STEP 1' in p:return {'content':'{"action":"final","answer":"سلام"}'}
+            return {'content':'سلام'}
+        list(runtime.run([{'role':'user','content':'امروز چندمه؟'}],model,AgentPermissions(),max_steps=1))
+>       assert not any('capability selector' in p for p in prompts)
+E       assert not True
+E        +  where True = any(<generator object test_guard_preserves_family_without_redundant_capability_call.<locals>.<genexpr> at 0x7f76a359ab50>)
+
+tests/test_agent_workflow.py:41: AssertionError
+_________ test_permission_payload_rejects_string_false_before_mutation _________
+
+    def test_permission_payload_rejects_string_false_before_mutation():
+        from llamaforge.web.server import LlamaForgeState
+        state=object.__new__(LlamaForgeState);state.cfg=config.AppConfig()
+        with pytest.raises(ValueError,match='boolean'):
+>           state.update_settings({'agent_allow_write':'false', 'agent_allow_workspace_write':False})
+
+tests/test_agent_workflow.py:60:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <llamaforge.web.server.LlamaForgeState object at 0x7f76a3629be0>
+payload = {'agent_allow_write': 'false', 'agent_allow_workspace_write': False}
+
+    def update_settings(self, payload: dict):
+        if "max_ram_percent" in payload:
+            self.cfg.max_ram_percent = _safe_int(payload["max_ram_percent"], 88, 50, 95)
+        if "port" in payload:
+            self.cfg.port = _safe_int(payload["port"], 8080, 1024, 65535)
+        if "model_memory_mode" in payload:
+            mode = str(payload.get("model_memory_mode") or "hybrid").strip().lower()
+            self.cfg.model_memory_mode = mode if mode in MEMORY_MODES else "hybrid"
+            self.log(f"[settings] model memory mode = {self.cfg.model_memory_mode}")
+        if "accelerator_mode" in payload:
+            mode = str(payload.get("accelerator_mode") or "hybrid").strip().lower()
+            self.cfg.accelerator_mode = mode if mode in {"adaptive", "cpu", "gpu", "hybrid", "max_both"} else "adaptive"
+            self.cfg.cpu_only_default = self.cfg.accelerator_mode == "cpu"
+        if "gpu_layer_percent" in payload:
+            self.cfg.gpu_layer_percent = _safe_int(payload.get("gpu_layer_percent"), 35, 5, 95)
+        if "exit_unloads_model" in payload:
+            self.cfg.exit_unloads_model = bool(payload.get("exit_unloads_model"))
+        if "ui_disconnect_shutdown_seconds" in payload:
+            self.cfg.ui_disconnect_shutdown_seconds = _safe_int(payload["ui_disconnect_shutdown_seconds"], 12, 6, 300)
+        if "idle_unload_minutes" in payload:
+            self.cfg.idle_unload_minutes = _safe_int(payload["idle_unload_minutes"], 0, 0, 1440)
+            self._idle_unload_fired = False
+        if "hf_token" in payload:
+            token=str(payload.get("hf_token") or "").strip()
+            self.cfg.hf_token=token
+            self.models.token=token
+            self.trainables.token=token
+            self.log(f"[settings] Hugging Face token {'configured' if token else 'cleared'}")
+        if "agent_enabled_default" in payload:
+            self.cfg.agent_enabled_default = bool(payload.get("agent_enabled_default"))
+        if "agent_allow_write" in payload:
+            self.cfg.agent_allow_write = bool(payload.get("agent_allow_write"))
+        if "agent_allow_workspace_write" in payload:
+            self.cfg.agent_allow_workspace_write = bool(payload.get("agent_allow_workspace_write"))
+        if "agent_allow_private_network" in payload:
+            self.cfg.agent_allow_private_network = bool(payload.get("agent_allow_private_network"))
+        if "agent_browser_headless" in payload:
+            self.cfg.agent_browser_headless = bool(payload.get("agent_browser_headless"))
+        if "agent_max_steps" in payload:
+            self.cfg.agent_max_steps = _safe_int(payload.get("agent_max_steps"), 8, 1, 16)
+        if "default_context_size" in payload:
+            self.cfg.default_context_size = _safe_int(payload.get("default_context_size"), 4096, 512, 262144)
+        if "generation_overrides_enabled" in payload:
+            self.cfg.generation_overrides_enabled = bool(payload.get("generation_overrides_enabled"))
+        if "generation_temperature" in payload:
+            self.cfg.generation_temperature = min(2.0, max(0.0, float(payload.get("generation_temperature") or 0.0)))
+        if "generation_top_p" in payload:
+            self.cfg.generation_top_p = min(1.0, max(0.0, float(payload.get("generation_top_p") or 0.0)))
+        if "generation_top_k" in payload:
+            self.cfg.generation_top_k = _safe_int(payload.get("generation_top_k"), 40, 0, 500)
+        if "generation_min_p" in payload:
+            self.cfg.generation_min_p = min(1.0, max(0.0, float(payload.get("generation_min_p") or 0.0)))
+        if "generation_repeat_penalty" in payload:
+            self.cfg.generation_repeat_penalty = min(1.30, max(0.80, float(payload.get("generation_repeat_penalty") or 1.03)))
+        if "generation_max_tokens" in payload:
+            self.cfg.generation_max_tokens = _safe_int(payload.get("generation_max_tokens"), 2048, 16, 32768)
+        if "speculative_mode" in payload:
+            mode = str(payload.get("speculative_mode") or "auto").lower()
+            self.cfg.speculative_mode = mode if mode in {"off", "auto", "ngram"} else "auto"
+        if "adaptive_context" in payload:
+            self.cfg.adaptive_context = bool(payload.get("adaptive_context"))
+        self.cfg.save()
+>       self.events.publish("state", {"reason": "settings-updated"})
+        ^^^^^^^^^^^
+E       AttributeError: 'LlamaForgeState' object has no attribute 'events'
+
+llamaforge/web/server.py:2952: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_agent_workflow.py::test_new_install_permissions_enabled_existing_opt_out_preserved
+FAILED tests/test_agent_workflow.py::test_repaired_router_keeps_families - As...
+FAILED tests/test_agent_workflow.py::test_guard_preserves_family_without_redundant_capability_call
+FAILED tests/test_agent_workflow.py::test_permission_payload_rejects_string_false_before_mutation
+4 failed, 3 passed in 0.17s

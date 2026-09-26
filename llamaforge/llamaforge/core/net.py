@@ -2,12 +2,42 @@ from __future__ import annotations
 
 import json
 import socket
+import threading
+from contextlib import contextmanager
 import urllib.error
 import urllib.parse
 import urllib.request
+from .request_tracing import record
 from typing import Iterator
 
-UA = "LlamaForge/0.33.0-adaptive-engine"
+UA = "LlamaForge/0.34.3-hotfix"
+
+
+@contextmanager
+def _cancellable_response(response, cancel):
+    """Close the active inference socket on cancel; no second model process."""
+    finished = threading.Event()
+    def watch():
+        while not finished.wait(0.05):
+            if cancel.is_set():
+                try:
+                    sock = response.fp.raw._sock
+                    sock.shutdown(socket.SHUT_RDWR)
+                except (AttributeError, OSError):
+                    pass
+                return
+    if cancel:
+        threading.Thread(target=watch, name="inference-cancel", daemon=True).start()
+    try:
+        with response:
+            if cancel and cancel.is_set(): raise RuntimeError("Generation cancelled")
+            yield response
+            if cancel and cancel.is_set(): raise RuntimeError("Generation cancelled")
+    except Exception as exc:
+        if cancel and cancel.is_set(): raise RuntimeError("Generation cancelled") from exc
+        raise
+    finally:
+        finished.set()
 
 
 def _opener():
@@ -135,6 +165,7 @@ def stream_chat_events(
     reasoning: str = "auto",
     reasoning_budget: int = -1,
     timeout: int = 900,
+    cancel: threading.Event | None = None,
 ) -> Iterator[dict]:
     """Structured streaming for the product UI.
 
@@ -167,6 +198,8 @@ def stream_chat_events(
         advanced["reasoning_budget"] = int(reasoning_budget)
 
     def open_payload(payload):
+        if cancel and cancel.is_set(): raise RuntimeError("Generation cancelled")
+        record('transport.request', url=url, payload=payload, timeout_seconds=timeout)
         body = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
             url, data=body, method="POST",
@@ -204,7 +237,8 @@ def stream_chat_events(
                 break
             # Keep a short suffix so a control tag split across SSE chunks can still
             # be recognized. This only delays a handful of characters.
-            keep = min(max_tag - 1, len(tag_buffer))
+            keep = max((n for tag in open_tags + close_tags for n in range(1, len(tag))
+                        if tag_buffer.endswith(tag[:n])), default=0)
             safe_len = len(tag_buffer) - keep
             if safe_len > 0:
                 emitted.append(("reasoning" if in_reasoning_tag else "text", tag_buffer[:safe_len]))
@@ -217,17 +251,20 @@ def stream_chat_events(
             response = open_payload(advanced)
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")[:2000]
+            record('transport.error', http_status=exc.code, detail=detail)
             if exc.code in (400, 404, 422) and any(x in detail.lower() for x in ("reasoning", "chat_template_kwargs", "unknown field", "invalid")):
                 response = open_payload(base)
                 yield {"type": "meta", "reasoning_supported": False}
             else:
                 raise RuntimeError(f"Local server returned HTTP {exc.code}: {detail or exc.reason}") from exc
 
-        with response:
+        with _cancellable_response(response, cancel):
             content_type = response.headers.get("Content-Type", "")
             if "text/event-stream" not in content_type:
                 raw = response.read().decode("utf-8", errors="replace")
                 data = json.loads(raw)
+                record('transport.response', response=data)
+                if data.get("error"): raise RuntimeError(str(data["error"]))
                 msg = (data.get("choices") or [{}])[0].get("message") or {}
                 reasoning_text = msg.get("reasoning_content") or ""
                 content = msg.get("content") or ""
@@ -246,20 +283,30 @@ def stream_chat_events(
                     yield {"type": "meta", "usage": usage}
                 return
 
+            complete = False
             for raw_line in response:
+                if cancel and cancel.is_set(): raise RuntimeError("Generation cancelled")
                 line = raw_line.decode("utf-8", errors="replace").strip()
                 if not line.startswith("data:"):
                     continue
                 data = line[5:].strip()
                 if not data or data == "[DONE]":
                     if data == "[DONE]":
+                        complete = True
+                        record('transport.final', marker='DONE')
                         break
                     continue
                 try:
                     obj = json.loads(data)
-                except json.JSONDecodeError:
-                    continue
+                except json.JSONDecodeError as exc:
+                    raise RuntimeError("Malformed inference stream JSON") from exc
+                if obj.get("error"): raise RuntimeError(str(obj["error"]))
+                if obj.get('usage') or obj.get('timings'):
+                    record('transport.metrics', usage=obj.get('usage'), timings=obj.get('timings'))
                 choice = (obj.get("choices") or [{}])[0]
+                if choice.get("finish_reason") is not None:
+                    complete = True
+                    record('transport.final', finish_reason=choice['finish_reason'])
                 delta = choice.get("delta") or {}
                 reasoning_text = delta.get("reasoning_content")
                 text = delta.get("content")
@@ -281,6 +328,8 @@ def stream_chat_events(
                                 yield {"type": typ, "delta": txt}
                 if obj.get("usage"):
                     yield {"type": "meta", "usage": obj.get("usage")}
+            if not complete:
+                raise RuntimeError("Inference stream ended without a final marker")
             if not explicit_reasoning and tag_buffer:
                 for typ, txt in split_tagged_content("", final=True):
                     if txt:
@@ -414,6 +463,7 @@ def chat_completion_with_tools(
     reasoning_budget: int = -1,
     timeout: int = 900,
     json_mode: bool = False,
+    cancel: threading.Event | None = None,
 ) -> dict:
     """Non-streaming OpenAI-compatible chat call with native function tools.
 
@@ -451,6 +501,8 @@ def chat_completion_with_tools(
         payload["reasoning_budget"] = int(reasoning_budget)
 
     def perform(data: dict) -> dict:
+        if cancel and cancel.is_set(): raise RuntimeError("Generation cancelled")
+        record('transport.request', url=url, payload=data, timeout_seconds=timeout)
         body = json.dumps(data).encode("utf-8")
         req = urllib.request.Request(
             url,
@@ -458,9 +510,10 @@ def chat_completion_with_tools(
             method="POST",
             headers={"Content-Type": "application/json", "Accept": "application/json", "User-Agent": UA},
         )
-        with _opener().open(req, timeout=timeout) as response:
+        with _cancellable_response(_opener().open(req, timeout=timeout), cancel) as response:
             raw = response.read().decode("utf-8", errors="replace")
             obj = json.loads(raw)
+        record('transport.response', response=obj)
         choices = obj.get("choices") or []
         if not choices:
             raise RuntimeError("Local model returned no chat choices")
@@ -477,6 +530,7 @@ def chat_completion_with_tools(
         return perform(payload)
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:2400]
+        record('transport.error', http_status=exc.code, detail=detail)
         # Older runtimes reject reasoning-specific fields. Retry once with the
         # minimal OpenAI-compatible payload while preserving native tools.
         low = detail.lower()

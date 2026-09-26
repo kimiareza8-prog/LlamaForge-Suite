@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import uuid
 import threading
 import urllib.request
 import zipfile
@@ -129,10 +130,12 @@ class RuntimeManager:
 
     def find_binary(self, name: str) -> str | None:
         target = self._exe(name)
-        if name == "llama-server" and self.custom_server_path:
+        if self.custom_server_path and name in {"llama-server", "llama-bench", "llama-cli"}:
             p = Path(self.custom_server_path).expanduser()
             if p.is_file():
-                return str(p.resolve())
+                chosen = p if name == "llama-server" else p.parent / target
+                # Never tune a custom server using an unrelated managed build.
+                return str(chosen.resolve()) if chosen.is_file() else None
         pointer = self.runtime_dir / "installed.json"
         if pointer.exists():
             try:
@@ -155,6 +158,7 @@ class RuntimeManager:
             if p.exists() and p.is_file():
                 return str(p.resolve())
         for p in self.runtime_dir.rglob(target):
+            if any(part.endswith(".installing") for part in p.parts): continue
             if p.is_file():
                 return str(p)
         return shutil.which(target) or shutil.which(name)
@@ -551,24 +555,32 @@ class RuntimeManager:
                     f.write(chunk); done += len(chunk)
                     if progress_cb: progress_cb(done, total, f"Downloading {asset['name']}")
 
-            stage = self.runtime_dir / f".{rel['tag']}.installing"; final = self.runtime_dir / rel["tag"]
-            shutil.rmtree(stage, ignore_errors=True); stage.mkdir(parents=True, exist_ok=True)
-            if progress_cb: progress_cb(1, 1, "Extracting and verifying runtime…")
-            if archive.name.endswith(".zip"):
-                self._safe_extract_zip(archive, stage)
-            elif archive.name.endswith((".tar.gz", ".tgz")):
-                self._safe_extract_tar(archive, stage)
-            else:
-                raise RuntimeError("Unsupported runtime archive type")
-            server_name = self._exe("llama-server")
-            if not any(p.is_file() for p in stage.rglob(server_name)):
+            # Immutable install directories keep running Windows DLLs and the
+            # previous usable build untouched, including if promotion fails.
+            tag = re.sub(r"[^A-Za-z0-9._-]", "_", str(rel["tag"]))[:80]
+            install_id = f"{tag}-{uuid.uuid4().hex[:12]}"
+            stage = self.runtime_dir / f".{install_id}.installing"
+            final = self.runtime_dir / install_id
+            stage.mkdir(parents=True, exist_ok=False)
+            pointer_tmp = self.runtime_dir / f".{install_id}.json"
+            try:
+                if progress_cb: progress_cb(1, 1, "Extracting and verifying runtime…")
+                if archive.name.endswith(".zip"):
+                    self._safe_extract_zip(archive, stage)
+                elif archive.name.endswith((".tar.gz", ".tgz")):
+                    self._safe_extract_tar(archive, stage)
+                else:
+                    raise RuntimeError("Unsupported runtime archive type")
+                server_name = self._exe("llama-server")
+                if not any(p.is_file() for p in stage.rglob(server_name)):
+                    raise RuntimeError("Downloaded archive did not contain llama-server")
+                if cancel and cancel.is_set(): raise RuntimeError("Installation cancelled")
+                stage.replace(final)
+                pointer_tmp.write_text(json.dumps({"tag":rel["tag"], "asset":asset["name"], "path":str(final)}, indent=2), encoding="utf-8")
+                pointer_tmp.replace(self.runtime_dir / "installed.json")
+            finally:
                 shutil.rmtree(stage, ignore_errors=True)
-                raise RuntimeError("Downloaded archive did not contain llama-server")
-            if final.exists(): shutil.rmtree(final)
-            stage.replace(final)
-            (self.runtime_dir / "installed.json").write_text(
-                json.dumps({"tag": rel["tag"], "asset": asset["name"], "path": str(final)}, indent=2), encoding="utf-8"
-            )
+                pointer_tmp.unlink(missing_ok=True)
             self._caps_cache = None
         return {"tag": rel["tag"], "asset": asset["name"], "status": self.status()}
 

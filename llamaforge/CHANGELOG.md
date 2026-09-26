@@ -1,3 +1,65 @@
+# 0.34.3-hotfix
+
+- Export trace bytes and metadata from one consistent snapshot; salvage valid events from partial JSONL and missing/corrupt sidecars, with explicit recovery errors and incomplete status.
+- Apply the intersection of request-time and current permissions before every new tool call; record both grants in diagnostics.
+- Use the same generated request ID for HTTP streaming, tracing and cancellation; remote request IDs remain stable for each Bridge message.
+- Bind Telegram send deduplication to the actual user turn and typed recipient/content, independent of model-generated retry keys. New user turns may intentionally repeat messages.
+- Keep local Telegram state paused after disconnect/revoke failures, discard stale login challenges, reject already-cancelled work before submission, and propagate Telegram rate-limit cooldowns.
+- Retention scans file age/size without parsing and redacting old metadata on every request. Measured synthetic capture overhead improves; no inference speed claim.
+- 20 new backend regression cases. See HOTFIX_REPORT_FA.md for suite evidence, paired measurements and remaining live-account/hardware limits.
+
+# 0.34.2-diagnostics
+
+- Full local and Web Bridge request transcripts: routing, typed Skill catalog/shortlist, exact model HTTP payloads and fallback attempts, raw planner replies, tool arguments/results/verification, compact observations and final output.
+- Downloadable JSONL + readable Markdown + manifest ZIP from Logs, with live request IDs, bounded retention, explicit incomplete/interrupted states and credential redaction before disk writes.
+- Preserve streaming delivery and token metrics; record latency, TTFT, runtime snapshots, shared runtime log tail and available transport usage/timings.
+- Accept PHP empty associative file indexes; reject malformed file sync before replacing the calendar.
+- Stop swallowing remote cancellation and propagate heartbeat cancellation to model I/O.
+- Reject incompatible prequantized training sources during Windows CPU preflight, including Intel display-GPU systems.
+
+- Preserve Agent permission drafts during state refresh and late saves; enable fresh-install permissions while preserving stored opt-outs and validate JSON booleans.
+- Shorten family-only routing instructions; retain guard/repaired families instead of requesting them again.
+- Add an optional personal-account Telegram adapter with OS-vault login, bounded per-chat context, unique recipient resolution, serialized sends, cancellation and uncertain-delivery receipts. Include Telegram-only profile and independent read/write permissions.
+- Install runtimes in immutable directories and atomically update the installed pointer; failed promotion leaves the previous build intact.
+- Require tokenizer data instead of treating tokenizer_config.json alone as ready.
+- 400 pytest cases passed, one environment skip; 18 executable UI cases passed. See DIAGNOSTICS_FA.md for measurements, supported Telegram scope and live-hardware limitations.
+
+# 0.34.1-stability
+
+- Fix Brain installer failure reporting, sticky in-flight cancellation, stale preview cancellation, model-switch detection during compilation and preflight failure restoring an initially stopped model.
+- Bind adapter reload to the taught model; reject a model switch at compilation, preflight and reload/confirmation boundaries.
+- Keep chat usable during background Brain setup/download/doctor stages using one activity classifier.
+- Calendar rescheduling accepts time/Jalali/Gregorian/relative dates and preserves event duration; blank dates are rejected atomically and all-day defaults to 24 hours.
+- Add cross-month calendar search with edit access, stale-response protection and escaped results. Date conversion cannot overwrite newer typing.
+- Add 18 backend regression cases and 8 executable UI cases. No new runtime dependency, model instance, or Bridge updater/credential change.
+
+# 0.34.0-smart-brain
+
+- Refresh local chat with a neutral sidebar, compact controls, per-thread drafts/attachments, history search/rename and accessible mobile navigation.
+- Add a readable Jalali month/selected-day calendar, create/edit/cancel dialog, explicit host timezone, local date conversion and multiday display.
+- Fix late-cancel and multi-file/thread-switch races; cancelled responses cannot remove a newer answer.
+- Refresh hosted Bridge CSS for readable chat/calendar controls; updater, tokens and transport code are unchanged.
+
+- Brain supervision compiler and replay curriculum rewritten; no automatic targets from plain questions or ungrounded teacher answers.
+- Explicit question/answer teaching form, correction-aware replay, duplicate recent-lesson detection, finite-gradient guard and bounded candidate loss checks.
+- Live adapter reload no longer rolls back its own candidate. Generation/ledger are confirmed after reload, with durable crash recovery.
+- Silent subprocess timeout, cancellable conversion, checkpoint-based CPU memory admission and terminal UI unlock.
+- See BRAIN_SYSTEM_FA.md and AUDIT_REPORT_FA.md for test evidence and limits; real GGUF training quality has not been benchmarked.
+
+
+- Reuse the router's capability decision, cache request-local discovery, and bypass routing for exact greetings.
+- Add typed operation policies and preflight input validation; show reusable operation branches and their independent permissions in the Skill Tree.
+- Preserve attachment IDs after save/rename and browser reload; deduplicate repeated staging; protect workspace destinations and archive reads.
+- Bound ZIP/TAR and Office decompression; resolve XLSX shared strings; preserve large vision JSON envelopes.
+- Verify local writes and reuse successful same-turn write receipts; block repeated preflight/tool failures and serialize mutations.
+- Preserve workspace ownership in parallel read workers; cancel without blocking on executor shutdown.
+- Stream every final-answer path, preserve explicitly read images in budget-final synthesis, and propagate inference errors/final markers.
+- Add ordered SSE history/reconnect and long-poll fallback, token-ID dedup, backend chat cancellation, and persistent context drafts.
+- Keep image storage separate from projector loading; disable internal control reasoning; redact credential fields in logs/progress.
+- Keep adaptive memory guards active on CPU, retain manual thread settings, count per-slot context/KV, default to one slot, and leave unmeasured automatic speculation off.
+- AutoTune uses bounded staged search, 3 repeats, median/stability scoring, real batch/ubatch comparisons, candidate timeout/cancellation/memory monitoring, and runtime/hardware/profile cache identity.
+- No change to hosted Bridge PHP/JS, token lifecycle or atomic updater (CSS only). No new production dependency.
+
 # 0.33.0-adaptive-engine
 
 - Added real token streaming for Agent final answers. Routing/planning stays structured, while the final user-facing generation is streamed directly from llama-server.

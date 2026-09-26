@@ -3,9 +3,13 @@ from __future__ import annotations
 import json
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from dataclasses import dataclass
+from dataclasses import asdict
+from contextvars import copy_context
 from typing import Any, Callable, Iterator
+from .skill_contracts import operation_policy
+from .request_tracing import record, logged_model, logged_stream, current_trace
 
 
 @dataclass
@@ -23,6 +27,9 @@ class AgentRouteDecision:
     route: str  # direct | skills
     summary: str = ""
     confidence: int = 0
+    families: list[str] | None = None
+    goal: str = ""
+    needs_write: bool = False
 
 
 def _json_object_from_text(text: str) -> dict[str, Any] | None:
@@ -253,25 +260,21 @@ class AgentEngine:
         return cls._needs_external_action(task)
 
     @staticmethod
-    def _route_prompt(conversation: str) -> str:
+    def _route_prompt(conversation: str, families: list[str] | None = None) -> str:
+        from .skill_system import FAMILY_LABELS
+        titles = "\n".join(f"- {name}: {description}" for name,description in FAMILY_LABELS.items()
+                           if families is None or name in families)
         return f"""You are stage 0 of a local AI agent router.
-Decide ONLY whether the user's request should be answered directly by the local model or should enter the external Skill system. Do not answer the user's task.
-
-ROUTING RULES:
-- route=direct for greetings, ordinary conversation, writing, summarizing text already provided, translation, coding/explanations, brainstorming, and questions that can be answered from the model's own knowledge without performing a real external action.
-- route=skills whenever the user asks to actually open/check/read a URL or website, search/browse the web, get fresh/current external information, download something, call GET/POST/PUT/PATCH/DELETE or another API/HTTP endpoint, interact with a browser/site, or operate a configured connector/custom external skill.
-- route=skills when the answer requires live personal state/tools: current local time/date, the user's calendar/schedule/reminders, or the LlamaForge File Manager/workspace.
-- A staged attachment marker means a real file exists. Route to skills when the user wants to store/organize/find/read/inspect that file. Do NOT assume file content must be read; File Manager can organize it from metadata alone.
-- Merely discussing what an API/browser/website is does NOT require skills. Asking to USE it does.
-- If the user supplies a URL and asks you to look at/open/check/read it, route MUST be skills.
-- If the user asks for current/live/latest information that requires retrieval, route MUST be skills.
-- When uncertain between direct and skills because completing the request requires verifying something outside the conversation, choose skills.
-
+Does the latest request need a real tool? Do not answer or execute the task.
+Use direct for greetings, writing, explanations, translation and text already in the conversation.
+Use skills for current clock/date, personal state, reading URLs/files, search, actual calendar/file changes, Telegram messages or website actions.
+Mentioning a tool is not an instruction to use it. Attachments are metadata first; do not read content unless needed.
+Choose only needed families by title. Tool schemas are supplied AFTER this decision, never here.
 RETURN EXACTLY ONE JSON OBJECT AND NOTHING ELSE:
-{{"route":"direct","summary":"short reason","confidence":0}}
-or
-{{"route":"skills","summary":"short reason","confidence":0}}
-
+{{"route":"direct"}} OR {{"route":"skills","families":["files"],"goal":"short goal"}}
+Families enabled in this profile:
+{titles}
+If a needed family is disabled, do not invent access; explain the setting in the direct answer.
 CONVERSATION / LATEST USER TASK:
 {conversation[-7000:]}"""
 
@@ -280,8 +283,14 @@ CONVERSATION / LATEST USER TASK:
         call_model: Callable[[list[dict], list[dict]], dict],
         conversation: str,
         latest_user: str,
+        families: list[str] | None = None,
     ) -> tuple[AgentRouteDecision, str]:
-        prompt = self._route_prompt(conversation)
+        # Exact social turns have no live-state dependency. Mixed turns still go
+        # through the model ("hello, create a meeting" is not a greeting shortcut).
+        social = re.sub(r"[!?؟،,.\s]+$", "", latest_user.strip().lower())
+        if social in {"سلام", "درود", "سلام خوبی", "سلام چطوری", "hi", "hello", "hey", "thanks", "thank you", "ممنون", "متشکرم"}:
+            return AgentRouteDecision("direct", "Simple conversational turn", 100), ""
+        prompt = self._route_prompt(conversation, families)
         msg = call_model([{"role": "user", "content": prompt}], [])
         raw = ""
         if isinstance(msg, dict):
@@ -301,6 +310,8 @@ CONVERSATION / LATEST USER TASK:
                 route=route,
                 summary=str((obj or {}).get("summary") or (obj or {}).get("reason") or "").strip()[:500],
                 confidence=confidence,
+                families=[str(x) for x in obj.get("families", [])] if isinstance(obj.get("families"), list) else None,
+                goal=str(obj.get("goal") or "")[:500], needs_write=bool(obj.get("needs_write")),
             ), raw
 
         # One small repair inference keeps control with the model instead of
@@ -325,7 +336,9 @@ CONVERSATION / LATEST USER TASK:
                 confidence = max(0, min(100, int((obj or {}).get("confidence") or 0)))
             except Exception:
                 confidence = 0
-            return AgentRouteDecision(route=route, summary=str((obj or {}).get("summary") or "").strip()[:500], confidence=confidence), repaired_raw
+            return AgentRouteDecision(route=route, summary=str((obj or {}).get("summary") or "").strip()[:500], confidence=confidence,
+                families=[str(x) for x in obj.get("families", [])] if isinstance(obj.get("families"), list) else None,
+                goal=str(obj.get("goal") or "")[:500], needs_write=bool(obj.get("needs_write"))), repaired_raw
 
         # Last-resort compatibility fallback only if the model failed to provide
         # a usable route twice. This is no longer the normal decision path.
@@ -451,16 +464,7 @@ CONVERSATION / LATEST USER TASK:
     @staticmethod
     def _parallel_read_safe(skill: str, arguments: dict[str, Any], catalog: list[dict[str, Any]]) -> bool:
         row = next((x for x in catalog if x.get("name") == skill), {})
-        risk = str(row.get("risk") or "").lower()
-        if risk == "read":
-            return True
-        if skill == "calendar":
-            return str((arguments or {}).get("operation") or "").lower() in {"now", "convert", "month", "list"}
-        if skill == "workspace_files":
-            return str((arguments or {}).get("operation") or "").lower() in {"list", "search", "metadata", "probe", "read_content"}
-        if skill == "http_request":
-            return str((arguments or {}).get("method") or "GET").upper() in {"GET", "HEAD"}
-        return False
+        return operation_policy(skill, arguments, row).parallel_safe
 
     def _planner_prompt(self, conversation: str, manifest: str, observations: list[dict[str, str]], step: int, max_steps: int, *, observation_keep: int = 3, response_language: str = "the user's language") -> str:
         recent = observations[-max(1, int(observation_keep or 3)):]
@@ -487,7 +491,7 @@ WORKFLOW YOU MUST FOLLOW:
 13. Local calendar/File Manager writes are separate from dangerous remote site writes. If calendar/files are listed as available, USE them instead of claiming you lack read/write access.
 14. For an attached workspace file, use read_content with its attachment_id when the user needs its contents; use store_attachment when they only want it saved. Do not list the normal workspace and pretend the attachment is missing.
 15. For workspace files, default to metadata/list/search when content is unnecessary. Storing/moving/renaming a file must not read it unnecessarily.
-16. If a failure observation includes suggested_fallbacks, choose one of them unless you have a concrete reason not to.
+16. For archive contents, probe the member listing first, then read_content with only relevant members. If a failure observation includes suggested_fallbacks, choose one of them unless you have a concrete reason not to.
 17. Parallel batches are ONLY for independent read-only work. Never parallelize writes, browser mutations, POST/PUT/PATCH/DELETE, calendar mutations, file mutations, or a step that needs another step's output.
 18. Keep control/planning concise and in English. The user-facing final answer must be in {response_language}.
 
@@ -622,7 +626,7 @@ Return only the final user-facing answer."""
         if urls and "web_read" in available:
             return AgentDecision("tool", "Read the URL supplied by the user.", "web_read", {"url": urls[0].rstrip(".,);]}")})
         low = str(task or "").lower()
-        if "calendar" in available and any(x in low for x in ("ساعت چنده", "الان ساعت", "امروز چندمه", "فردا", "پس فردا", "وقت خالی", "تقویم", "جلسه", "قرار", "یادآوری", "meeting", "calendar", "current time", "free time", "tomorrow")):
+        if "calendar" in available and any(x in low for x in ("ساعت چنده", "الان ساعت", "امروز چندمه", "فردا", "پس فردا", "وقت خالی", "تقویم", "جلسه", "قرار", "یادآوری", "meeting", "calendar", "current time", "what time is it", "what's the time", "today's date", "free time", "tomorrow")):
             # now is the safest first primitive: it grounds timezone/date and lets the
             # next planning step resolve relative phrases such as tomorrow correctly.
             return AgentDecision("tool", "Ground the request in the real local calendar clock.", "calendar", {"operation": "now"})
@@ -701,6 +705,12 @@ Return only the final user-facing answer."""
         return True, ""
 
     @staticmethod
+    def _answer_messages(prompt: str, observations: list[dict]) -> list[dict]:
+        images = [url for o in observations[-4:] for url in o.get("vision", []) if url.startswith("data:image/")][-2:]
+        content = ([{"type":"text", "text":prompt}] + [{"type":"image_url", "image_url":{"url":url}} for url in images]) if images else prompt
+        return [{"role":"user", "content":content}]
+
+    @staticmethod
     def _streaming_final_prompt(*, latest_user: str, observations: list[dict[str, str]], draft: str, target_language: str, observation_keep: int) -> str:
         evidence = "\n\n".join(
             f"{o['skill']}: {o['result']}" for o in observations[-max(1, observation_keep):]
@@ -742,6 +752,7 @@ Return only the final user-facing answer."""
         max_steps: int = 8,
         context_limit: int = 8192,
         stream_final: Callable[[list[dict]], Iterator[dict[str, Any]]] | None = None,
+        cancel: Any = None,
     ) -> Iterator[dict[str, Any]]:
         from .skill_system import SkillRegistry
         policy = self._context_policy(context_limit)
@@ -749,8 +760,35 @@ Return only the final user-facing answer."""
         max_steps = max(1, min(16, int(max_steps or 8)))
         target_language = self._response_language(latest_user)
 
+        def check_cancel():
+            if cancel is not None and cancel.is_set():
+                raise RuntimeError("Agent cancelled")
+
+        original_model = call_model
+        def guarded_model(messages, tools):
+            check_cancel()
+            response = logged_model(lambda: original_model(messages, tools), messages, tools=tools)
+            check_cancel()
+            return response
+        call_model = guarded_model
+        if stream_final is not None:
+            original_stream = stream_final
+            def guarded_stream(messages):
+                check_cancel()
+                iterator = logged_stream(original_stream(messages), messages)
+                try:
+                    for event in iterator:
+                        check_cancel()
+                        yield event
+                finally:
+                    if hasattr(iterator, "close"): iterator.close()
+            stream_final = guarded_stream
+
         registry = SkillRegistry(self.runtime, permissions)
-        capability_hints = registry.hinted_families(latest_user)
+        enabled_families = ["telegram"] if getattr(permissions, "skill_profile", "all") == "telegram_only" else None
+        capability_hints = [f for f in registry.hinted_families(latest_user) if enabled_families is None or f in enabled_families]
+        record('agent.context', messages=messages, conversation=conversation, latest_user=latest_user,
+               policy=policy, permissions=vars(permissions), capability_hints=capability_hints)
 
         # Stage 0: the model decides Direct vs Skills, with domain-level guard rails.
         # Guard rails are intentionally broad (calendar/files/web/api/browser), not
@@ -758,14 +796,17 @@ Return only the final user-facing answer."""
         # "no access" for capabilities the runtime actually has.
         yield {"type": "agent", "event": "phase", "phase": "route", "label": "Deciding whether this request needs Skills"}
         route_started = time.monotonic()
-        route_decision, route_raw = self._route_decision(call_model, conversation, latest_user)
+        route_decision, route_raw = self._route_decision(call_model, conversation, latest_user, enabled_families)
+        record('router.decision', decision=asdict(route_decision), raw=route_raw, hints=capability_hints)
         route_seconds = max(0.0, time.monotonic() - route_started)
         external_required = route_decision.route == "skills" or bool(capability_hints)
         if capability_hints and route_decision.route != "skills":
+            record('router.guard', before=asdict(route_decision), reason='clear capability hint', families=capability_hints)
             route_decision = AgentRouteDecision(
                 route="skills",
                 summary="Runtime capability guard: " + ", ".join(capability_hints),
                 confidence=max(90, route_decision.confidence),
+                families=capability_hints, goal=latest_user[:500],
             )
         yield {
             "type": "agent", "event": "route_decision", "route": route_decision.route,
@@ -814,6 +855,8 @@ Return only the final user-facing answer."""
             return
 
         tool_defs = self.runtime.tool_definitions(permissions)
+        if current_trace() is not None:
+            record('skills.catalog', catalog=registry.catalog(tool_defs), definitions=tool_defs)
         observations: list[dict[str, str]] = []
         yield {"type": "agent", "event": "route", "route": "agent", "label": "Local model requested external Skills", "response_language": target_language}
         yield {
@@ -828,11 +871,18 @@ Return only the final user-facing answer."""
 
         yield {"type": "agent", "event": "phase", "phase": "understand", "label": "Understanding the request"}
         cap_started = time.monotonic()
-        goal, categories, needs_write, cap_raw = self._discover_capabilities(call_model, conversation, latest_user, registry)
+        categories = registry.categories_for_families(route_decision.families)
+        if categories:
+            goal, needs_write, cap_raw = route_decision.goal, route_decision.needs_write, route_raw
+            categories = list(dict.fromkeys(categories + registry.categories_for_families(capability_hints)))
+        else:
+            goal, categories, needs_write, cap_raw = self._discover_capabilities(call_model, conversation, latest_user, registry)
         cap_seconds = max(0.0, time.monotonic() - cap_started)
         families = registry.families_for_categories(categories)
         shortlist = registry.shortlist(latest_user, categories, limit=policy["skill_limit"])
         manifest, available = registry.manifest(shortlist, tool_defs)
+        record('skills.shortlist', goal=goal, families=families, categories=categories, rows=shortlist,
+               available=sorted(available), manifest=manifest, model_output=cap_raw)
         yield {
             "type": "agent", "event": "capabilities", "goal": goal or latest_user[:220],
             "families": families, "categories": categories, "needs_write": bool(needs_write),
@@ -842,6 +892,7 @@ Return only the final user-facing answer."""
         }
 
         for step in range(1, max_steps + 1):
+            check_cancel()
             yield {"type": "agent", "event": "thinking", "step": step, "max_steps": max_steps, "label": "Planning next action"}
             prompt = self._planner_prompt(
                 conversation, manifest, observations, step, max_steps,
@@ -852,6 +903,7 @@ Return only the final user-facing answer."""
             for o in observations[-max(1, policy["observation_keep"]):]:
                 recent_vision.extend([str(x) for x in (o.get("vision") or []) if str(x).startswith("data:image/")])
             decision, raw = self._model_decision(call_model, prompt, manifest, vision=recent_vision[-2:])
+            record('planner.decision', step=step, raw=raw, parsed=asdict(decision) if decision else None)
             model_seconds = max(0.0, time.monotonic() - started)
 
             if decision is None:
@@ -864,6 +916,10 @@ Return only the final user-facing answer."""
                         + conversation + "\n\nOBSERVATIONS:\n"
                         + "\n".join(o["result"] for o in observations[-4:])
                     )
+                    if stream_final is not None:
+                        yield {"type":"agent", "event":"decision_error", "label":"Planner output invalid; answering from observations"}
+                        yield from stream_final(self._answer_messages(final_prompt, observations))
+                        return
                     final_msg = call_model([{"role": "user", "content": final_prompt}], [])
                     answer = str(final_msg.get("content") or "").strip() if isinstance(final_msg, dict) else ""
                     if not answer:
@@ -881,12 +937,16 @@ Return only the final user-facing answer."""
                 decision.actions = filled_actions
             else:
                 decision = self._fill_common_args(decision, latest_user)
+            record('planner.arguments', step=step, decision=asdict(decision))
 
             if decision.action == "parallel":
                 catalog_rows = registry.catalog(tool_defs)
                 batch = [x for x in (decision.actions or []) if x.get("skill") in available][:3]
                 invalid = []
                 for row in batch:
+                    sig = self._call_signature(str(row.get("skill")), row.get("arguments"))
+                    if sig in attempts and attempts[sig].get("ok") is False:
+                        invalid.append("Repeated failed call blocked; change arguments or capability")
                     valid, err = registry.validate_call(str(row.get("skill") or ""), dict(row.get("arguments") or {}))
                     if not valid:
                         invalid.append(err)
@@ -903,25 +963,53 @@ Return only the final user-facing answer."""
                 yield {"type": "agent", "event": "parallel_start", "count": len(batch), "skills": [x["skill"] for x in batch]}
                 started_parallel = time.monotonic()
                 results: list[tuple[int, dict[str, Any], Any, float]] = []
-                with ThreadPoolExecutor(max_workers=min(3, len(batch)), thread_name_prefix="lf-agent-read") as pool:
+                pool = ThreadPoolExecutor(max_workers=min(3, len(batch)), thread_name_prefix="lf-agent-read")
+                try:
                     futures = {}
+                    owner = self.runtime.workspace_scope() if hasattr(self.runtime, "workspace_scope") else None
+                    def execute_scoped(name, args):
+                        previous = self.runtime.workspace_scope() if owner is not None else None
+                        try:
+                            if owner is not None: self.runtime.set_workspace_scope(owner)
+                            check_cancel()
+                            return self.runtime.execute(name, args, permissions)
+                        finally:
+                            if previous is not None: self.runtime.set_workspace_scope(previous)
                     for idx, row in enumerate(batch):
                         t0 = time.monotonic()
-                        fut = pool.submit(self.runtime.execute, str(row["skill"]), dict(row.get("arguments") or {}), permissions)
+                        fut = pool.submit(copy_context().run, execute_scoped, str(row["skill"]), dict(row.get("arguments") or {}))
                         futures[fut] = (idx, row, t0)
-                    for fut in as_completed(futures):
-                        idx, row, t0 = futures[fut]
-                        try:
-                            result = fut.result()
-                        except Exception as exc:
-                            result = json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False)
-                        results.append((idx, row, result, max(0.0, time.monotonic() - t0)))
+                    pending = set(futures)
+                    while pending:
+                        check_cancel()
+                        done, pending = wait(pending, timeout=0.05, return_when=FIRST_COMPLETED)
+                        for fut in list(pending):
+                            idx, row, t0 = futures[fut]
+                            metadata = next((x for x in catalog_rows if x["name"] == row["skill"]), {})
+                            deadline = operation_policy(row["skill"], row.get("arguments"), metadata).timeout_seconds
+                            if time.monotonic() - t0 >= deadline:
+                                pending.remove(fut)
+                                fut.cancel()
+                                results.append((idx, row, '{"ok":false,"error":"Read operation timed out"}', time.monotonic() - t0))
+                        for fut in done:
+                            idx, row, t0 = futures[fut]
+                            try:
+                                result = fut.result()
+                            except Exception as exc:
+                                result = json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False)
+                            results.append((idx, row, result, max(0.0, time.monotonic() - t0)))
+                finally:
+                    # Running read-only I/O has its own transport deadline. Do
+                    # not block UI cancellation waiting for the executor join.
+                    pool.shutdown(wait=False, cancel_futures=True)
                 results.sort(key=lambda x: x[0])
                 for _idx, row, result, tool_seconds in results:
                     skill = str(row["skill"])
                     ok, error_text = self._parse_tool_result(result, skill)
+                    attempts[self._call_signature(skill, row.get("arguments"))] = {"ok":ok, "error":error_text, "result":result}
                     compact = _safe_json(result, max_chars=policy["observation_chars"]) if ok else _safe_json({"tool_result": result, "error": error_text}, max_chars=policy["observation_chars"])
                     observations.append({"skill": skill, "result": compact})
+                    record('observation', step=step, skill=skill, parallel=True, raw=result, presented_to_model=compact)
                     yield {"type": "agent", "event": "tool_result", "tool": skill, "ok": ok, "step": step, "parallel": True, "tool_seconds": round(tool_seconds, 2), "error_preview": error_text[:300] if error_text else ""}
                 yield {"type": "agent", "event": "parallel_done", "count": len(results), "wall_seconds": round(max(0.0, time.monotonic() - started_parallel), 2), "label": "Independent reads completed in parallel"}
                 continue
@@ -967,7 +1055,7 @@ Return only the final user-facing answer."""
                         target_language=target_language, observation_keep=policy["observation_keep"],
                     )
                     emitted = False
-                    for streamed in stream_final([{"role": "user", "content": final_prompt}]):
+                    for streamed in stream_final(self._answer_messages(final_prompt, observations)):
                         if not isinstance(streamed, dict):
                             continue
                         if streamed.get("type") == "text" and streamed.get("delta"):
@@ -983,6 +1071,19 @@ Return only the final user-facing answer."""
                 return
 
             if decision.skill not in available:
+                # A model may request a relevant capability not initially shown.
+                # Reveal its branch and re-plan with the real schema before execution.
+                requested = next((x for x in registry.catalog(tool_defs) if x["name"] == decision.skill and x.get("available")), None)
+                if requested:
+                    if requested["category"] not in categories: categories.append(requested["category"])
+                    shortlist = registry.shortlist(latest_user, categories, limit=policy["skill_limit"])
+                    if not any(x["name"] == decision.skill for x in shortlist):
+                        shortlist = [requested] + shortlist[:policy["skill_limit"]-1]
+                    manifest, available = registry.manifest(shortlist, tool_defs)
+                    record('skills.shortlist', reason='replan', rows=shortlist, available=sorted(available), manifest=manifest)
+                    observations.append({"skill":"discovery", "result":"Expanded capability branch. Review the newly supplied input schema and plan again."})
+                    yield {"type":"agent", "event":"replan", "skills":sorted(available), "label":"Expanded relevant capability branch"}
+                    continue
                 observations.append({
                     "skill": decision.skill or "unknown",
                     "result": _safe_json({"ok": False, "error": f"Unknown skill {decision.skill!r}. Choose one of: {sorted(available)}"}),
@@ -994,20 +1095,13 @@ Return only the final user-facing answer."""
                 yield {"type": "agent", "event": "tool_result", "tool": decision.skill, "ok": False, "error": "unknown_skill"}
                 continue
 
-            valid, validation_error = registry.validate_call(decision.skill, decision.arguments or {})
-            if not valid:
-                meta = next((x for x in registry.catalog(tool_defs) if x.get("name") == decision.skill), {})
-                compact = _safe_json({
-                    "ok": False, "error": validation_error, "failure": {"kind": "preflight", "retryable": False},
-                    "suggested_fallbacks": meta.get("fallbacks") or [],
-                    "instruction": "Fix arguments, permissions, requirements, or choose a fallback skill.",
-                })
-                observations.append({"skill": decision.skill, "result": compact})
-                yield {"type": "agent", "event": "preflight_failed", "tool": decision.skill, "error": validation_error, "fallbacks": meta.get("fallbacks") or []}
-                continue
-
             signature = self._call_signature(decision.skill, decision.arguments)
             previous = attempts.get(signature)
+            op_policy = operation_policy(decision.skill, decision.arguments, next((x for x in registry.catalog(tool_defs) if x["name"] == decision.skill), {}))
+            if previous and previous.get("ok") and op_policy.effect in {"local_write", "external_write"}:
+                observations.append({"skill":decision.skill, "result":_safe_json(previous.get("result"), max_chars=policy["observation_chars"])})
+                yield {"type":"agent", "event":"policy", "policy":"reuse_write_receipt", "skill":decision.skill}
+                continue
             if previous and previous.get("ok") is False:
                 error_text = str(previous.get("error") or "previous call failed")
                 compact = _safe_json({
@@ -1024,6 +1118,20 @@ Return only the final user-facing answer."""
                 }
                 continue
 
+            valid, validation_error = registry.validate_call(decision.skill, decision.arguments or {})
+            record("preflight", step=step, skill=decision.skill, arguments=decision.arguments, valid=valid, error=validation_error)
+            if not valid:
+                attempts[self._call_signature(decision.skill, decision.arguments)] = {"ok":False, "error":validation_error}
+                meta = next((x for x in registry.catalog(tool_defs) if x.get("name") == decision.skill), {})
+                compact = _safe_json({
+                    "ok": False, "error": validation_error, "failure": {"kind": "preflight", "retryable": False},
+                    "suggested_fallbacks": meta.get("fallbacks") or [],
+                    "instruction": "Fix arguments, permissions, requirements, or choose a fallback skill.",
+                })
+                observations.append({"skill": decision.skill, "result": compact})
+                yield {"type": "agent", "event": "preflight_failed", "tool": decision.skill, "error": validation_error, "fallbacks": meta.get("fallbacks") or []}
+                continue
+
             yield {
                 "type": "agent", "event": "decision", "action": "tool", "skill": decision.skill,
                 "summary": decision.summary or f"Use {decision.skill}", "arguments": decision.arguments or {},
@@ -1034,7 +1142,7 @@ Return only the final user-facing answer."""
             result = self.runtime.execute(decision.skill, decision.arguments or {}, permissions)
             tool_seconds = max(0.0, time.monotonic() - tool_started)
             ok, error_text = self._parse_tool_result(result, decision.skill)
-            attempts[signature] = {"ok": ok, "error": error_text, "step": step}
+            attempts[signature] = {"ok": ok, "error": error_text, "step": step, "result":result}
             failure = None
             meta = next((x for x in registry.catalog(tool_defs) if x.get("name") == decision.skill), {})
             vision_items: list[str] = []
@@ -1071,6 +1179,8 @@ Return only the final user-facing answer."""
             if vision_items:
                 observation_row["vision"] = vision_items
             observations.append(observation_row)
+            record('observation', step=step, skill=decision.skill, raw=result, presented_to_model=compact,
+                   ok=ok, failure=failure)
             yield {
                 "type": "agent", "event": "tool_result", "tool": decision.skill, "ok": ok,
                 "step": step, "tool_seconds": round(tool_seconds, 2), "observation_chars": len(compact),
@@ -1089,7 +1199,10 @@ Return only the final user-facing answer."""
             + "\n\n".join(f"{o['skill']}: {o['result']}" for o in observations[-policy["observation_keep"]:])
         )
         yield {"type": "agent", "event": "phase", "phase": "finalize", "label": "Synthesizing final answer"}
-        msg = call_model([{"role": "user", "content": synthesis}], [])
+        if stream_final is not None:
+            yield from stream_final(self._answer_messages(synthesis, observations))
+            return
+        msg = call_model(self._answer_messages(synthesis, observations), [])
         answer = str(msg.get("content") or "").strip() if isinstance(msg, dict) else ""
         if not answer:
             answer = "The agent reached its step limit before the local model produced a final answer."

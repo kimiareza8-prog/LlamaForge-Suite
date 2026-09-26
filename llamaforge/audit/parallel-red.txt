@@ -1,0 +1,38 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________ test_cancel_does_not_wait_for_parallel_network_reads _____________
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7f6ab17e3260>
+
+    def test_cancel_does_not_wait_for_parallel_network_reads(runtime):
+        import time
+        cancel, entered, release = threading.Event(), threading.Event(), threading.Event()
+        def execute(*_):
+            entered.set()
+            release.wait(2)
+            return '{"ok":true,"result":{}}'
+        runtime.execute = execute
+        def model(messages, tools):
+            p = messages[0]["content"]
+            if "stage 0" in p: return {"content":'{"route":"skills","families":["web"]}'}
+            if "STEP 1" in p: return {"content":json.dumps({"action":"parallel", "actions":[
+                {"skill":"web_read","arguments":{"url":"https://example.com/a"}},
+                {"skill":"web_read","arguments":{"url":"https://example.com/b"}}]})}
+            return {"content":'{"action":"final","answer":"Done"}'}
+        def stop():
+            entered.wait(1)
+            cancel.set()
+        stopper = threading.Thread(target=stop); stopper.start()
+        started = time.monotonic()
+        try:
+            with pytest.raises(RuntimeError, match="cancel"):
+                list(runtime.run([{"role":"user", "content":"Read https://example.com/a and https://example.com/b"}], model, AgentPermissions(), cancel=cancel))
+>           assert time.monotonic() - started < 1
+E           AssertionError: assert (435.268851537 - 433.263850085) < 1
+E            +  where 435.268851537 = <built-in function monotonic>()
+E            +    where <built-in function monotonic> = <module 'time' (built-in)>.monotonic
+
+tests/test_skill_audit.py:127: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_skill_audit.py::test_cancel_does_not_wait_for_parallel_network_reads
+1 failed in 2.09s

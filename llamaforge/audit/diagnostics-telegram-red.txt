@@ -1,0 +1,102 @@
+EEEEFFFFE                                                                [100%]
+==================================== ERRORS ====================================
+_ ERROR at setup of test_telegram_metadata_does_not_read_history_and_ambiguity_is_explicit _
+
+    @pytest.fixture
+    def service():
+>       from llamaforge.core.telegram_skill import TelegramService
+E       ModuleNotFoundError: No module named 'llamaforge.core.telegram_skill'
+
+tests/test_telegram_skill.py:43: ModuleNotFoundError
+__ ERROR at setup of test_context_budget_peer_scope_and_send_without_history ___
+
+    @pytest.fixture
+    def service():
+>       from llamaforge.core.telegram_skill import TelegramService
+E       ModuleNotFoundError: No module named 'llamaforge.core.telegram_skill'
+
+tests/test_telegram_skill.py:43: ModuleNotFoundError
+_ ERROR at setup of test_telegram_permissions_and_profile_enforced_at_executor _
+
+    @pytest.fixture
+    def service():
+>       from llamaforge.core.telegram_skill import TelegramService
+E       ModuleNotFoundError: No module named 'llamaforge.core.telegram_skill'
+
+tests/test_telegram_skill.py:43: ModuleNotFoundError
+_______ ERROR at setup of test_auth_secrets_vault_only_and_logout_clears _______
+
+    @pytest.fixture
+    def service():
+>       from llamaforge.core.telegram_skill import TelegramService
+E       ModuleNotFoundError: No module named 'llamaforge.core.telegram_skill'
+
+tests/test_telegram_skill.py:43: ModuleNotFoundError
+_____________ ERROR at setup of test_write_timeout_is_not_retried ______________
+
+    @pytest.fixture
+    def service():
+>       from llamaforge.core.telegram_skill import TelegramService
+E       ModuleNotFoundError: No module named 'llamaforge.core.telegram_skill'
+
+tests/test_telegram_skill.py:43: ModuleNotFoundError
+=================================== FAILURES ===================================
+_________ test_telegram_credentials_redacted_but_chat_identifiers_kept _________
+
+    def test_telegram_credentials_redacted_but_chat_identifiers_kept():
+        out=redact({'api_hash':'secret-a','phone_code_hash':'secret-b','session_string':'secret-c','chat_ref':'chat_123','session_id':'trace-name'})
+>       assert 'secret-' not in json.dumps(out)
+E       assert 'secret-' not in '{"api_hash"...trace-name"}'
+E
+E         'secret-' is contained here:
+E           {"api_hash": "secret-a", "phone_code_hash": "secret-b", "session_string": "secret-c", "chat_ref": "chat_123", "session_id": "trace-name"}
+E         ?               +++++++
+
+tests/test_telegram_skill.py:97: AssertionError
+_ test_telegram_family_guard[\u062a\u0644\u06af\u0631\u0627\u0645 \u067e\u06cc\u0627\u0645\u200c\u0647\u0627\u06cc \u0639\u0644\u06cc \u0631\u0648 \u0628\u062e\u0648\u0646] _
+
+task = 'تلگرام پیام\u200cهای علی رو بخون'
+
+    @pytest.mark.parametrize('task', ['تلگرام پیام‌های علی رو بخون', 'Read my Telegram messages', 'پیام Telegram علی رو جواب بده'])
+>   def test_telegram_family_guard(task):assert 'telegram' in SkillRegistry.hinted_families(task)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert 'telegram' in []
+E    +  where [] = <function SkillRegistry.hinted_families at 0x7fae39e8bba0>('تلگرام پیام\u200cهای علی رو بخون')
+E    +    where <function SkillRegistry.hinted_families at 0x7fae39e8bba0> = SkillRegistry.hinted_families
+
+tests/test_telegram_skill.py:102: AssertionError
+____________ test_telegram_family_guard[Read my Telegram messages] _____________
+
+task = 'Read my Telegram messages'
+
+    @pytest.mark.parametrize('task', ['تلگرام پیام‌های علی رو بخون', 'Read my Telegram messages', 'پیام Telegram علی رو جواب بده'])
+>   def test_telegram_family_guard(task):assert 'telegram' in SkillRegistry.hinted_families(task)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert 'telegram' in []
+E    +  where [] = <function SkillRegistry.hinted_families at 0x7fae39e8bba0>('Read my Telegram messages')
+E    +    where <function SkillRegistry.hinted_families at 0x7fae39e8bba0> = SkillRegistry.hinted_families
+
+tests/test_telegram_skill.py:102: AssertionError
+_ test_telegram_family_guard[\u067e\u06cc\u0627\u0645 Telegram \u0639\u0644\u06cc \u0631\u0648 \u062c\u0648\u0627\u0628 \u0628\u062f\u0647] _
+
+task = 'پیام Telegram علی رو جواب بده'
+
+    @pytest.mark.parametrize('task', ['تلگرام پیام‌های علی رو بخون', 'Read my Telegram messages', 'پیام Telegram علی رو جواب بده'])
+>   def test_telegram_family_guard(task):assert 'telegram' in SkillRegistry.hinted_families(task)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert 'telegram' in []
+E    +  where [] = <function SkillRegistry.hinted_families at 0x7fae39e8bba0>('پیام Telegram علی رو جواب بده')
+E    +    where <function SkillRegistry.hinted_families at 0x7fae39e8bba0> = SkillRegistry.hinted_families
+
+tests/test_telegram_skill.py:102: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_telegram_skill.py::test_telegram_credentials_redacted_but_chat_identifiers_kept
+FAILED tests/test_telegram_skill.py::test_telegram_family_guard[\u062a\u0644\u06af\u0631\u0627\u0645 \u067e\u06cc\u0627\u0645\u200c\u0647\u0627\u06cc \u0639\u0644\u06cc \u0631\u0648 \u0628\u062e\u0648\u0646]
+FAILED tests/test_telegram_skill.py::test_telegram_family_guard[Read my Telegram messages]
+FAILED tests/test_telegram_skill.py::test_telegram_family_guard[\u067e\u06cc\u0627\u0645 Telegram \u0639\u0644\u06cc \u0631\u0648 \u062c\u0648\u0627\u0628 \u0628\u062f\u0647]
+ERROR tests/test_telegram_skill.py::test_telegram_metadata_does_not_read_history_and_ambiguity_is_explicit
+ERROR tests/test_telegram_skill.py::test_context_budget_peer_scope_and_send_without_history
+ERROR tests/test_telegram_skill.py::test_telegram_permissions_and_profile_enforced_at_executor
+ERROR tests/test_telegram_skill.py::test_auth_secrets_vault_only_and_logout_clears
+ERROR tests/test_telegram_skill.py::test_write_timeout_is_not_retried - Modul...
+4 failed, 5 errors in 0.09s

@@ -1,4 +1,6 @@
 from __future__ import annotations
+from .request_tracing import record, current_trace
+from contextvars import copy_context
 
 import hashlib
 import io
@@ -92,7 +94,9 @@ class RemoteAppManager:
         workspace_exporter: Callable[[str], dict[str, Any]] | None = None,
         log: Callable[[str], None] | None = None,
         app_version: str = "0.33.0-adaptive-engine",
+        request_traces=None,
     ):
+        self.request_traces = request_traces
         self.task_runner = task_runner
         self.runtime_info = runtime_info
         self.control_handler = control_handler
@@ -598,6 +602,9 @@ class RemoteAppManager:
 
     @staticmethod
     def _activity_from_event(event: dict[str, Any]) -> dict[str, Any] | None:
+        if event.get("type") == "meta" and isinstance(event.get("trace"),dict):
+            return {"type":"phase","phase":"diagnostic","label":"گزارش عیب‌یابی این درخواست در Logs برنامه ذخیره می‌شود",
+                    "detail":str(event["trace"].get("id") or ""),"status":"done"}
         kind = str(event.get("event") or "")
         if event.get("type") != "agent":
             return None
@@ -721,6 +728,7 @@ class RemoteAppManager:
         snapshot = result.get("snapshot") if isinstance(result.get("snapshot"), dict) else None
         if snapshot is None:
             raise RuntimeError("Workspace sync returned no snapshot")
+        record("workspace.sync_pull", scope=scope, revision=result.get("revision"), snapshot=snapshot)
         self.workspace_importer(scope, snapshot)
         rev = int(result.get("revision") or revision or 0)
         self.workspace_revisions[key] = rev
@@ -733,6 +741,7 @@ class RemoteAppManager:
         if not endpoint or not self.workspace_exporter or not re.fullmatch(r"[a-f0-9]{64}", owner):
             return expected_revision
         snapshot = self.workspace_exporter(scope)
+        record("workspace.sync_push",scope=scope,expected_revision=expected_revision,snapshot=snapshot)
         result = self._request_json(endpoint, self._token(row), method="POST", payload={"action":"push","owner_hash":owner,"expected_revision":int(expected_revision or 0),"snapshot":snapshot}, timeout=90, max_bytes=2_000_000)
         rev = int(result.get("revision") or expected_revision or 0)
         key = str(row.get("id") or "") + ":" + owner
@@ -761,6 +770,16 @@ class RemoteAppManager:
                     self.log(f"[remote-workspace:pull] app={app_id} owner={owner[:8]} error={exc}")
 
     def _run_task(self, row: dict[str, Any], item: dict[str, Any]) -> None:
+        store=getattr(self,"request_traces",None)
+        if store is None:
+            return self._run_task_impl(row,item)
+        messages=list(item.get("conversation_history") or [])
+        messages.append({"role":"user","content":item.get("user_message",""),"attachments":item.get("attachments",[])})
+        with store.request(origin="remote", app_id=str(row.get("id") or ""), message_id=str(item.get("message_id") or ""),
+                           messages=messages, requested_model_id=item.get("requested_model_id"), version=self.app_version):
+            return self._run_task_impl(row,item)
+
+    def _run_task_impl(self, row: dict[str, Any], item: dict[str, Any]) -> None:
         app_id = str(row.get("id") or "")
         message_id = str(item.get("message_id") or "")
         owner_hash = str(item.get("workspace_owner") or "").strip().lower()
@@ -770,21 +789,28 @@ class RemoteAppManager:
             try:
                 workspace_scope, workspace_revision = self._workspace_pull(row, owner_hash, force=True)
             except Exception as exc:
+                record("workspace.sync_error",phase="before",error=str(exc))
                 self.log(f"[remote-workspace:pre-task] app={app_id} owner={owner_hash[:8]} error={exc}")
         item = dict(item)
         item["workspace_scope"] = workspace_scope
         self._set_live(app_id, state="working", active_message_id=message_id, last_error="")
         self._post_activity(row, message_id, {"type": "phase", "phase": "received", "label": "درخواست به LlamaForge رسید", "status": "done", "ok": True})
         lease_stop = threading.Event()
+        task_cancel = threading.Event()
+        item["_cancel"] = task_cancel
 
         def lease_loop():
             while not lease_stop.wait(18.0):
                 try:
                     self._post_activity(row, message_id, {"type": "heartbeat", "label": "working"}, visible=False)
+                except RemoteTaskCancelled:
+                    task_cancel.set()
+                    record("remote.cancel", source="heartbeat")
+                    return
                 except Exception:
                     pass
 
-        lease_thread = threading.Thread(target=lease_loop, name=f"remote-lease-{message_id[-6:]}", daemon=True)
+        lease_thread = threading.Thread(target=copy_context().run, args=(lease_loop,), name=f"remote-lease-{message_id[-6:]}", daemon=True)
         lease_thread.start()
         answer = ""
         last_typing = 0.0
@@ -826,17 +852,23 @@ class RemoteAppManager:
                 except Exception as exc:
                     # Never discard the user's answer because a sync transport failed;
                     # the owner-scoped local copy remains available for the next retry.
+                    record("workspace.sync_error",phase="after",error=str(exc))
                     self.log(f"[remote-workspace:post-task] app={app_id} owner={owner_hash[:8]} error={exc}")
             self._post_typing(row, message_id, answer)
             self._post_reply(row, message_id, answer)
+            record("remote.delivery", message_id=message_id, status="delivered", answer=answer)
             current = int((self.live.get(app_id) or {}).get("tasks_completed") or 0) + 1
             self._set_live(app_id, state="connected", active_message_id=None, tasks_completed=current, last_error="")
             self.log(f"[remote-app] completed app={app_id} message={message_id}")
         except RemoteTaskCancelled as exc:
+            if current_trace(): current_trace().meta.update(outcome="cancelled",error=str(exc))
+            record("remote.cancel", error=str(exc))
             self.log(f"[remote-app:cancel] app={app_id} message={message_id} reason={exc}")
             self._set_live(app_id, state="connected", active_message_id=None, last_error="")
         except Exception as exc:
             error = str(exc)
+            if current_trace(): current_trace().meta.update(outcome="error",error=error)
+            record("remote.error",error=error)
             self.log(f"[remote-app:error] app={app_id} message={message_id} error={error}")
             try:
                 self._post_activity(row, message_id, {"type": "error", "phase": "error", "label": "اجرای Agent متوقف شد", "error": error[:280], "status": "error", "ok": False})
@@ -846,6 +878,7 @@ class RemoteAppManager:
             self._set_live(app_id, state="error", active_message_id=None, last_error=error[:500])
         finally:
             lease_stop.set()
+            task_cancel.set()
 
     def _worker_loop(self, app_id: str) -> None:
         backoff = 1.0

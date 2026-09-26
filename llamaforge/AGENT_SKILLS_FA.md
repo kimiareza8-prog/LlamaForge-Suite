@@ -1,10 +1,10 @@
-# سیستم Smart Skill و Agent در LlamaForge 0.30
+# سیستم Smart Skill و Agent در LlamaForge 0.34.0
 
 این نسخه Agent را از «چند ابزار اینترنتی» به یک سیستم Skill چندمرحله‌ای تبدیل می‌کند. مدل GGUF همچنان روی کامپیوتر خودت اجرا می‌شود و خود مدل تصمیم می‌گیرد چه نوع کاری لازم است؛ Runtime فقط ابزار واقعی را اجرا و نتیجه را دوباره به مدل برمی‌گرداند.
 
 ## قوانین اجرا
 
-هر درخواست Agent از این مسیر می‌گذرد:
+مسیر عمومی Agent به شکل زیر است؛ سلام ساده مستقیماً پاسخ می‌گیرد و انتخاب Family در صورت پاسخ کامل Router، inference جداگانه ندارد:
 
 1. **Understand** — یک inference واقعی روی مدل لوکال برای فهم هدف کاربر.
 2. **Capability discovery** — مدل بین شاخه‌های عمومی Web، Calendar، Files، Browser، API و Extensions انتخاب می‌کند؛ Guardهای Runtime فقط جلوی جاافتادن شاخه‌های واضح را می‌گیرند.
@@ -15,7 +15,7 @@
 7. **Execute → Observe** — Skill واقعاً اجرا می‌شود و نتیجهٔ ساختاریافته به مدل برمی‌گردد.
 8. **Recovery** — خطاها به دسته‌هایی مثل timeout، 403، 401، 429، browser unavailable و permission blocked تقسیم می‌شوند و Fallbackهای مناسب به مدل داده می‌شود. فراخوانی شکست‌خوردهٔ یکسان دوباره اجرا نمی‌شود.
 9. **Verify** — بعد از POST/PUT/PATCH/DELETE یا click/type/select، مدل تشویق می‌شود نتیجه را با read/snapshot بررسی کند.
-10. **Final** — فقط بعد از Observation واقعی پاسخ نهایی ساخته می‌شود.
+10. **Final** — پاسخ از Stream واقعی مدل ساخته می‌شود؛ در پایان بودجه نیز فقط بر مبنای Observationهای موجود پاسخ می‌دهد.
 
 ## Skillهای داخلی
 
@@ -99,7 +99,7 @@ Browser فقط برای صفحات JavaScript، فرم، لاگین، کلیک �
     "timeout": 30
   },
   "retry": {
-    "attempts": 2,
+    "attempts": 1,
     "statuses": [429, 500, 502, 503, 504]
   },
   "response": {
@@ -116,7 +116,7 @@ Browser فقط برای صفحات JavaScript، فرم، لاگین، کلیک �
 - JSON body یا raw body
 - آرگومان اجباری
 - Timeout
-- Retry برای statusهای مشخص
+- Retry محدود برای خواندن GET/HEAD و statusهای مشخص؛ Write حتی با attempts بیشتر، خودکار تکرار نمی‌شود
 - تشخیص `json/text/auto`
 - استخراج Dot Path مثل `data.ticket.id`
 - `{name}` برای مقدار خام، `{url:name}` برای URL-encoded و `{env:NAME}` برای مقدار Environment Variable
@@ -124,7 +124,7 @@ Browser فقط برای صفحات JavaScript، فرم، لاگین، کلیک �
 ## Permissionها
 
 - **Allow local calendar & file changes**: تغییرات داخل Workspace و تقویم محلی؛ پیش‌فرض روشن.
-- **Allow external site actions**: POST/PUT/PATCH/DELETE و click/type/select روی سرویس‌های بیرونی؛ مستقل از Workspace و پیش‌فرض خاموش.
+- **Allow external site actions**: POST/PUT/PATCH/DELETE و click/type/select روی سرویس‌های بیرونی؛ مستقل از Workspace و در نصب تازه پیش‌فرض روشن؛ انتخاب ذخیره‌شدهٔ قبلی حفظ می‌شود.
 - **Allow localhost/private network**: دسترسی به localhost/LAN.
 - **Hide Agent browser window**: اجرای Chrome به‌صورت Headless.
 - **Maximum tool steps**: سقف مرحله‌های Agent.
@@ -132,3 +132,15 @@ Browser فقط برای صفحات JavaScript، فرم، لاگین، کلیک �
 ## نکته برای مدل‌های کوچک
 
 اضافه‌کردن Skill بیشتر به معنی نمایش هم‌زمان همهٔ Skillها نیست. Skill Registry ابتدا دستهٔ کار را انتخاب می‌کند و فقط مجموعهٔ مرتبط را جلوی مدل می‌گذارد. به همین دلیل می‌توان ده‌ها Skill نصب کرد بدون اینکه مدل 4B مجبور شود بین همهٔ آن‌ها انتخاب کند.
+
+## تغییرات اجرایی 0.34.0
+
+قرارداد عملیات، پیش‌نیازهای تایپ‌شده، رسید قابل استفادهٔ مجدد فایل/نوشتن، لغو خواندن‌های موازی، خواندن امن ZIP/TAR/Office و استریم مسیرهای خطا اضافه شده‌اند. ابزار جدیدی برای جمله‌های خاص ساخته نشده است. شرح دقیق رفتار و محدودیت‌ها در [SKILL_SYSTEM_FA.md](SKILL_SYSTEM_FA.md) و نتیجهٔ تست در [AUDIT_REPORT_FA.md](AUDIT_REPORT_FA.md) آمده است.
+
+## Telegram و عیب‌یابی 0.34.2
+
+کارت Telegram در Agent اتصال حساب شخصی با کد ورود و رمز دومرحله‌ای، نصب وابستگی اختیاری و Disconnect/Resume/Revoke دارد. هشت Operation عمومی زیر یک Skill ارائه می‌شوند و Context به همان گفت‌وگو محدود است. Auto Reply و ابزارهای مدیریتی گروه فعال نشده‌اند. در نصب قبلی برای تغییر همهٔ مجوزها از Enable all permissions و سپس Save Agent settings استفاده کنید.
+
+برای گزارش خطا از Logs → Full request log → Download full log ZIP استفاده کنید. [شرح درخت، ذخیرهٔ امن حساب، Permissionها و شواهد تست](DIAGNOSTICS_FA.md).
+
+در 0.34.3، مجوزهای خاموش‌شده پس از Save قبل از فراخوانی بعدی دوباره بررسی می‌شوند. Telegram send/reply دیگر به ساختن `request_key` توسط مدل وابسته نیست؛ رسید در محدودهٔ همان درخواست از ارسال تکراری جلوگیری می‌کند. [جزئیات عیب‌یابی](HOTFIX_REPORT_FA.md).

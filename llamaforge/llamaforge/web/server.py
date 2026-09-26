@@ -35,14 +35,18 @@ from ..core.smart_chat import choose_profile, response_quality, recovery_hint
 from ..core.system_metrics import cpu_percent, memory_gb, process_cpu_percent
 from ..core.native_dialogs import pick_file as native_pick_file, pick_folder as native_pick_folder
 from ..core.personal_brain import PersonalBrain, BrainCancelled, BRAIN_LOG_DIR
+from ..core.learning_data import validate_examples, obvious_non_teaching
 from ..core.trainable_models import TrainableModelManager, portable_training_models_root
 from ..core.app_logging import get_logger, LOG_FILE
 from ..core.agent_tools import AgentRuntime, AgentPermissions
-from ..core.remote_apps import RemoteAppManager
+from ..core.remote_apps import RemoteAppManager, RemoteTaskCancelled
+from contextlib import nullcontext
 from ..core.cluster import ClusterManager
 from ..core.autotune import AdaptiveTuner
+from ..core.redaction import redact
+from ..core.request_tracing import TraceStore, current_trace, record, logged_stream
 
-APP_VERSION = "0.33.0-adaptive-engine"
+APP_VERSION = "0.34.3-hotfix"
 STATIC_ROOT = Path(__file__).parent / "static"
 
 # Curated one-click bundles intentionally bind one chat artifact to one exact
@@ -147,19 +151,29 @@ def _canonical_model_slug(value: str) -> str:
 
 
 class EventBroker:
-    """Small in-process event bus for the local UI.
-
-    The frontend keeps one SSE connection instead of polling the full application
-    snapshot every second. Slow/disconnected clients cannot block inference.
-    """
+    """Ordered bounded history shared by SSE reconnect and long polling."""
     def __init__(self):
         self._lock = threading.RLock()
+        self._changed = threading.Condition(self._lock)
         self._subs: set[queue.Queue] = set()
         self._revision = 0
+        self._history = deque(maxlen=256)
 
-    def subscribe(self) -> queue.Queue:
-        q: queue.Queue = queue.Queue(maxsize=96)
+    def _since(self, after: int) -> list[dict]:
+        if after > self._revision or (self._history and after < self._history[0]["revision"] - 1):
+            return [{"type": "resync", "revision": self._revision}]
+        return [dict(x) for x in self._history if x["revision"] > after]
+
+    def poll(self, after: int, timeout: float = 15) -> list[dict]:
+        with self._changed:
+            self._changed.wait_for(lambda: self._revision != after, timeout=max(0, min(timeout, 20)))
+            return self._since(after)
+
+    def subscribe(self, after: int | None = None) -> queue.Queue:
+        q: queue.Queue = queue.Queue(maxsize=256)
         with self._lock:
+            if after is not None:
+                for event in self._since(after): q.put_nowait(event)
             self._subs.add(q)
         return q
 
@@ -168,18 +182,19 @@ class EventBroker:
             self._subs.discard(q)
 
     def publish(self, kind: str, payload: dict | None = None) -> None:
-        with self._lock:
+        with self._changed:
             self._revision += 1
-            event = {"type": kind, "revision": self._revision, "at": time.time(), **(payload or {})}
-            subs = list(self._subs)
-        for q in subs:
-            try:
-                q.put_nowait(event)
-            except queue.Full:
+            event = {**(payload or {}), "type": kind, "revision": self._revision, "at": time.time()}
+            self._history.append(event)
+            for q in self._subs:
                 try:
-                    q.get_nowait(); q.put_nowait(event)
-                except Exception:
-                    pass
+                    q.put_nowait(event)
+                except queue.Full:
+                    while not q.empty():
+                        try: q.get_nowait()
+                        except queue.Empty: break
+                    q.put_nowait({"type": "resync", "revision": self._revision})
+            self._changed.notify_all()
 
 
 class LlamaForgeState:
@@ -190,6 +205,7 @@ class LlamaForgeState:
         self.models = ModelManager(self.cfg.hf_token)
         self.autotuner = AdaptiveTuner()
         self.autotune_cancel = threading.Event()
+        self.chat_cancellations: dict[str, threading.Event] = {}
         self.local_models: list[LocalModel] = []
         self.local_trainable_models: list[dict] = []
         self.active_model: LocalModel | None = None
@@ -217,8 +233,11 @@ class LlamaForgeState:
         self._runtime_cache: tuple[float, dict] | None = None
         self.events = EventBroker()
         self.file_logger = get_logger()
+        self.request_traces = TraceStore(APP_DIR / "logs" / "requests")
+        self.request_traces.enabled = bool(getattr(self.cfg,"diagnostic_full_traces",True))
         self.app_root = Path(__file__).resolve().parents[2]
         self.agent = AgentRuntime(log=self.log)
+        self.agent.permission_provider = self.agent_permissions
         # Keep downloaded trainable checkpoints portable and visible: one level
         # above the LlamaForge application folder, inside a sibling
         # ``LlamaForgeModels`` directory. Example:
@@ -250,6 +269,7 @@ class LlamaForgeState:
             workspace_exporter=lambda scope: self.agent.export_workspace_snapshot(scope),
             log=self.log,
             app_version=APP_VERSION,
+            request_traces=self.request_traces,
         )
         self.log(f"LlamaForge {APP_VERSION} control plane started")
         self.log(f"[logging] persistent={LOG_FILE} ui_buffer=8000 trainer_sessions={APP_DIR / 'brain' / 'logs'}")
@@ -307,7 +327,7 @@ class LlamaForgeState:
         self.last_client_at = time.monotonic()
 
     def log(self, line: str):
-        text = str(line).rstrip()
+        text = redact(str(line)).rstrip()
         if not text:
             return
         generation_tps_sample = 0.0
@@ -385,6 +405,9 @@ class LlamaForgeState:
                 "agent_allow_private_network":bool(self.cfg.agent_allow_private_network),
                 "agent_browser_headless":bool(self.cfg.agent_browser_headless),
                 "agent_max_steps":int(self.cfg.agent_max_steps),
+                "agent_allow_telegram_read":bool(self.cfg.agent_allow_telegram_read),
+                "agent_allow_telegram_write":bool(self.cfg.agent_allow_telegram_write),
+                "agent_skill_profile":self.cfg.agent_skill_profile,
                 "model_dirs":list(self.cfg.model_dirs),
             },
             "logs":logs,
@@ -1130,6 +1153,14 @@ class LlamaForgeState:
         self.log(f"[runtime] Using custom llama-server: {p}")
         self.events.publish("state", {"reason": "runtime-selected"})
 
+    def _tune_environment(self, *, context: int | None = None, load_mode: str | None = None) -> dict:
+        return self.autotuner.environment(
+            self.hw, self.runtime.find_binary("llama-bench") or "",
+            str(self.runtime_status().get("backend") or ""),
+            context=int(context or self.cfg.default_context_size),
+            load_mode=str(load_mode or self.cfg.model_memory_mode),
+        )
+
     def autotune_model_async(self, model_path: str = "", apply_and_start: bool = True) -> dict:
         path = str(model_path or (self.active_model.path if self.active_model else self.cfg.last_model_path) or "")
         if not path:
@@ -1161,11 +1192,9 @@ class LlamaForgeState:
                     self.events.publish("state", {"reason": "autotune-progress"})
 
                 result = self.autotuner.benchmark(
-                    model, self.hw, bench, backend=backend, progress_cb=progress, cancel=self.autotune_cancel
+                    model, self.hw, bench, backend=backend, progress_cb=progress, cancel=self.autotune_cancel,
+                    environment=self._tune_environment(),
                 )
-                self.cfg.accelerator_mode = "adaptive"
-                self.cfg.cpu_only_default = False
-                self.cfg.save()
                 with self.lock:
                     self.job.update(
                         state="done", stage="complete", message="AutoTune complete — best measured plan saved",
@@ -1274,9 +1303,11 @@ class LlamaForgeState:
         threads_override = payload.get("threads")
         threads_batch_override = payload.get("threads_batch")
         cpu_target_percent = _safe_int(payload.get("cpu_target_percent"), 100, 25, 100) if thread_mode == "target" else None
-        tune = self.autotuner.get(model) if requested_accelerator == "adaptive" else None
+        tune = self.autotuner.get(model, environment=self._tune_environment(
+            context=ctx, load_mode=str(payload.get("memory_mode") or self.cfg.model_memory_mode)
+        )) if requested_accelerator == "adaptive" else None
         tune_source = "llama-bench" if tune else "hardware-heuristic"
-        if tune:
+        if tune and thread_mode == "auto":
             thread_mode = "manual"
             threads_override = int(tune.get("threads") or self.hw.physical_cores or 1)
             threads_batch_override = int(tune.get("threads_batch") or threads_override)
@@ -1369,6 +1400,7 @@ class LlamaForgeState:
             "vision_enabled": bool(mmproj),
             "cluster_plan_id": cluster_plan.plan_id if cluster_plan else "",
             "safe_memory_retry": bool(payload.get("_safe_memory_retry", False)),
+            "safe_gpu_retry": bool(payload.get("_safe_gpu_retry", False)),
         }
 
         self.server_ready = False
@@ -1408,6 +1440,18 @@ class LlamaForgeState:
             if not self.server_proc.running:
                 tail = self.server_proc.tail_text(120)
                 low = (tail or "").lower()
+                gpu_failure = bool(self.active_plan and not self.active_plan.cpu_only and
+                                   any(x in low for x in ("vulkan", "vk_error", "device lost", "failed to create device")))
+                if gpu_failure and not (self.last_launch_payload or {}).get("safe_gpu_retry"):
+                    retry = dict(self.last_launch_payload or {})
+                    retry.update(accelerator_mode="cpu", cpu_only=True, _safe_gpu_retry=True)
+                    retry.pop("safe_gpu_retry", None)
+                    self.log("[runtime:fallback] GPU startup failed; retrying once with CPU offload disabled")
+                    try:
+                        self.start_server(retry)
+                        return
+                    except Exception as exc:
+                        self.log(f"[runtime:fallback] CPU retry could not start: {exc}")
                 full_ram_failure = bool(
                     self.active_plan
                     and str(getattr(self.active_plan, "load_mode", "")) == "none"
@@ -1513,6 +1557,7 @@ class LlamaForgeState:
         self.server_error = ""
         self.template_health = {"state": "unknown", "message": "Not checked"}
         self.server_proc.stop()
+        self.vision_projector_loaded = False
         if hasattr(self, "cluster"):
             try: self.cluster.stop_cluster_runtime()
             except Exception as exc: self.log(f"[cluster:stop] {exc}")
@@ -1570,7 +1615,7 @@ class LlamaForgeState:
             "quick_models": self.quick_models(),
             "active_model": _friendly_model(self.active_model),
             "assessment": analysis.get("assessment"),
-            "autotune": self.autotuner.get(self.active_model) if self.active_model else None,
+            "autotune": self.autotuner.get(self.active_model, environment=self._tune_environment()) if self.active_model else None,
             "job": job,
             "config": {
                 "model_dirs": list(self.cfg.model_dirs), "host": self.cfg.host, "port": self.cfg.port,
@@ -1588,6 +1633,9 @@ class LlamaForgeState:
                 "agent_allow_private_network": bool(self.cfg.agent_allow_private_network),
                 "agent_browser_headless": bool(self.cfg.agent_browser_headless),
                 "agent_max_steps": int(self.cfg.agent_max_steps),
+                "agent_allow_telegram_read":bool(self.cfg.agent_allow_telegram_read),
+                "agent_allow_telegram_write":bool(self.cfg.agent_allow_telegram_write),
+                "agent_skill_profile":self.cfg.agent_skill_profile,
                 "default_context_size": int(self.cfg.default_context_size),
                 "generation_overrides_enabled": bool(self.cfg.generation_overrides_enabled),
                 "generation_temperature": float(getattr(self.cfg, "generation_temperature", 0.70)),
@@ -1847,21 +1895,35 @@ class LlamaForgeState:
             "reasoning_budget": -1,
             "max_tokens": 4096,
             "agent": True,
+            "request_id": "remote_" + str(app.get("id") or "") + "_" + str(item.get("message_id") or uuid.uuid4().hex),
         }
+        payload["_trace_metadata"] = {"app_id":str(app.get("id") or ""), "message_id":str(item.get("message_id") or ""),
+                                      "workspace_scope":str(item.get("workspace_scope") or "local")}
+        cancel = item.get("_cancel") or threading.Event()
+        payload["_cancel"] = cancel
         parts: list[str] = []
         with self._remote_inference_lock:
             previous_scope = self.agent.workspace_scope()
             self.agent.set_workspace_scope(str(item.get("workspace_scope") or "local"))
             try:
-                for event in self.chat_stream(payload):
+                iterator = self.chat_stream(payload)
+                for event in iterator:
                     if isinstance(event, dict):
                         if event.get("type") == "text" and event.get("delta"):
                             parts.append(str(event.get("delta") or ""))
                         try:
                             emit(event)
+                        except RemoteTaskCancelled:
+                            cancel.set()
+                            raise
                         except Exception as exc:
+                            record("remote.emit_error", error=str(exc))
                             self.log(f"[remote-app:emit] {exc}")
+            except RuntimeError as exc:
+                if cancel.is_set(): raise RemoteTaskCancelled("Remote user cancelled") from exc
+                raise
             finally:
+                if "iterator" in locals() and hasattr(iterator,"close"): iterator.close()
                 self.agent.set_workspace_scope(previous_scope)
         return "".join(parts).strip()
 
@@ -1905,6 +1967,9 @@ class LlamaForgeState:
             allow_workspace_write=bool(self.cfg.agent_allow_workspace_write),
             allow_private_network=bool(self.cfg.agent_allow_private_network),
             browser_headless=bool(self.cfg.agent_browser_headless),
+            allow_telegram_read=bool(self.cfg.agent_allow_telegram_read),
+            allow_telegram_write=bool(self.cfg.agent_allow_telegram_write),
+            skill_profile=self.cfg.agent_skill_profile,
         )
 
     def agent_status(self) -> dict:
@@ -1932,7 +1997,10 @@ class LlamaForgeState:
         # the key to content-on-demand: organizing a file does not spend context
         # reading it, while an explicit inspect/read request can load it later.
         messages = self.agent.prepare_messages_for_agent(messages)
-        self.agent.vision_available = bool(self.active_model and getattr(self.active_model, "vision_capable", False) and self.server_ready and getattr(self, "vision_projector_loaded", True))
+        record("attachments.prepared", messages=messages)
+        receipts = [{"index":i, "attachments":m.pop("_attachment_refs")} for i,m in enumerate(messages) if m.get("_attachment_refs")]
+        if receipts: yield {"type":"attachments", "messages":receipts}
+        self.agent.vision_available = bool(self.active_model and getattr(self.active_model, "vision_capable", False) and self.server_ready)
         if self.brain.cfg.enabled and self.brain.cfg.zero_context:
             latest_user = next((dict(m) for m in reversed(messages) if isinstance(m, dict) and m.get("role") == "user"), None)
             if not latest_user:
@@ -1946,10 +2014,11 @@ class LlamaForgeState:
             reasoning_budget=_safe_int(payload.get("reasoning_budget"), -1, -1, 32768),
         ))
         prepared, ctx_meta = self._prepare_chat_messages(messages, profile)
+        record("context.prepared", messages=prepared, context=ctx_meta, profile=profile.to_dict())
         permissions = self.agent_permissions()
         user_text = next((_content_text(m.get("content")) for m in reversed(messages) if m.get("role") == "user"), "")
         answer_parts: list[str] = []
-        request_id = "req_" + uuid.uuid4().hex
+        request_id = str(payload.get("request_id") or "req_" + uuid.uuid4().hex)
         session_id = str(payload.get("session_id") or ("sess_" + uuid.uuid4().hex))
         generation_id = int(getattr(self, "_server_generation", 0) or 0)
         token_step = 0
@@ -1963,35 +2032,44 @@ class LlamaForgeState:
             yield {"type": "meta", "context": ctx_meta}
 
         def call_model(agent_messages: list[dict], _tools: list[dict]) -> dict:
+            nonlocal generation_id
             if generation_id != int(getattr(self, "_server_generation", 0) or 0):
                 raise RuntimeError("Generation invalidated because the model/cluster changed")
+            if _messages_have_image_attachments(agent_messages):
+                self._ensure_vision_runtime(agent_messages)
+                generation_id = int(getattr(self, "_server_generation", 0) or 0)
             # Agent v2 intentionally avoids llama.cpp native function parsing.
             # Each planning turn is plain chat with one JSON control decision,
             # which works across strict Gemma/Qwen/Mistral templates.
             first = str((agent_messages[0] if agent_messages else {}).get("content") or "")
             control_call = "RETURN EXACTLY ONE JSON OBJECT" in first or "agent-control output" in first
-            token_cap = min(int(profile.max_tokens), 768) if control_call else int(profile.max_tokens)
+            token_cap = min(int(profile.max_tokens), 256 if "stage 0 of a local AI agent router" in first else 768) if control_call else int(profile.max_tokens)
             result = chat_completion_with_tools(
                 self.cfg.host, self.cfg.port, agent_messages, tools=None,
                 temperature=min(profile.temperature, 0.35) if control_call else profile.temperature,
                 top_p=min(profile.top_p, 0.92) if control_call else profile.top_p, top_k=profile.top_k,
                 min_p=profile.min_p, repeat_penalty=profile.repeat_penalty,
-                max_tokens=token_cap, reasoning=profile.effective_reasoning,
-                reasoning_budget=profile.reasoning_budget, json_mode=control_call,
+                max_tokens=token_cap, reasoning="off" if control_call else profile.effective_reasoning,
+                reasoning_budget=0 if control_call else profile.reasoning_budget, json_mode=control_call,
+                cancel=payload.get("_cancel"),
             )
             if generation_id != int(getattr(self, "_server_generation", 0) or 0):
                 raise RuntimeError("Stale Agent result rejected after cluster/model generation changed")
             return result
 
         def stream_final(agent_messages: list[dict]):
+            nonlocal generation_id
             if generation_id != int(getattr(self, "_server_generation", 0) or 0):
                 raise RuntimeError("Generation invalidated because the model/cluster changed")
+            if _messages_have_image_attachments(agent_messages):
+                self._ensure_vision_runtime(agent_messages)
+                generation_id = int(getattr(self, "_server_generation", 0) or 0)
             for streamed in stream_chat_events(
                 self.cfg.host, self.cfg.port, agent_messages,
                 temperature=profile.temperature, top_p=profile.top_p, top_k=profile.top_k,
                 min_p=profile.min_p, repeat_penalty=profile.repeat_penalty,
                 max_tokens=int(profile.max_tokens), reasoning=profile.effective_reasoning,
-                reasoning_budget=profile.reasoning_budget,
+                reasoning_budget=profile.reasoning_budget, cancel=payload.get("_cancel"),
             ):
                 if generation_id != int(getattr(self, "_server_generation", 0) or 0):
                     raise RuntimeError("Stale streamed Agent result rejected after cluster/model generation changed")
@@ -2001,9 +2079,9 @@ class LlamaForgeState:
         self._last_inference_at = time.monotonic(); self._idle_unload_fired = False
         try:
             for event in self.agent.run(
-                prepared, call_model, permissions, max_steps=int(self.cfg.agent_max_steps),
+                prepared, call_model, permissions, max_steps=int(self.cfg.agent_max_steps), request_id=request_id,
                 context_limit=int(getattr(self.active_plan, "ctx_size", 0) or getattr(self.cfg, "default_context_size", 8192) or 8192),
-                stream_final=stream_final,
+                stream_final=stream_final, cancel=payload.get("_cancel"),
             ):
                 if generation_id != int(getattr(self, "_server_generation", 0) or 0):
                     raise RuntimeError("Stale Agent event rejected after cluster/model generation changed")
@@ -2028,15 +2106,49 @@ class LlamaForgeState:
         )).to_dict()
 
     def chat_stream(self, payload: dict):
+        store = getattr(self, "request_traces", None)
+        if store is None:
+            yield from self._chat_stream_impl(payload)
+            return
+        payload = dict(payload)
+        payload.setdefault("request_id", "req_" + uuid.uuid4().hex)
+        metadata = dict(payload.get("_trace_metadata") or {})
+        metadata.update(origin="remote" if metadata else "local", request_id=payload["request_id"],
+                        session_id=payload.get("session_id", ""), messages=payload.get("messages", []),
+                        agent=bool(payload.get("agent")), version=APP_VERSION)
+        scope = nullcontext(current_trace()) if current_trace() is not None else store.request(**metadata)
+        with scope as trace:
+            if trace:
+                record("runtime.context", model=_friendly_model(getattr(self,"active_model",None)),
+                       hardware=_jsonable(getattr(self,"hw",None)), plan=_jsonable(getattr(self,"active_plan",None)),
+                       launch=getattr(self,"last_launch_payload",{}),
+                       generation=getattr(self,"_server_generation",0),
+                       live=getattr(self,"_live_payload",{}),
+                       runtime_cached=(getattr(self,"_runtime_cache",None) or (0,{}))[1],
+                       options={k:v for k,v in payload.items() if k not in {"messages","_cancel","_trace_metadata"}})
+                yield {"type":"meta", "trace":{"id":trace.id,"request_id":payload["request_id"]}}
+            answer=[]
+            iterator=self._chat_stream_impl(payload)
+            try:
+                for event in iterator:
+                    if isinstance(event,dict) and event.get("type")=="text":answer.append(str(event.get("delta") or ""))
+                    elif isinstance(event,dict) and event.get("type")!="reasoning":record("response.event", **event)
+                    yield event
+            finally:
+                if hasattr(iterator,"close"):iterator.close()
+                record("response.output", text="".join(answer), cancelled=bool(payload.get("_cancel") and payload["_cancel"].is_set()))
+                record("runtime.snapshot",live=getattr(self,"_live_payload",{}),shared_log_tail=list(getattr(self,"logs",[]))[-250:])
+
+    def _chat_stream_impl(self, payload: dict):
         raw_messages = payload.get("messages") or []
-        if _messages_have_image_attachments(raw_messages):
-            self._ensure_vision_runtime(raw_messages)
         if bool(payload.get("agent")):
             yield from self.agent_chat_stream(payload)
             return
+        if _messages_have_image_attachments(raw_messages):
+            self._ensure_vision_runtime(raw_messages)
         if not self.server_ready:
             raise RuntimeError("The local model is not ready")
-        request_id = "req_" + uuid.uuid4().hex[:18]
+        request_id = str(payload.get("request_id") or "req_" + uuid.uuid4().hex[:18])
         generation_id = int(getattr(self, "_server_generation", 0) or 0)
         token_step = 0
         messages = raw_messages
@@ -2078,6 +2190,7 @@ class LlamaForgeState:
             profile.notes = tuple(list(profile.notes) + ["Quality Guard recovery applied for: " + ", ".join(repair_issues or ["unknown"])])
 
         prepared, ctx_meta = self._prepare_chat_messages(messages, profile)
+        record("context.prepared", messages=prepared, context=ctx_meta, profile=profile.to_dict())
         user_text = next((_content_text(m.get("content")) for m in reversed(messages) if m.get("role") == "user"), "")
         answer_parts: list[str] = []
         yield {"type": "profile", "profile": profile.to_dict()}
@@ -2090,13 +2203,13 @@ class LlamaForgeState:
         self._last_inference_at = time.monotonic()
         self._idle_unload_fired = False
         try:
-            for event in stream_chat_events(
+            for event in logged_stream(stream_chat_events(
                 self.cfg.host, self.cfg.port, prepared,
                 temperature=profile.temperature, top_p=profile.top_p, top_k=profile.top_k,
                 min_p=profile.min_p, repeat_penalty=profile.repeat_penalty,
                 max_tokens=profile.max_tokens, reasoning=profile.effective_reasoning,
-                reasoning_budget=profile.reasoning_budget,
-            ):
+                reasoning_budget=profile.reasoning_budget, cancel=payload.get("_cancel"),
+            ), prepared, stage="direct", profile=profile.to_dict()):
                 if generation_id != int(getattr(self, "_server_generation", 0) or 0):
                     raise RuntimeError("Generation invalidated because the active cluster/model generation changed")
                 if event.get("type") == "text" and event.get("delta"):
@@ -2148,7 +2261,11 @@ class LlamaForgeState:
                     self.brain.job.update(state="cancelling", message="Stopping the current Brain task safely…", error="")
             self.log("[brain:power] OFF · cancellation requested for active Brain work")
         elif not before and after:
-            self.brain_cancel.clear(); self.brain_download_cancel.clear()
+            # Re-enabling affects future jobs; cancellation of the current one
+            # remains sticky until that worker has reached a terminal state.
+            with self.brain.lock:
+                if self.brain.job.get("state") not in ("running", "cancelling"):
+                    self.brain_cancel.clear(); self.brain_download_cancel.clear()
             self.log("[brain:power] ON")
         else:
             self.log(f"[brain] settings updated enabled={after}")
@@ -2170,8 +2287,10 @@ class LlamaForgeState:
                 if self.brain.job.get("state") == "running":
                     self.brain.job.update(state="cancelling", message="Stopping the current Brain task safely…", error="")
         else:
-            self.brain_cancel.clear()
-            self.brain_download_cancel.clear()
+            with self.brain.lock:
+                if self.brain.job.get("state") not in ("running", "cancelling"):
+                    self.brain_cancel.clear()
+                    self.brain_download_cancel.clear()
         st = self.brain_status()
         self.log(f"[brain:toggle] effective={after} changed={before != after} setup_ready={bool(st.get('setup_ready'))} job={st.get('job',{}).get('state','idle')}")
         self.events.publish("brain", {"brain": st})
@@ -2490,15 +2609,20 @@ class LlamaForgeState:
         def work():
             try:
                 def progress(msg, p):
+                    if self.brain_cancel.is_set():
+                        raise BrainCancelled("Trainer setup cancelled")
                     with self.brain.lock:
                         self.brain.job.update(state="running", stage="setup", message=str(msg), progress=float(p), error="")
                     self.events.publish("brain", {"brain": self.brain_status()})
                     self.log("[brain:setup] " + str(msg))
                 self.brain.prepare_environment(progress, force=force, cancel=self.brain_cancel)
+                if self.brain_cancel.is_set():
+                    raise BrainCancelled("Trainer setup cancelled")
                 with self.brain.lock:
                     self.brain.job = {"state":"done","stage":"setup","message":"Brain Trainer ready","error":"","progress":1.0}
                 self.events.publish("brain", {"brain": self.brain_status()})
             except Exception as exc:
+                cancelled = self.brain_cancel.is_set() or isinstance(exc, BrainCancelled)
                 with self.brain.lock:
                     self.brain.job = {
                         "state":"cancelled" if cancelled else "error",
@@ -2513,17 +2637,18 @@ class LlamaForgeState:
         threading.Thread(target=work, name="brain-setup", daemon=True).start()
         return self.brain_status()
 
-    def _brain_synthesize_examples(self, user_text: str, assistant_text: str = "") -> list[dict]:
+    def _brain_synthesize_examples(self, user_text: str, assistant_text: str = "", *, cancel: threading.Event | None = None) -> list[dict]:
         if not self.brain.cfg.auto_synthesize or not self.server_ready:
             return []
         prompt = (
             "You compile supervised training examples for a private personal language model.\n"
             "The USER MESSAGE is the only source of truth. Never use, repeat, or validate a previous assistant/model answer as a training target.\n"
-            "Extract only facts, corrections, preferences, names, instructions, plans, decisions, or requested behavior explicitly taught by the user.\n"
+            "Extract only durable personal facts, explicit corrections, stable preferences or writing style explicitly taught by the user.\n"
+            "Do not turn a tool request, pending task, calendar event, temporary plan or a question into permanent model knowledge.\n"
             "If the user is merely asking a question and provides no answer/fact/correction, return an empty JSON array.\n"
             "Generate 1 to 8 short supervised question/answer examples that would help the model reproduce what the user explicitly taught.\n"
             "Return ONLY JSON in this exact form:\n"
-            "[{\"user\":\"question or situation\",\"assistant\":\"correct answer\",\"kind\":\"fact|person|plan|preference|decision|style\"}]\n\n"
+            "[{\"user\":\"recall question\",\"assistant\":\"exact answer span from user text\",\"evidence\":\"exact supporting quote from user text\",\"kind\":\"fact|preference|style\"}]\n\n"
             f"USER MESSAGE:\n{user_text}"
         )
         parts=[]
@@ -2531,7 +2656,7 @@ class LlamaForgeState:
             for ev in stream_chat_events(
                 self.cfg.host, self.cfg.port, [{"role":"user","content":prompt}],
                 temperature=0.12, top_p=0.85, top_k=24, min_p=0.0, repeat_penalty=1.02,
-                max_tokens=1200, reasoning="off", reasoning_budget=0, timeout=300,
+                max_tokens=1200, reasoning="off", reasoning_budget=0, timeout=300, cancel=cancel,
             ):
                 if ev.get("type") == "text" and ev.get("delta"):
                     parts.append(str(ev["delta"]))
@@ -2542,37 +2667,68 @@ class LlamaForgeState:
             if a<0 or b<a:
                 return []
             data=json.loads(raw[a:b+1])
-            out=[]
-            if isinstance(data,list):
-                for e in data[:12]:
-                    if not isinstance(e,dict):
-                        continue
-                    u=str(e.get("user") or "").strip(); ans=str(e.get("assistant") or "").strip()
-                    if u and ans:
-                        out.append({"user":u,"assistant":ans,"kind":str(e.get("kind") or "learned")[:40]})
-            return out
+            return validate_examples(data, source_text=user_text, require_evidence=True)
         except Exception as exc:
             self.log("[brain:synth] Teacher synthesis skipped: " + str(exc))
             return []
+
+    def preview_brain_lesson(self, payload: dict) -> dict:
+        """Compile once while chat is loaded; this endpoint never starts a trainer."""
+        text = str(payload.get("user") or "").strip()
+        if not text or len(text) > 20000:
+            raise ValueError("A lesson must contain 1 to 20000 characters")
+        model = self.active_model
+        model_key = self.brain.model_key(model)
+        deterministic = self.brain.deterministic_examples(text)
+        if payload.get("precheck") and not obvious_non_teaching(text) and not deterministic:
+            return {"examples": [], "should_learn": True, "compiled": False, "reason": "needs-compilation",
+                    "model_key": model_key}
+        if obvious_non_teaching(text):
+            examples = []
+        else:
+            examples = deterministic or self._brain_synthesize_examples(text)
+        if self.brain.model_key(self.active_model) != model_key:
+            raise RuntimeError("The selected model changed during compilation; review the lesson again")
+        examples = validate_examples(examples)
+        duplicate = bool(model and examples and self.brain.already_learned(model, examples))
+        return {"examples": examples, "should_learn": bool(examples) and not duplicate, "compiled": True,
+                "reason": "already-learned" if duplicate else "supervision" if examples else "no-supervision",
+                "model_key": model_key}
 
     def learn_brain_async(self, payload: dict) -> dict:
         if not self.brain.cfg.enabled:
             raise RuntimeError("Brain Learning is disabled")
         if not self.active_model:
             raise RuntimeError("Choose and load a model before teaching it")
-        bst = self.brain.status(self.active_model)
-        if not bst.get("trainer_ready"):
-            raise RuntimeError("Brain Trainer is not prepared. Open Brain and press Prepare Trainer first.")
-        if not bst.get("training_base_ready"):
-            raise RuntimeError("Link the exact trainable base model (HF folder or repo) in Brain before learning.")
         user_text=str(payload.get("user") or "").strip()
         assistant_text=str(payload.get("assistant") or "").strip()
-        if not user_text:
-            raise RuntimeError("Nothing to learn: user message is empty")
+        if not user_text or len(user_text) > 20000:
+            raise ValueError("A lesson must contain 1 to 20000 characters")
         if not assistant_text:
             assistant_text="Acknowledged."
+        supplied = payload.get("examples")
+        mode = str(payload.get("mode") or "automatic")
+        if mode not in ("automatic", "compiled", "explicit"):
+            raise ValueError("Unknown learning mode")
+        if mode == "explicit":
+            explicit = validate_examples(supplied)
+            if not explicit:
+                raise ValueError("An explicit lesson needs a valid question and user-provided answer")
+        elif mode == "compiled":
+            explicit = self.brain.deterministic_examples(user_text) + validate_examples(supplied, source_text=user_text, require_evidence=True)
+        else:
+            explicit = None
+        if payload.get("model_key") and payload["model_key"] != self.brain.model_key(self.active_model):
+            raise RuntimeError("The selected model changed; review this lesson for the new model")
         model=self.active_model
         launch_payload=dict(self.last_launch_payload or {"model_path": model.path, "profile":"Balanced", "ctx":4096, "cpu_only":bool(self.cfg.cpu_only_default), "gpu_layer_percent":int(self.cfg.gpu_layer_percent)})
+        launch_payload["model_path"] = model.path
+        def same_model():
+            return self.active_model is not None and Path(self.active_model.path) == Path(model.path)
+        def require_model():
+            if not same_model():
+                self.brain_cancel.set()
+                raise BrainCancelled("The selected model changed; the old learning job was cancelled")
         with self.brain.lock:
             if self.brain.job.get("state") in ("running", "cancelling"):
                 raise RuntimeError("The personal brain is already learning")
@@ -2581,72 +2737,64 @@ class LlamaForgeState:
         self.events.publish("brain", {"brain": self.brain_status()})
 
         def work():
+            stopped_for_training = False
             try:
+                require_model()
                 run_id=f"{int(time.time())}-{threading.get_ident()}"
                 self.log(f"[brain:run] id={run_id} model={model.name} base={self.brain.training_base_for(model)} device={self.brain.cfg.device} zero_context={self.brain.cfg.zero_context}")
-                report=self.brain_doctor()
-                bad=[c for c in report.get("checks",[]) if not c.get("ok") and c.get("level")!="warn"]
-                if bad:
-                    raise RuntimeError("Brain preflight failed before training: "+"; ".join(f"{c.get('name')}: {c.get('detail')}" for c in bad[:5]))
-                self.log("[brain] Compiling this turn into weight-training examples")
-                deterministic=self.brain.deterministic_examples(user_text)
-                examples=self._brain_synthesize_examples(user_text)
-                self.log(f"[brain:synth] user_derived_examples={len(examples)} deterministic_examples={len(deterministic)}")
+                if self.brain_cancel.is_set():
+                    raise BrainCancelled("Learning cancelled before compilation")
+                deterministic = [] if mode == "explicit" else self.brain.deterministic_examples(user_text)
+                examples = explicit if explicit is not None else (
+                    [] if obvious_non_teaching(user_text) else deterministic or self._brain_synthesize_examples(user_text, cancel=self.brain_cancel))
+                examples = validate_examples(examples)
+                require_model()
+                self.log(f"[brain:synth] grounded_examples={len(examples)} deterministic_examples={len(deterministic)}")
                 # Questions with no explicit teaching signal should not make the
                 # model reinforce its own answer.  We still inspect every user
                 # message, but only actual user-provided supervision changes
                 # weights.
-                if not deterministic and not examples:
+                if not examples or self.brain.already_learned(model, examples):
                     with self.brain.lock:
                         self.brain.job={"state":"done","stage":"no-op","message":"No explicit fact or correction to learn from this message","error":"","progress":1.0}
                     self.events.publish("brain", {"brain": self.brain_status()})
                     self.log("[brain] no user-provided training target; weights unchanged")
                     return
-                if self.server_proc.running:
-                    self.stop_server(reason="brain-training")
+                if self.brain_cancel.is_set():
+                    raise BrainCancelled("Learning cancelled before model unload")
+                report=self.brain_doctor()
+                bad=[c for c in report.get("checks",[]) if not c.get("ok") and c.get("level")!="warn"]
+                if bad:
+                    raise RuntimeError("Brain preflight failed before training: "+"; ".join(f"{c.get('name')}: {c.get('detail')}" for c in bad[:5]))
+                with self._model_lifecycle_lock:
+                    require_model()
+                    if self.server_proc.running:
+                        self.stop_server(reason="brain-training")
+                        stopped_for_training = True
+                if stopped_for_training:
                     time.sleep(.35)
-                # CPU QLoRA is memory-hungry even though inference GGUF is small.
-                # Re-check *after* unloading llama.cpp and fail cleanly instead of
-                # letting Windows thrash or kill the trainer halfway through.
-                device_pref = str(self.brain.cfg.device or "auto").lower()
-                cpu_training = device_pref == "cpu" or (device_pref == "auto" and not bool(getattr(self.hw, "gpus", [])))
-                if cpu_training:
-                    try:
-                        free_now = 0.0
-                        stable = []
-                        deadline = time.time() + 5.0
-                        while time.time() < deadline:
-                            _total, sample = memory_gb()
-                            free_now = max(free_now, float(sample or 0.0))
-                            stable.append(float(sample or 0.0))
-                            if len(stable) >= 3 and max(stable[-3:]) - min(stable[-3:]) < 0.12:
-                                break
-                            time.sleep(.35)
-                        label = str(getattr(model, "size_label", "") or "").lower()
-                        min_free = 8.0 if "7b" in label else 5.5
-                        self.log(f"[brain:ram] after_unload_free={free_now:.2f}GB required_headroom={min_free:.2f}GB total={self.hw.ram_total_gb:.2f}GB")
-                        if free_now and free_now < min_free:
-                            raise RuntimeError(
-                                f"Only {free_now:.1f} GB RAM is free after unloading the inference model. "
-                                f"CPU personal training for this model needs roughly {min_free:.1f} GB of free headroom. "
-                                "Close other applications, then retry; no weights were changed."
-                            )
-                    except RuntimeError:
-                        raise
-                    except Exception:
-                        pass
+                # The worker admits CPU training using the actual checkpoint
+                # size and selected backend, including CPU use on an Intel iGPU.
+                # A model-name guess ("7b") cannot establish a memory budget.
                 def progress(msg,p):
+                    require_model()
                     self.events.publish("brain", {"brain": self.brain_status(), "message":str(msg), "progress":float(p)})
                     self.log("[brain] " + str(msg))
-                result=self.brain.learn(model,user_text,assistant_text,examples,progress,cancel=self.brain_cancel)
-                self.log(f"[brain] Learned generation {result.get('generation')} · adapter updated")
-                self.start_server(launch_payload)
+                result=self.brain.learn(model,"" if mode == "explicit" else user_text,assistant_text,examples,progress,cancel=self.brain_cancel)
+                self.log(f"[brain] Candidate generation {result.get('generation')} · awaiting reload verification")
+                with self._model_lifecycle_lock:
+                    require_model()
+                    self.start_server(launch_payload)
                 deadline=time.time()+300
                 while time.time()<deadline and self.server_proc.running and not self.server_ready and not self.server_error:
                     time.sleep(.5)
                 if not self.server_ready:
                     raise RuntimeError(self.server_error or "The updated adapter was trained but the model did not become ready after reload")
-                self.brain.confirm_learning(model)
+                if self.brain_cancel.is_set():
+                    raise BrainCancelled("Learning cancelled before confirmation")
+                with self._model_lifecycle_lock:
+                    require_model()
+                    self.brain.confirm_learning(model)
                 with self.brain.lock:
                     self.brain.job.update(state="done",stage="complete",message="Learned into weights · context remains zero",progress=1.0,error="")
                 self.events.publish("brain", {"brain": self.brain_status()})
@@ -2661,8 +2809,9 @@ class LlamaForgeState:
                         # If the failed reload process is still alive, restart it
                         # once with the restored adapter rather than leaving a
                         # potentially incompatible candidate resident.
-                        if self.server_proc.running:
-                            self.stop_server(reason="brain-rollback")
+                        with self._model_lifecycle_lock:
+                            if same_model() and self.server_proc.running:
+                                self.stop_server(reason="brain-rollback")
                 except Exception as rb_exc:
                     self.log_exception("brain:rollback", rb_exc)
                 with self.brain.lock:
@@ -2673,9 +2822,11 @@ class LlamaForgeState:
                         error="" if cancelled else str(exc),
                         progress=float(self.brain.job.get("progress") or 0.0) if cancelled else 0.0,
                     )
-                if not self.server_proc.running:
+                if stopped_for_training:
                     try:
-                        self.start_server(launch_payload)
+                        with self._model_lifecycle_lock:
+                            if same_model() and not self.server_proc.running:
+                                self.start_server(launch_payload)
                     except Exception as rex:
                         self.log_exception("brain:restore", rex)
                 self.events.publish("brain", {"brain": self.brain_status()})
@@ -2748,6 +2899,15 @@ class LlamaForgeState:
         threading.Thread(target=self.scan_models, name="model-scan", daemon=True).start()
 
     def update_settings(self, payload: dict):
+        # Validate before any mutation: bool("false") must never enable access.
+        for key in ("agent_enabled_default", "agent_allow_write", "agent_allow_workspace_write",
+                    "agent_allow_private_network", "agent_browser_headless", "agent_allow_telegram_read", "agent_allow_telegram_write"):
+            if key in payload and not isinstance(payload[key], bool):
+                raise ValueError(f"{key} must be a JSON boolean")
+        if "agent_skill_profile" in payload and payload["agent_skill_profile"] not in {"all", "telegram_only"}:
+            raise ValueError("Invalid Agent skill profile")
+        for key in ("agent_allow_telegram_read", "agent_allow_telegram_write", "agent_skill_profile"):
+            if key in payload: setattr(self.cfg, key, payload[key])
         if "max_ram_percent" in payload:
             self.cfg.max_ram_percent = _safe_int(payload["max_ram_percent"], 88, 50, 95)
         if "port" in payload:
@@ -2814,6 +2974,10 @@ class LlamaForgeState:
     def shutdown(self):
         self.shutting_down = True
         try:
+            if getattr(self, "agent", None): self.agent.telegram.close()
+        except Exception:
+            pass
+        try:
             if getattr(self, "remote_apps", None):
                 self.remote_apps.stop()
         except Exception:
@@ -2870,7 +3034,7 @@ class LlamaForgeHTTPServer(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "LlamaForgeLocal/0.33.0-adaptive-engine"
+    server_version = "LlamaForgeLocal/0.34.3-hotfix"
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *args):
@@ -2919,6 +3083,9 @@ class Handler(BaseHTTPRequestHandler):
     def _send_file(self, path: Path, filename: str = "download"):
         data = path.read_bytes()
         ctype = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        return self._send_download(data, filename, ctype)
+
+    def _send_download(self, data: bytes, filename: str, ctype: str):
         safe_name = re.sub(r"[\r\n\"]+", "_", str(filename or "download"))
         self.send_response(200)
         self.send_header("Content-Type", ctype)
@@ -2940,6 +3107,29 @@ class Handler(BaseHTTPRequestHandler):
         return obj if isinstance(obj, dict) else {}
 
     def _route_api_get(self, path: str, query: dict[str, list[str]]):
+        if path.startswith("/api/logs/requests"):
+            if self.headers.get("Sec-Fetch-Site") in {"cross-site", "same-site"}:
+                return self._send_json({"error":"Request transcripts are available only from the local control interface"},403)
+            store=self.state.request_traces
+            if path == "/api/logs/requests":
+                return self._send_json({"traces":store.list(),"settings":store.status()})
+            trace_id=str((query.get("id") or [""])[0])
+            try:
+                if path == "/api/logs/requests/export":
+                    return self._send_download(store.export(trace_id),trace_id+".zip","application/zip")
+                rows=store.events(trace_id)
+                if path == "/api/logs/requests/event":
+                    sequence=_safe_int((query.get("seq") or [0])[0],0,0,2**31-1)
+                    row=next((r for r in rows if r["seq"]==sequence),None)
+                    return self._send_json({"event":row},200 if row else 404)
+                if path == "/api/logs/requests/detail":
+                    return self._send_json({"events":[{k:v for k,v in row.items() if k!="data"} for row in rows]})
+                return self._send_json({"error":"Unknown trace endpoint"},404)
+            except (ValueError,FileNotFoundError) as exc:
+                return self._send_json({"error":str(exc)},404)
+        if path == "/api/events/poll":
+            after = _safe_int((query.get("after") or [0])[0], 0, 0, 2**63 - 1)
+            return self._send_json({"events": self.state.events.poll(after)})
         if path == "/api/state":
             return self._send_json(self.state.snapshot())
         if path == "/api/metrics":
@@ -3033,6 +3223,29 @@ class Handler(BaseHTTPRequestHandler):
         return self._send_json({"error": "Not found"}, 404)
 
     def _route_api_post(self, path: str, body: dict):
+        if path.startswith("/api/agent/telegram/"):
+            if self.headers.get("Sec-Fetch-Site") in {"cross-site", "same-site"}:
+                return self._send_json({"error":"Use the local Agent settings to manage Telegram"},403)
+            if path == "/api/agent/telegram/login":
+                return self._send_json(self.state.agent.telegram.login(body))
+            if path == "/api/agent/telegram/disconnect":
+                return self._send_json(self.state.agent.telegram.disconnect(revoke=body.get("revoke") is True))
+            if path == "/api/agent/telegram/install":
+                return self._send_json(self.state.agent.install_telegram_skill_async())
+            return self._send_json({"error":"Not found"},404)
+        if path == "/api/logs/requests/settings":
+            if self.headers.get("Sec-Fetch-Site") in {"cross-site", "same-site"}:
+                return self._send_json({"error":"Cross-site diagnostic changes are not allowed"},403)
+            if not isinstance(body.get("enabled"),bool):
+                return self._send_json({"error":"enabled must be a boolean"},400)
+            self.state.request_traces.enabled=body["enabled"]
+            self.state.cfg.diagnostic_full_traces=body["enabled"]
+            self.state.cfg.save()
+            return self._send_json(self.state.request_traces.status())
+        if path == "/api/chat/cancel":
+            event = self.state.chat_cancellations.get(str(body.get("request_id") or ""))
+            if event: event.set()
+            return self._send_json({"ok": True, "cancelled": bool(event)})
         if path == "/api/cluster/role":
             return self._send_json(self.state.cluster.set_role(str(body.get("role") or "standalone"), enabled=body.get("enabled") if "enabled" in body else None))
         if path == "/api/cluster/modes":
@@ -3166,6 +3379,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_json(self.state.prepare_brain_async(force=bool(body.get("force"))))
         if path == "/api/brain/resolve-base":
             return self._send_json(self.state.resolve_brain_base())
+        if path == "/api/brain/preview":
+            return self._send_json(self.state.preview_brain_lesson(body))
         if path == "/api/brain/learn":
             return self._send_json(self.state.learn_brain_async(body))
         if path == "/api/brain/bake":
@@ -3191,7 +3406,8 @@ class Handler(BaseHTTPRequestHandler):
         return self._send_json({"error": "Not found"}, 404)
 
     def _events_stream(self):
-        q = self.state.events.subscribe()
+        after = self.headers.get("Last-Event-ID")
+        q = self.state.events.subscribe(after=_safe_int(after, 0, 0, 2**63 - 1) if after else None)
         self.state.touch_client()
         try:
             self.send_response(200)
@@ -3206,7 +3422,7 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     event = q.get(timeout=12.0)
                     payload = json.dumps(event, ensure_ascii=False)
-                    self.wfile.write(("data: " + payload + "\n\n").encode("utf-8"))
+                    self.wfile.write((f"id: {event['revision']}\n" + "data: " + payload + "\n\n").encode("utf-8"))
                 except queue.Empty:
                     self.wfile.write(b": heartbeat\n\n")
                 self.wfile.flush(); self.state.touch_client()
@@ -3251,8 +3467,23 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_json({"error": str(exc)}, 500)
 
     def _chat_stream(self):
+        headers_sent = False
+        iterator = None
+        cancel = threading.Event()
+        active = getattr(self.state, "chat_cancellations", {})
+        request_id = ""
+        registered = False
         try:
             body = self._read_json()
+            request_id = str(body.get("request_id") or "req_" + uuid.uuid4().hex)
+            if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", request_id):
+                raise ValueError("Invalid request_id")
+            if request_id in active:
+                raise RuntimeError("Request is already running")
+            active[request_id] = cancel
+            registered = True
+            body["request_id"] = request_id
+            body["_cancel"] = cancel
             iterator = self.state.chat_stream(body)
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
@@ -3260,23 +3491,36 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Connection", "close")
             self.send_header("X-Accel-Buffering", "no")
             self.end_headers()
-            for event in iterator:
+            headers_sent = True
+            for sequence, event in enumerate(iterator, 1):
+                if cancel.is_set():
+                    raise RuntimeError("Generation cancelled")
                 chunk = json.dumps(event if isinstance(event, dict) else {"type": "text", "delta": str(event)}, ensure_ascii=False)
-                self.wfile.write(("data: " + chunk + "\n\n").encode("utf-8"))
+                self.wfile.write((f"id: {sequence}\n" + "data: " + chunk + "\n\n").encode("utf-8"))
                 self.wfile.flush()
             self.wfile.write(b"data: [DONE]\n\n")
             self.wfile.flush()
-        except (BrokenPipeError, ConnectionResetError):
-            return
         except Exception as exc:
+            if _expected_client_disconnect(exc):
+                return
             try:
-                if not getattr(self, "_headers_buffer", None):
-                    self.send_response(200); self.send_header("Content-Type", "text/event-stream; charset=utf-8"); self.end_headers()
-                msg = json.dumps({"error": str(exc)}, ensure_ascii=False)
-                self.wfile.write(("data: " + msg + "\n\n").encode("utf-8")); self.wfile.flush()
+                if not headers_sent:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                    self.end_headers()
+                msg = json.dumps({"type": "error", "error": str(exc)}, ensure_ascii=False)
+                self.wfile.write(("data: " + msg + "\n\ndata: [DONE]\n\n").encode("utf-8"))
+                self.wfile.flush()
             except Exception:
                 pass
-            self.state.log_exception("chat", exc)
+            if not cancel.is_set():
+                self.state.log_exception("chat", exc)
+        finally:
+            cancel.set()
+            if iterator is not None and hasattr(iterator, "close"):
+                iterator.close()
+            if registered:
+                active.pop(request_id, None)
 
     def _serve_static(self, path: str):
         rel = "index.html" if path in ("", "/") else path.lstrip("/")
