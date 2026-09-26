@@ -11,7 +11,7 @@ from llamaforge.web.server import LlamaForgeState
 from test_personal_brain import _isolated_brain
 
 
-MODEL = SimpleNamespace(name="Test", architecture="llama", size_label="1B")
+MODEL = SimpleNamespace(name="Test", architecture="llama", size_label="1B", path="model.gguf")
 
 
 @pytest.mark.parametrize("text", ["اسم من چیه؟", "اسمم چیست؟", "اسم من چی بود؟", "My name is what?",

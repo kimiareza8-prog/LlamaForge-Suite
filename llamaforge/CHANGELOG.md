@@ -1,3 +1,12 @@
+# 0.34.1-stability
+
+- Fix Brain installer failure reporting, sticky in-flight cancellation, stale preview cancellation, model-switch detection during compilation and preflight failure restoring an initially stopped model.
+- Bind adapter reload to the taught model; reject a model switch at compilation, preflight and reload/confirmation boundaries.
+- Keep chat usable during background Brain setup/download/doctor stages using one activity classifier.
+- Calendar rescheduling accepts time/Jalali/Gregorian/relative dates and preserves event duration; blank dates are rejected atomically and all-day defaults to 24 hours.
+- Add cross-month calendar search with edit access, stale-response protection and escaped results. Date conversion cannot overwrite newer typing.
+- Add 18 backend regression cases and 8 executable UI cases. No new runtime dependency, model instance, or Bridge updater/credential change.
+
 # 0.34.0-smart-brain
 
 - Refresh local chat with a neutral sidebar, compact controls, per-thread drafts/attachments, history search/rename and accessible mobile navigation.

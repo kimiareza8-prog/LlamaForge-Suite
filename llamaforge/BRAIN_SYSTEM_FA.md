@@ -92,3 +92,7 @@ Generation و وضعیت ارزیابی در Meta تنها پس از تأیید 
 4. در صورت نیاز، حافظهٔ ساخت‌یافتهٔ قابل ویرایش را به‌صورت قابلیت مستقل و انتخابی طراحی کنید؛ آن را پنهانی وارد مسیر Zero-context نکنید.
 
 منابع فنی: [PEFT troubleshooting](https://github.com/huggingface/peft/blob/main/docs/source/developer_guides/troubleshooting.md)، [PyTorch gradient norm](https://docs.pytorch.org/docs/stable/generated/torch.nn.utils.clip_grad_norm_.html).
+
+## اصلاحات پایداری 0.34.1
+
+خطای نصب Trainer اکنون به وضعیت نهایی error/cancelled می‌رسد؛ خطای ثانویه در handler رخ نمی‌دهد. روشن‌کردن مجدد Brain، درخواست لغوِ کار قبلی را پس نمی‌گیرد. پیش‌نمایش درس از پرچم لغوِ کار قدیمی مستقل است؛ در صورت تغییر مدل هنگام compilation رد می‌شود. شکست preflight مدلی را که پیش از کار خاموش بوده، خودبه‌خود بارگذاری نمی‌کند. دانلود و آماده‌سازی پس‌زمینه، کادر چتِ مدل آماده را قفل نمی‌کنند.

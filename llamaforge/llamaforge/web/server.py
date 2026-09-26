@@ -44,7 +44,7 @@ from ..core.cluster import ClusterManager
 from ..core.autotune import AdaptiveTuner
 from ..core.redaction import redact
 
-APP_VERSION = "0.34.0-smart-brain"
+APP_VERSION = "0.34.1-stability"
 STATIC_ROOT = Path(__file__).parent / "static"
 
 # Curated one-click bundles intentionally bind one chat artifact to one exact
@@ -2195,7 +2195,11 @@ class LlamaForgeState:
                     self.brain.job.update(state="cancelling", message="Stopping the current Brain task safely…", error="")
             self.log("[brain:power] OFF · cancellation requested for active Brain work")
         elif not before and after:
-            self.brain_cancel.clear(); self.brain_download_cancel.clear()
+            # Re-enabling affects future jobs; cancellation of the current one
+            # remains sticky until that worker has reached a terminal state.
+            with self.brain.lock:
+                if self.brain.job.get("state") not in ("running", "cancelling"):
+                    self.brain_cancel.clear(); self.brain_download_cancel.clear()
             self.log("[brain:power] ON")
         else:
             self.log(f"[brain] settings updated enabled={after}")
@@ -2217,8 +2221,10 @@ class LlamaForgeState:
                 if self.brain.job.get("state") == "running":
                     self.brain.job.update(state="cancelling", message="Stopping the current Brain task safely…", error="")
         else:
-            self.brain_cancel.clear()
-            self.brain_download_cancel.clear()
+            with self.brain.lock:
+                if self.brain.job.get("state") not in ("running", "cancelling"):
+                    self.brain_cancel.clear()
+                    self.brain_download_cancel.clear()
         st = self.brain_status()
         self.log(f"[brain:toggle] effective={after} changed={before != after} setup_ready={bool(st.get('setup_ready'))} job={st.get('job',{}).get('state','idle')}")
         self.events.publish("brain", {"brain": st})
@@ -2537,15 +2543,20 @@ class LlamaForgeState:
         def work():
             try:
                 def progress(msg, p):
+                    if self.brain_cancel.is_set():
+                        raise BrainCancelled("Trainer setup cancelled")
                     with self.brain.lock:
                         self.brain.job.update(state="running", stage="setup", message=str(msg), progress=float(p), error="")
                     self.events.publish("brain", {"brain": self.brain_status()})
                     self.log("[brain:setup] " + str(msg))
                 self.brain.prepare_environment(progress, force=force, cancel=self.brain_cancel)
+                if self.brain_cancel.is_set():
+                    raise BrainCancelled("Trainer setup cancelled")
                 with self.brain.lock:
                     self.brain.job = {"state":"done","stage":"setup","message":"Brain Trainer ready","error":"","progress":1.0}
                 self.events.publish("brain", {"brain": self.brain_status()})
             except Exception as exc:
+                cancelled = self.brain_cancel.is_set() or isinstance(exc, BrainCancelled)
                 with self.brain.lock:
                     self.brain.job = {
                         "state":"cancelled" if cancelled else "error",
@@ -2560,7 +2571,7 @@ class LlamaForgeState:
         threading.Thread(target=work, name="brain-setup", daemon=True).start()
         return self.brain_status()
 
-    def _brain_synthesize_examples(self, user_text: str, assistant_text: str = "") -> list[dict]:
+    def _brain_synthesize_examples(self, user_text: str, assistant_text: str = "", *, cancel: threading.Event | None = None) -> list[dict]:
         if not self.brain.cfg.auto_synthesize or not self.server_ready:
             return []
         prompt = (
@@ -2579,7 +2590,7 @@ class LlamaForgeState:
             for ev in stream_chat_events(
                 self.cfg.host, self.cfg.port, [{"role":"user","content":prompt}],
                 temperature=0.12, top_p=0.85, top_k=24, min_p=0.0, repeat_penalty=1.02,
-                max_tokens=1200, reasoning="off", reasoning_budget=0, timeout=300, cancel=getattr(self, "brain_cancel", None),
+                max_tokens=1200, reasoning="off", reasoning_budget=0, timeout=300, cancel=cancel,
             ):
                 if ev.get("type") == "text" and ev.get("delta"):
                     parts.append(str(ev["delta"]))
@@ -2600,19 +2611,23 @@ class LlamaForgeState:
         text = str(payload.get("user") or "").strip()
         if not text or len(text) > 20000:
             raise ValueError("A lesson must contain 1 to 20000 characters")
+        model = self.active_model
+        model_key = self.brain.model_key(model)
         deterministic = self.brain.deterministic_examples(text)
         if payload.get("precheck") and not obvious_non_teaching(text) and not deterministic:
             return {"examples": [], "should_learn": True, "compiled": False, "reason": "needs-compilation",
-                    "model_key": self.brain.model_key(self.active_model)}
+                    "model_key": model_key}
         if obvious_non_teaching(text):
             examples = []
         else:
             examples = deterministic or self._brain_synthesize_examples(text)
+        if self.brain.model_key(self.active_model) != model_key:
+            raise RuntimeError("The selected model changed during compilation; review the lesson again")
         examples = validate_examples(examples)
-        duplicate = bool(self.active_model and examples and self.brain.already_learned(self.active_model, examples))
+        duplicate = bool(model and examples and self.brain.already_learned(model, examples))
         return {"examples": examples, "should_learn": bool(examples) and not duplicate, "compiled": True,
                 "reason": "already-learned" if duplicate else "supervision" if examples else "no-supervision",
-                "model_key": self.brain.model_key(self.active_model)}
+                "model_key": model_key}
 
     def learn_brain_async(self, payload: dict) -> dict:
         if not self.brain.cfg.enabled:
@@ -2641,6 +2656,13 @@ class LlamaForgeState:
             raise RuntimeError("The selected model changed; review this lesson for the new model")
         model=self.active_model
         launch_payload=dict(self.last_launch_payload or {"model_path": model.path, "profile":"Balanced", "ctx":4096, "cpu_only":bool(self.cfg.cpu_only_default), "gpu_layer_percent":int(self.cfg.gpu_layer_percent)})
+        launch_payload["model_path"] = model.path
+        def same_model():
+            return self.active_model is not None and Path(self.active_model.path) == Path(model.path)
+        def require_model():
+            if not same_model():
+                self.brain_cancel.set()
+                raise BrainCancelled("The selected model changed; the old learning job was cancelled")
         with self.brain.lock:
             if self.brain.job.get("state") in ("running", "cancelling"):
                 raise RuntimeError("The personal brain is already learning")
@@ -2649,15 +2671,18 @@ class LlamaForgeState:
         self.events.publish("brain", {"brain": self.brain_status()})
 
         def work():
+            stopped_for_training = False
             try:
+                require_model()
                 run_id=f"{int(time.time())}-{threading.get_ident()}"
                 self.log(f"[brain:run] id={run_id} model={model.name} base={self.brain.training_base_for(model)} device={self.brain.cfg.device} zero_context={self.brain.cfg.zero_context}")
                 if self.brain_cancel.is_set():
                     raise BrainCancelled("Learning cancelled before compilation")
                 deterministic = [] if mode == "explicit" else self.brain.deterministic_examples(user_text)
                 examples = explicit if explicit is not None else (
-                    [] if obvious_non_teaching(user_text) else deterministic or self._brain_synthesize_examples(user_text))
+                    [] if obvious_non_teaching(user_text) else deterministic or self._brain_synthesize_examples(user_text, cancel=self.brain_cancel))
                 examples = validate_examples(examples)
+                require_model()
                 self.log(f"[brain:synth] grounded_examples={len(examples)} deterministic_examples={len(deterministic)}")
                 # Questions with no explicit teaching signal should not make the
                 # model reinforce its own answer.  We still inspect every user
@@ -2675,18 +2700,25 @@ class LlamaForgeState:
                 bad=[c for c in report.get("checks",[]) if not c.get("ok") and c.get("level")!="warn"]
                 if bad:
                     raise RuntimeError("Brain preflight failed before training: "+"; ".join(f"{c.get('name')}: {c.get('detail')}" for c in bad[:5]))
-                if self.server_proc.running:
-                    self.stop_server(reason="brain-training")
+                with self._model_lifecycle_lock:
+                    require_model()
+                    if self.server_proc.running:
+                        self.stop_server(reason="brain-training")
+                        stopped_for_training = True
+                if stopped_for_training:
                     time.sleep(.35)
                 # The worker admits CPU training using the actual checkpoint
                 # size and selected backend, including CPU use on an Intel iGPU.
                 # A model-name guess ("7b") cannot establish a memory budget.
                 def progress(msg,p):
+                    require_model()
                     self.events.publish("brain", {"brain": self.brain_status(), "message":str(msg), "progress":float(p)})
                     self.log("[brain] " + str(msg))
                 result=self.brain.learn(model,"" if mode == "explicit" else user_text,assistant_text,examples,progress,cancel=self.brain_cancel)
                 self.log(f"[brain] Candidate generation {result.get('generation')} · awaiting reload verification")
-                self.start_server(launch_payload)
+                with self._model_lifecycle_lock:
+                    require_model()
+                    self.start_server(launch_payload)
                 deadline=time.time()+300
                 while time.time()<deadline and self.server_proc.running and not self.server_ready and not self.server_error:
                     time.sleep(.5)
@@ -2694,7 +2726,9 @@ class LlamaForgeState:
                     raise RuntimeError(self.server_error or "The updated adapter was trained but the model did not become ready after reload")
                 if self.brain_cancel.is_set():
                     raise BrainCancelled("Learning cancelled before confirmation")
-                self.brain.confirm_learning(model)
+                with self._model_lifecycle_lock:
+                    require_model()
+                    self.brain.confirm_learning(model)
                 with self.brain.lock:
                     self.brain.job.update(state="done",stage="complete",message="Learned into weights · context remains zero",progress=1.0,error="")
                 self.events.publish("brain", {"brain": self.brain_status()})
@@ -2709,8 +2743,9 @@ class LlamaForgeState:
                         # If the failed reload process is still alive, restart it
                         # once with the restored adapter rather than leaving a
                         # potentially incompatible candidate resident.
-                        if self.server_proc.running:
-                            self.stop_server(reason="brain-rollback")
+                        with self._model_lifecycle_lock:
+                            if same_model() and self.server_proc.running:
+                                self.stop_server(reason="brain-rollback")
                 except Exception as rb_exc:
                     self.log_exception("brain:rollback", rb_exc)
                 with self.brain.lock:
@@ -2721,9 +2756,11 @@ class LlamaForgeState:
                         error="" if cancelled else str(exc),
                         progress=float(self.brain.job.get("progress") or 0.0) if cancelled else 0.0,
                     )
-                if not self.server_proc.running:
+                if stopped_for_training:
                     try:
-                        self.start_server(launch_payload)
+                        with self._model_lifecycle_lock:
+                            if same_model() and not self.server_proc.running:
+                                self.start_server(launch_payload)
                     except Exception as rex:
                         self.log_exception("brain:restore", rex)
                 self.events.publish("brain", {"brain": self.brain_status()})
@@ -2918,7 +2955,7 @@ class LlamaForgeHTTPServer(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "LlamaForgeLocal/0.34.0-smart-brain"
+    server_version = "LlamaForgeLocal/0.34.1-stability"
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *args):

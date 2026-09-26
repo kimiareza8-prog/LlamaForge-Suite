@@ -244,7 +244,7 @@ class CalendarStore:
                     raise ValueError("title is required")
                 start = self._event_start(data)
                 end_raw = str(data.get("end") or "").strip()
-                end = _parse_iso(end_raw) if end_raw else start + timedelta(hours=1)
+                end = _parse_iso(end_raw) if end_raw else start + timedelta(hours=24 if data.get("all_day") else 1)
                 if end <= start:
                     raise ValueError("end must be after start")
                 ev = {
@@ -271,14 +271,30 @@ class CalendarStore:
                 raise ValueError("event not found")
             ev = dict(events[idx])
             if op == "update":
+                original_start = _parse_iso(ev["start"])
+                original_end = _parse_iso(ev.get("end") or ev["start"])
                 if "title" in data and not str(data.get("title") or "").strip():
                     raise ValueError("title is required")
                 for key in ("title", "location", "notes"):
                     if key in data:
                         ev[key] = str(data.get(key) or "").strip()[:5000 if key == "notes" else 300 if key == "title" else 500]
-                for key in ("start", "end"):
-                    if key in data and str(data.get(key) or "").strip():
-                        ev[key] = _parse_iso(str(data[key])).isoformat(timespec="minutes")
+                if any(key in data for key in ("start", "time", "gregorian", "jalali", "relative_date")):
+                    start_data = dict(data)
+                    for key in ("start", "time", "gregorian", "jalali", "relative_date"):
+                        if key in start_data and not str(start_data[key] or "").strip():
+                            raise ValueError(f"{key} must not be empty")
+                    if not any(start_data.get(key) for key in ("gregorian", "jalali", "relative_date")):
+                        start_data["gregorian"] = original_start.date().isoformat()
+                    # Moving a date retains its clock; changing a clock retains
+                    # its date. ISO start is still authoritative when supplied.
+                    if not start_data.get("time") and not start_data.get("start"):
+                        start_data["time"] = original_start.strftime("%H:%M")
+                    start = self._event_start(start_data)
+                    ev["start"] = start.isoformat(timespec="minutes")
+                    if not data.get("end"):
+                        ev["end"] = (start + (original_end - original_start)).isoformat(timespec="minutes")
+                if "end" in data:
+                    ev["end"] = _parse_iso(str(data.get("end") or "")).isoformat(timespec="minutes")
                 if "all_day" in data:
                     ev["all_day"] = bool(data.get("all_day"))
                 if "tags" in data:

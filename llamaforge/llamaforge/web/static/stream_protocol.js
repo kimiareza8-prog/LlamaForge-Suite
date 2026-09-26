@@ -39,7 +39,7 @@
   function brainActivity(brain,pending=false){
     const job=brain.job||{};
     const busy=['running','cancelling'].includes(job.state);
-    const setup=busy&&['setup','auto-setup','detect-base','trainer'].includes(job.stage);
+    const setup=busy&&['setup','auto-setup','download-base','detect-base','trainer','doctor'].includes(job.stage);
     if(['done','error','cancelled'].includes(job.state))pending=false;
     return {setup,learning:busy&&!setup,pending,locked:(busy&&!setup)||pending};
   }

@@ -1,0 +1,147 @@
+✔ composer text survives attachment/options rerender and returning to its thread (24.232259ms)
+✔ changing thread cancels the original stream before switching (2.803917ms)
+✔ calendar payload keeps server wall time when browser uses another timezone (1.173943ms)
+✔ late cancelled stream cannot delete or unlock the next response (12.638924ms)
+✔ agenda overlap excludes midnight end and includes the following occupied day (0.296598ms)
+✔ attachment finishing after navigation stays in its original conversation (4.710601ms)
+✖ background Brain auto-setup keeps chat usable on render and refresh (8.483988ms)
+✖ background Brain download-base keeps chat usable on render and refresh (2.516658ms)
+✖ background Brain detect-base keeps chat usable on render and refresh (1.718015ms)
+✖ background Brain trainer keeps chat usable on render and refresh (1.858432ms)
+✖ background Brain doctor keeps chat usable on render and refresh (2.313654ms)
+✖ typing a date invalidates an older conversion response before blur (2.616841ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 6
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 154.136977
+
+✖ failing tests:
+
+test at tests/test_workspace_ui.cjs:90:3
+✖ background Brain auto-setup keeps chat usable on render and refresh (8.483988ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  true !== false
+
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:94:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/test_workspace_ui.cjs:90:3
+✖ background Brain download-base keeps chat usable on render and refresh (2.516658ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  true !== false
+
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:94:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/test_workspace_ui.cjs:90:3
+✖ background Brain detect-base keeps chat usable on render and refresh (1.718015ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  true !== false
+
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:94:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/test_workspace_ui.cjs:90:3
+✖ background Brain trainer keeps chat usable on render and refresh (1.858432ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  true !== false
+
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:94:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/test_workspace_ui.cjs:90:3
+✖ background Brain doctor keeps chat usable on render and refresh (2.313654ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  true !== false
+
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:94:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/test_workspace_ui.cjs:98:1
+✖ typing a date invalidates an older conversion response before blur (2.616841ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + '1405-07-03'
+  - '1405-07-04'
+              ^
+
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:107:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '1405-07-03',
+    expected: '1405-07-04',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

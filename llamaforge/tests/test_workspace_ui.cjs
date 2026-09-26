@@ -10,9 +10,9 @@ function harness() {
   const el = key => {
     if (!elements.has(key)) {
       let html = '';
-      const e = {value:'',style:{setProperty(){}},classList:{add(){},remove(){},toggle(){}},dataset:{},setAttribute(){},focus(){},scrollHeight:100,clientHeight:100,
+      const e = {isConnected:true,value:'',style:{setProperty(){}},classList:{add(){},remove(){},toggle(){}},dataset:{},setAttribute(){},focus(){},scrollHeight:100,clientHeight:100,
         appendChild(){},querySelector:s=>el(s),querySelectorAll:()=>[]};
-      Object.defineProperty(e, 'innerHTML', {get:()=>html,set:x=>{html=x;if(key==='#view') elements.delete('#composerInput');}});
+      Object.defineProperty(e, 'innerHTML', {get:()=>html,set:x=>{html=x;if(key==='#view'){elements.delete('#composerInput');const tag=x.match(/<textarea[^>]*id="composerInput"[^>]*>/);if(tag)el('#composerInput').disabled=/\sdisabled(?:\s|>)/.test(tag[0]);}}});
       elements.set(key,e);
     }
     return elements.get(key);
@@ -20,9 +20,9 @@ function harness() {
   const document={createElement:()=>el('created'),querySelector:el,querySelectorAll:()=>[],body:{classList:{toggle(){}},dataset:{}}};
   const sandbox={document,localStorage:{getItem:()=>null,setItem(){},removeItem(){}},location:{hash:'#chat'},crypto:{randomUUID:()=> 'test-'+(++sequence)},
     AbortController,DOMException,TextDecoder,performance,
-    window:{addEventListener(){}},setTimeout(){},requestAnimationFrame(){},LFProtocol:require(path.join(staticDir,'stream_protocol.js')), Date, console};
+    window:{addEventListener(){}},setTimeout(){},requestAnimationFrame(){},LFProtocol:require(path.join(staticDir,'stream_protocol.js')),LFWorkspaceUI:require(path.join(staticDir,'workspace_ui.js')), Date, console};
   let src=fs.readFileSync(path.join(staticDir,'app.js'),'utf8').split('  // shell events')[0];
-  src+='\n renderMessages=()=>{};renderNav=()=>{};updateChrome=()=>{};this.fixture={App,renderChat,selectThread,renderMarkdown,stopGeneration,generateAssistant,addChatAttachments,setFileReader:fn=>fileDataUrl=fn};})();';
+  src+='\n renderMessages=()=>{};renderNav=()=>{};updateChrome=()=>{};this.fixture={App,renderChat,selectThread,renderMarkdown,stopGeneration,generateAssistant,addChatAttachments,openCalendarEventModal,updateChatStateOnly,searchCalendarEvents,setFileReader:fn=>fileDataUrl=fn};})();';
   vm.runInNewContext(src,sandbox);
   const f=sandbox.fixture;
   f.App.state={server:{ready:true},brain:{enabled:false},config:{}};
@@ -84,4 +84,45 @@ test('attachment finishing after navigation stays in its original conversation',
   selectThread('two');finish('data:text/plain;base64,aGVsbG8=');await upload;
   assert.equal(App.pendingAttachments.length,0);
   selectThread('one');assert.equal(App.pendingAttachments.length,2);assert.equal(App.pendingAttachments[0].name,'notes.txt');
+});
+
+for(const stage of ['auto-setup','download-base','detect-base','trainer','doctor']){
+  test('background Brain '+stage+' keeps chat usable on render and refresh',()=>{
+    const {App,el,renderChat,updateChatStateOnly}=harness();
+    App.state.brain={enabled:true,job:{state:'running',stage}};
+    renderChat(el('#view'));updateChatStateOnly();
+    assert.equal(el('#composerInput').disabled,false);
+    assert.equal(el('#sendButton').disabled,false);
+  });
+}
+test('typing a date invalidates an older conversion response before blur',async()=>{
+  const {el,sandbox,openCalendarEventModal}=harness();let finish;
+  sandbox.fetch=()=>new Promise(resolve=>finish=resolve);
+  openCalendarEventModal({gregorian:'2026-09-25',jalali:'1405-07-03'},{timezone:'UTC',utc_offset:'+0000'});
+  const input=el('#calJalali');input.value='1405-07-03';
+  const first=input.onchange({target:input});
+  input.value='1405-07-04';input.oninput?.({target:input});
+  finish({ok:true,json:async()=>({result:{jalali:'1405-07-03',gregorian:'2026-09-25'}})});
+  await first;
+  assert.equal(input.value,'1405-07-04');
+});
+
+test('calendar search ignores stale responses and escapes titles',async()=>{
+  const {App,el,sandbox,searchCalendarEvents}=harness();const replies=[];
+  App.route='calendar';sandbox.fetch=url=>new Promise(resolve=>replies.push({url,resolve}));
+  const root=el('#calSearchResults');
+  App.calendarQuery='جلسه';const first=searchCalendarEvents('جلسه',root,{},()=>{});
+  App.calendarQuery='سفر';const second=searchCalendarEvents('سفر',root,{},()=>{});
+  replies[1].resolve({ok:true,json:async()=>({events:[{id:'2',title:'<img onerror=alert(1)>',start:'2026-09-25T10:00+00:00'}]})});await second;
+  const latest=root.innerHTML;assert.match(latest,/&lt;img/);assert.ok(!latest.includes('<img'));
+  assert.ok(replies[0].url.includes(encodeURIComponent('جلسه')));
+  replies[0].resolve({ok:true,json:async()=>({events:[{id:'1',title:'old'}]})});await first;
+  assert.equal(root.innerHTML,latest);
+});
+
+test('composer rerender preserves a pending strict lesson lock',()=>{
+  const {App,el,renderChat}=harness();
+  App.brainTurnPending=true;App.state.brain={enabled:true,strict_learning:true,job:{state:'idle'}};
+  renderChat(el('#view'));
+  assert.equal(el('#composerInput').disabled,true);
 });

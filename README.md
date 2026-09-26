@@ -96,7 +96,7 @@ Adaptive AutoTune now benchmarks the exact GGUF with the installed `llama-bench`
 
 This build adds true Agent/web response streaming, universal metadata-first file attachments, smarter file/calendar Skill routing, compact calendar UI, and Full RAM loading with `--load-mode none` when the model fits safely.
 
-Published package version: 0.34.0-smart-brain
+Published package version: 0.34.1-stability
 
 ## 0.34.0 Smart Skills
 
@@ -105,3 +105,7 @@ Operation contracts, focused capability routing, durable attachment receipts, bo
 ## 0.34 Personal Brain and web interface
 
 Explicit question/answer teaching, grounded automatic lessons, correction-aware replay and adapter confirmation after successful reload. The local web app has a quieter conversation layout, per-chat drafts, searchable history and an editable Jalali calendar. The hosted Bridge receives a readable chat/calendar skin; updater and credentials are unchanged. See [Brain](llamaforge/BRAIN_SYSTEM_FA.md) and [the technical report](llamaforge/AUDIT_REPORT_FA.md).
+
+## 0.34.1 stability follow-up
+
+Fixes Brain setup/cancellation and background chat availability; adds reliable duration-preserving calendar rescheduling and cross-month event search. [Follow-up report](llamaforge/FOLLOWUP_REPORT_FA.md).

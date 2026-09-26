@@ -532,7 +532,7 @@ class PersonalBrain:
         try:
             for _ in range(3):
                 url = "https://huggingface.co/api/models/" + urllib.parse.quote(current, safe="/")
-                req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.34.0-smart-brain", "Accept": "application/json"})
+                req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.34.1-stability", "Accept": "application/json"})
                 with urllib.request.urlopen(req, timeout=25) as r:
                     data = json.loads(r.read().decode("utf-8", errors="replace"))
                 card = data.get("cardData") or {}
@@ -650,7 +650,7 @@ class PersonalBrain:
         BRAIN_ROOT.mkdir(parents=True, exist_ok=True)
         archive = BRAIN_ROOT / "llama-toolchain.zip"
         url = "https://github.com/ggml-org/llama.cpp/archive/refs/heads/master.zip"
-        req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.34.0-smart-brain"})
+        req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.34.1-stability"})
         with urllib.request.urlopen(req, timeout=180) as r, archive.open("wb") as f:
             shutil.copyfileobj(r, f)
         tmp = BRAIN_ROOT / "toolchain-extract"

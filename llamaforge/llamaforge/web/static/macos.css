@@ -224,6 +224,20 @@ body.chat-active .topbar {display:none}
 .form-error:empty {display:none}
 .cal-dialog>footer {display:flex;gap:8px;align-items:center;padding:18px 24px;border-top:1px solid var(--border)}
 .cal-dialog>footer>span {flex:1}
+/* Calendar search is independent of the visible month. */
+.cal-search {margin:0 0 22px;max-width:100%;min-width:0}
+.cal-search>label {display:block;color:var(--muted);font-size:13px;margin-bottom:8px}
+.cal-search>div:first-of-type {display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border-strong);border-radius:12px;padding:0 13px}
+.cal-search>div>svg {width:18px;height:18px;color:var(--muted);flex-shrink:0}
+.cal-search input {width:100%;min-width:0;padding:12px 0;border:0;background:transparent;color:var(--text);font:inherit;font-size:14px;outline-offset:4px}
+.cal-search-results {display:grid;gap:5px;margin-top:12px;padding:12px;background:var(--surface);border-radius:12px;max-height:340px;overflow:auto}
+.cal-search-results[hidden] {display:none}
+.cal-search-status {font-size:13px;color:var(--muted);margin:4px 0 10px}
+.cal-search-result {display:flex;align-items:center;gap:14px;border:0;background:transparent;color:var(--text);padding:12px;text-align:start;border-radius:8px;cursor:pointer;flex-wrap:wrap}
+.cal-search-result:hover {background:var(--surface-3)}
+.cal-search-result>span {flex:1;min-width:130px;display:grid;gap:4px;overflow-wrap:anywhere}
+.cal-search-result strong {font-size:14px;font-weight:500}.cal-search-result small,.cal-search-result bdi {font-size:12px;color:var(--muted)}
+.cal-search-result>svg {width:16px;height:16px;color:var(--muted);flex-shrink:0}
 /* Brain's atomic switch retains its dedicated API and keyboard semantics. */
 .brain-master-toggle>span {background:var(--surface-3)}
 .brain-power-switch {appearance:none;border:0;background:transparent;display:inline-flex;align-items:center;gap:9px;padding:5px 2px;min-width:66px;cursor:pointer;color:var(--text)}

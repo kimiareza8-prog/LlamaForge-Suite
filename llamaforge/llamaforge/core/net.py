@@ -9,7 +9,7 @@ import urllib.parse
 import urllib.request
 from typing import Iterator
 
-UA = "LlamaForge/0.34.0-smart-brain"
+UA = "LlamaForge/0.34.1-stability"
 
 
 @contextmanager

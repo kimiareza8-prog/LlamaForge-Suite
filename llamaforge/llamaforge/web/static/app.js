@@ -83,6 +83,8 @@
     calendarCursor:null,
     calendarSelected:'',
     calendarRequest:0,
+    calendarQuery:'',
+    calendarSearchRequest:0,
     chatDrafts:{},
     attachmentDrafts:{},
     historyQuery:'',
@@ -296,6 +298,21 @@
     $$('[data-profile]').forEach(b=>b.onclick=async()=>{try{await api('/api/cluster/profile/load',{method:'POST',body:{name:b.dataset.profile}});toast('Cluster profile loaded',b.dataset.profile,'info');renderCluster(view)}catch(e){toast('Profile load failed',e.message,'error')}});
   }
 
+  async function searchCalendarEvents(query,root,now,onSaved){
+    const text=query.trim(),sequence=++App.calendarSearchRequest;
+    root.hidden=!text;
+    if(!text){root.innerHTML='';return}
+    root.innerHTML='<p class="cal-search-status">در حال جستجو…</p>';
+    const current=()=>root.isConnected&&App.route==='calendar'&&sequence===App.calendarSearchRequest&&text===App.calendarQuery.trim();
+    try{
+      const data=await api('/api/calendar/events?q='+encodeURIComponent(text)+'&limit=50');
+      if(!current())return;
+      const events=data.events||[];
+      root.innerHTML=events.length?`<p class="cal-search-status">${events.length.toLocaleString('fa-IR')} نتیجه در همهٔ ماه‌ها${events.length===50?' · حداکثر ۵۰ نتیجه؛ جستجو را دقیق‌تر کن':''}</p>`+events.map(e=>`<button class="cal-search-result" data-found-event="${escapeHtml(e.id)}"><span><strong>${escapeHtml(e.title||'رویداد')}</strong>${e.location?`<small>${escapeHtml(e.location)}</small>`:''}</span><bdi>${escapeHtml(String(e.start||'').replace('T',' · '))}</bdi>${icon('edit')}</button>`).join(''):'<p class="cal-search-status">رویدادی با این عبارت پیدا نشد.</p>';
+      $$('[data-found-event]',root).forEach(b=>b.onclick=()=>{const event=events.find(e=>e.id===b.dataset.foundEvent);openCalendarEventModal({gregorian:String(event.start).slice(0,10)},now,event,onSaved)});
+    }catch(e){if(current())root.innerHTML=`<p class="form-error">جستجو انجام نشد: ${escapeHtml(e.message)}</p>`}
+  }
+
   async function renderCalendar(view){
     const request=++App.calendarRequest;
     view.className='view calendar-route';
@@ -315,6 +332,7 @@
         const blanks=Array.from({length:(cal.first_weekday+2)%7},()=>'<span class="cal-cell empty" aria-hidden="true"></span>').join('');
         view.innerHTML=`<div class="page calendar-workspace" dir="rtl">
           <header class="cal-page-head"><div><p class="cal-kicker">برنامهٔ شما</p><h2>تقویم</h2><p>امروز ${escapeHtml(now.jalali_text)} · ${escapeHtml(now.weekday_fa)}</p></div><div class="cal-head-actions"><button id="calToday" class="secondary-button">امروز</button><button id="calAdd" class="primary-button">${icon('plus')} رویداد جدید</button></div></header>
+          <section class="cal-search" aria-label="جستجوی رویدادها"><label for="calSearch">جستجوی رویدادها</label><div>${icon('search')}<input id="calSearch" type="search" maxlength="200" dir="auto" value="${escapeHtml(App.calendarQuery)}" placeholder="عنوان، مکان یا یادداشت در همهٔ ماه‌ها…"></div><div id="calSearchResults" class="cal-search-results" aria-live="polite" hidden></div></section>
           <div class="cal-workspace-grid"><section class="cal-month-panel" aria-label="نمای ماهانه">
             <div class="cal-month-toolbar"><h3>${escapeHtml(cal.month_name)} <span>${fa(cal.year)}</span></h3><div><button id="calPrev" class="icon-button" aria-label="ماه قبل" ${cal.year===1200&&cal.month===1?'disabled':''}>${icon('chevron')}</button><button id="calNext" class="icon-button" aria-label="ماه بعد" ${cal.year===1700&&cal.month===12?'disabled':''}>${icon('chevron')}</button></div></div>
             <div class="cal-week-labels">${['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'].map(h=>`<span>${h}</span>`).join('')}</div>
@@ -336,6 +354,9 @@
         $$('[data-cal-day]',view).forEach(b=>b.onclick=()=>{App.calendarSelected=b.dataset.calDay;paint();$(`[data-cal-day="${App.calendarSelected}"]`,view)?.focus()});
         $$('[data-cal-event]',view).forEach(b=>b.onclick=()=>{const event=events.find(e=>e.id===b.dataset.calEvent);openCalendarEventModal(selected,now,event,()=>renderCalendar(view))});
         $('#calAsk').onclick=()=>setRoute('chat');
+        const input=$('#calSearch'),results=$('#calSearchResults');let timer=null;
+        input.oninput=()=>{App.calendarQuery=input.value;App.calendarSearchRequest++;clearTimeout(timer);results.innerHTML='';results.hidden=true;timer=setTimeout(()=>{if(input.isConnected)searchCalendarEvents(input.value,results,now,()=>renderCalendar(view))},250)};
+        if(App.calendarQuery.trim())searchCalendarEvents(App.calendarQuery,results,now,()=>renderCalendar(view));
       };
       paint();
     }catch(e){if(App.route==='calendar'&&request===App.calendarRequest)view.innerHTML=`<div class="page"><div class="error-card"><strong>تقویم باز نشد</strong><p>${escapeHtml(e.message)}</p><button id="calRetry" class="secondary-button">تلاش دوباره</button></div></div>`;const retry=$('#calRetry');if(retry)retry.onclick=()=>renderCalendar(view);}
@@ -371,6 +392,8 @@
       try{const data=await api('/api/calendar',{method:'POST',body:{operation:'convert',[kind]:value}});if(id!==dateRequest||!dialog.isConnected)return false;$('#calJalali').value=data.result.jalali;$('#calDate').value=data.result.gregorian;return true}
       catch(e){if(id===dateRequest&&dialog.isConnected)err.textContent=e.message;return false}
     };
+    $('#calJalali').oninput=()=>{dateRequest++;dateBasis='jalali'};
+    $('#calDate').oninput=()=>{dateRequest++;dateBasis='gregorian'};
     $('#calJalali').onchange=e=>{dateBasis='jalali';return convert('jalali',e.target.value.replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c))).replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))))};
     $('#calDate').onchange=e=>{dateBasis='gregorian';return convert('gregorian',e.target.value)};
     if(event)convert('gregorian',date);
@@ -1324,7 +1347,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
 
   function renderChat(view){
     const s=App.state||{}, ss=s.server||{}, m=s.active_model, prefs=chatPrefs(), brain=s.brain||{}, agentOn=agentEnabled();
-    { const stage=brain.job?.stage||''; const running=brain.job?.state==='running'; App.brainSetup=running&&['setup','auto-setup','detect-base','trainer'].includes(stage); App.brainLearning=running&&!App.brainSetup; }
+    { const activity=LFProtocol.brainActivity(brain,App.brainTurnPending);App.brainSetup=activity.setup;App.brainLearning=activity.learning;App.brainTurnPending=activity.pending; }
     currentThread(true);
     view.className='view chat-route';
     view.innerHTML=`<div class="chat-view studio-chat">
@@ -1337,9 +1360,9 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       </header>
       <div id="chatScroll" class="chat-scroll studio-scroll"><div id="chatColumn" class="chat-column studio-column"></div><button id="jumpLatest" class="jump-latest hidden">${icon('down')}<span>Latest</span></button></div>
       <div class="composer-zone studio-composer-zone"><div class="composer-wrap studio-composer-wrap">
-        <div class="composer studio-composer ${(ss.ready&&!App.brainLearning)?'':'composer-disabled'}">
+        <div class="composer studio-composer ${(ss.ready&&!App.brainLearning&&!App.brainTurnPending)?'':'composer-disabled'}">
           ${attachmentTrayHTML()}
-          <textarea id="composerInput" dir="auto" aria-label="Message" rows="1" placeholder="${App.brainLearning?'Learning this turn into weights…':App.brainSetup?'Personal Brain setup is running…':ss.ready?'Message your local model':ss.running?'Model is loading…':'Run a model to start chatting'}" ${(ss.ready&&!App.brainLearning)?'':'disabled'}></textarea>
+          <textarea id="composerInput" dir="auto" aria-label="Message" rows="1" placeholder="${App.brainLearning?'Learning this turn into weights…':App.brainSetup?'Personal Brain setup is running…':ss.ready?'Message your local model':ss.running?'Model is loading…':'Run a model to start chatting'}" ${(ss.ready&&!App.brainLearning&&!App.brainTurnPending)?'':'disabled'}></textarea>
           <div class="composer-bottom studio-composer-bottom">
             <div class="composer-controls studio-controls">
               <button id="attachFiles" class="composer-action" title="Attach any file" ${ss.ready?'':'disabled'}>${icon('plus')}</button>
@@ -1352,7 +1375,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
             </div>
             <div class="composer-right">
               <span class="context-mini" title="Context usage"><span id="contextText">${contextLabel()}</span><span class="context-ring" style="--p:${contextPercent()}"></span></span>
-              <button id="sendButton" class="send-button studio-send ${App.streaming?'stop':''}" ${(ss.ready&&!App.brainLearning)||App.streaming?'':'disabled'} aria-label="${App.streaming?'Stop generation':'Send message'}">${App.streaming?icon('stop'):icon('send')}</button>
+              <button id="sendButton" class="send-button studio-send ${App.streaming?'stop':''}" ${(ss.ready&&!App.brainLearning&&!App.brainTurnPending)||App.streaming?'':'disabled'} aria-label="${App.streaming?'Stop generation':'Send message'}">${App.streaming?icon('stop'):icon('send')}</button>
             </div>
           </div>
         </div>
@@ -1736,7 +1759,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
   }
   function updateChatStateOnly(){
     updateChrome();const ss=App.state?.server||{},m=App.state?.active_model;
-    const brain=App.state?.brain||{};App.brainLearning=brain.job?.state==='running'&&brain.job?.stage!=='setup';const ta=$('#composerInput'),send=$('#sendButton');if(ta){ta.disabled=!ss.ready||App.brainLearning;ta.placeholder=App.brainLearning?'Learning this turn into weights…':ss.ready?'Message your local model…':ss.running?'Model is loading…':'Load a model to start chatting'}if(send&&!App.streaming)send.disabled=!ss.ready||App.brainLearning;
+    patchBrainChatState(App.state?.brain||{});
     const status=$('.local-status');if(status){status.classList.toggle('ready',!!ss.ready);status.innerHTML=`<span></span>${ss.ready?'Ready':ss.running?'Loading':'Offline'}`}
     const mb=$('#chatModelButton');if(mb&&m){const name=$('.model-switch-name',mb),quant=$('.model-switch-quant',mb);if(name)name.textContent=shortName(m.name,34);if(quant)quant.textContent=m.quantization||'GGUF'}
     updateContextUI();
