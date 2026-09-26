@@ -39,12 +39,14 @@ from ..core.learning_data import validate_examples, obvious_non_teaching
 from ..core.trainable_models import TrainableModelManager, portable_training_models_root
 from ..core.app_logging import get_logger, LOG_FILE
 from ..core.agent_tools import AgentRuntime, AgentPermissions
-from ..core.remote_apps import RemoteAppManager
+from ..core.remote_apps import RemoteAppManager, RemoteTaskCancelled
+from contextlib import nullcontext
 from ..core.cluster import ClusterManager
 from ..core.autotune import AdaptiveTuner
 from ..core.redaction import redact
+from ..core.request_tracing import TraceStore, current_trace, record, logged_stream
 
-APP_VERSION = "0.34.1-stability"
+APP_VERSION = "0.34.2-diagnostics"
 STATIC_ROOT = Path(__file__).parent / "static"
 
 # Curated one-click bundles intentionally bind one chat artifact to one exact
@@ -231,6 +233,8 @@ class LlamaForgeState:
         self._runtime_cache: tuple[float, dict] | None = None
         self.events = EventBroker()
         self.file_logger = get_logger()
+        self.request_traces = TraceStore(APP_DIR / "logs" / "requests")
+        self.request_traces.enabled = bool(getattr(self.cfg,"diagnostic_full_traces",True))
         self.app_root = Path(__file__).resolve().parents[2]
         self.agent = AgentRuntime(log=self.log)
         # Keep downloaded trainable checkpoints portable and visible: one level
@@ -264,6 +268,7 @@ class LlamaForgeState:
             workspace_exporter=lambda scope: self.agent.export_workspace_snapshot(scope),
             log=self.log,
             app_version=APP_VERSION,
+            request_traces=self.request_traces,
         )
         self.log(f"LlamaForge {APP_VERSION} control plane started")
         self.log(f"[logging] persistent={LOG_FILE} ui_buffer=8000 trainer_sessions={APP_DIR / 'brain' / 'logs'}")
@@ -399,6 +404,9 @@ class LlamaForgeState:
                 "agent_allow_private_network":bool(self.cfg.agent_allow_private_network),
                 "agent_browser_headless":bool(self.cfg.agent_browser_headless),
                 "agent_max_steps":int(self.cfg.agent_max_steps),
+                "agent_allow_telegram_read":bool(self.cfg.agent_allow_telegram_read),
+                "agent_allow_telegram_write":bool(self.cfg.agent_allow_telegram_write),
+                "agent_skill_profile":self.cfg.agent_skill_profile,
                 "model_dirs":list(self.cfg.model_dirs),
             },
             "logs":logs,
@@ -1624,6 +1632,9 @@ class LlamaForgeState:
                 "agent_allow_private_network": bool(self.cfg.agent_allow_private_network),
                 "agent_browser_headless": bool(self.cfg.agent_browser_headless),
                 "agent_max_steps": int(self.cfg.agent_max_steps),
+                "agent_allow_telegram_read":bool(self.cfg.agent_allow_telegram_read),
+                "agent_allow_telegram_write":bool(self.cfg.agent_allow_telegram_write),
+                "agent_skill_profile":self.cfg.agent_skill_profile,
                 "default_context_size": int(self.cfg.default_context_size),
                 "generation_overrides_enabled": bool(self.cfg.generation_overrides_enabled),
                 "generation_temperature": float(getattr(self.cfg, "generation_temperature", 0.70)),
@@ -1884,20 +1895,33 @@ class LlamaForgeState:
             "max_tokens": 4096,
             "agent": True,
         }
+        payload["_trace_metadata"] = {"app_id":str(app.get("id") or ""), "message_id":str(item.get("message_id") or ""),
+                                      "workspace_scope":str(item.get("workspace_scope") or "local")}
+        cancel = item.get("_cancel") or threading.Event()
+        payload["_cancel"] = cancel
         parts: list[str] = []
         with self._remote_inference_lock:
             previous_scope = self.agent.workspace_scope()
             self.agent.set_workspace_scope(str(item.get("workspace_scope") or "local"))
             try:
-                for event in self.chat_stream(payload):
+                iterator = self.chat_stream(payload)
+                for event in iterator:
                     if isinstance(event, dict):
                         if event.get("type") == "text" and event.get("delta"):
                             parts.append(str(event.get("delta") or ""))
                         try:
                             emit(event)
+                        except RemoteTaskCancelled:
+                            cancel.set()
+                            raise
                         except Exception as exc:
+                            record("remote.emit_error", error=str(exc))
                             self.log(f"[remote-app:emit] {exc}")
+            except RuntimeError as exc:
+                if cancel.is_set(): raise RemoteTaskCancelled("Remote user cancelled") from exc
+                raise
             finally:
+                if "iterator" in locals() and hasattr(iterator,"close"): iterator.close()
                 self.agent.set_workspace_scope(previous_scope)
         return "".join(parts).strip()
 
@@ -1941,6 +1965,9 @@ class LlamaForgeState:
             allow_workspace_write=bool(self.cfg.agent_allow_workspace_write),
             allow_private_network=bool(self.cfg.agent_allow_private_network),
             browser_headless=bool(self.cfg.agent_browser_headless),
+            allow_telegram_read=bool(self.cfg.agent_allow_telegram_read),
+            allow_telegram_write=bool(self.cfg.agent_allow_telegram_write),
+            skill_profile=self.cfg.agent_skill_profile,
         )
 
     def agent_status(self) -> dict:
@@ -1968,6 +1995,7 @@ class LlamaForgeState:
         # the key to content-on-demand: organizing a file does not spend context
         # reading it, while an explicit inspect/read request can load it later.
         messages = self.agent.prepare_messages_for_agent(messages)
+        record("attachments.prepared", messages=messages)
         receipts = [{"index":i, "attachments":m.pop("_attachment_refs")} for i,m in enumerate(messages) if m.get("_attachment_refs")]
         if receipts: yield {"type":"attachments", "messages":receipts}
         self.agent.vision_available = bool(self.active_model and getattr(self.active_model, "vision_capable", False) and self.server_ready)
@@ -1984,10 +2012,11 @@ class LlamaForgeState:
             reasoning_budget=_safe_int(payload.get("reasoning_budget"), -1, -1, 32768),
         ))
         prepared, ctx_meta = self._prepare_chat_messages(messages, profile)
+        record("context.prepared", messages=prepared, context=ctx_meta, profile=profile.to_dict())
         permissions = self.agent_permissions()
         user_text = next((_content_text(m.get("content")) for m in reversed(messages) if m.get("role") == "user"), "")
         answer_parts: list[str] = []
-        request_id = "req_" + uuid.uuid4().hex
+        request_id = str(payload.get("request_id") or "req_" + uuid.uuid4().hex)
         session_id = str(payload.get("session_id") or ("sess_" + uuid.uuid4().hex))
         generation_id = int(getattr(self, "_server_generation", 0) or 0)
         token_step = 0
@@ -2012,7 +2041,7 @@ class LlamaForgeState:
             # which works across strict Gemma/Qwen/Mistral templates.
             first = str((agent_messages[0] if agent_messages else {}).get("content") or "")
             control_call = "RETURN EXACTLY ONE JSON OBJECT" in first or "agent-control output" in first
-            token_cap = min(int(profile.max_tokens), 768) if control_call else int(profile.max_tokens)
+            token_cap = min(int(profile.max_tokens), 256 if "stage 0 of a local AI agent router" in first else 768) if control_call else int(profile.max_tokens)
             result = chat_completion_with_tools(
                 self.cfg.host, self.cfg.port, agent_messages, tools=None,
                 temperature=min(profile.temperature, 0.35) if control_call else profile.temperature,
@@ -2075,6 +2104,40 @@ class LlamaForgeState:
         )).to_dict()
 
     def chat_stream(self, payload: dict):
+        store = getattr(self, "request_traces", None)
+        if store is None:
+            yield from self._chat_stream_impl(payload)
+            return
+        payload = dict(payload)
+        payload.setdefault("request_id", "req_" + uuid.uuid4().hex)
+        metadata = dict(payload.get("_trace_metadata") or {})
+        metadata.update(origin="remote" if metadata else "local", request_id=payload["request_id"],
+                        session_id=payload.get("session_id", ""), messages=payload.get("messages", []),
+                        agent=bool(payload.get("agent")), version=APP_VERSION)
+        scope = nullcontext(current_trace()) if current_trace() is not None else store.request(**metadata)
+        with scope as trace:
+            if trace:
+                record("runtime.context", model=_friendly_model(getattr(self,"active_model",None)),
+                       hardware=_jsonable(getattr(self,"hw",None)), plan=_jsonable(getattr(self,"active_plan",None)),
+                       launch=getattr(self,"last_launch_payload",{}),
+                       generation=getattr(self,"_server_generation",0),
+                       live=getattr(self,"_live_payload",{}),
+                       runtime_cached=(getattr(self,"_runtime_cache",None) or (0,{}))[1],
+                       options={k:v for k,v in payload.items() if k not in {"messages","_cancel","_trace_metadata"}})
+                yield {"type":"meta", "trace":{"id":trace.id,"request_id":payload["request_id"]}}
+            answer=[]
+            iterator=self._chat_stream_impl(payload)
+            try:
+                for event in iterator:
+                    if isinstance(event,dict) and event.get("type")=="text":answer.append(str(event.get("delta") or ""))
+                    elif isinstance(event,dict) and event.get("type")!="reasoning":record("response.event", **event)
+                    yield event
+            finally:
+                if hasattr(iterator,"close"):iterator.close()
+                record("response.output", text="".join(answer), cancelled=bool(payload.get("_cancel") and payload["_cancel"].is_set()))
+                record("runtime.snapshot",live=getattr(self,"_live_payload",{}),shared_log_tail=list(getattr(self,"logs",[]))[-250:])
+
+    def _chat_stream_impl(self, payload: dict):
         raw_messages = payload.get("messages") or []
         if bool(payload.get("agent")):
             yield from self.agent_chat_stream(payload)
@@ -2083,7 +2146,7 @@ class LlamaForgeState:
             self._ensure_vision_runtime(raw_messages)
         if not self.server_ready:
             raise RuntimeError("The local model is not ready")
-        request_id = "req_" + uuid.uuid4().hex[:18]
+        request_id = str(payload.get("request_id") or "req_" + uuid.uuid4().hex[:18])
         generation_id = int(getattr(self, "_server_generation", 0) or 0)
         token_step = 0
         messages = raw_messages
@@ -2125,6 +2188,7 @@ class LlamaForgeState:
             profile.notes = tuple(list(profile.notes) + ["Quality Guard recovery applied for: " + ", ".join(repair_issues or ["unknown"])])
 
         prepared, ctx_meta = self._prepare_chat_messages(messages, profile)
+        record("context.prepared", messages=prepared, context=ctx_meta, profile=profile.to_dict())
         user_text = next((_content_text(m.get("content")) for m in reversed(messages) if m.get("role") == "user"), "")
         answer_parts: list[str] = []
         yield {"type": "profile", "profile": profile.to_dict()}
@@ -2137,13 +2201,13 @@ class LlamaForgeState:
         self._last_inference_at = time.monotonic()
         self._idle_unload_fired = False
         try:
-            for event in stream_chat_events(
+            for event in logged_stream(stream_chat_events(
                 self.cfg.host, self.cfg.port, prepared,
                 temperature=profile.temperature, top_p=profile.top_p, top_k=profile.top_k,
                 min_p=profile.min_p, repeat_penalty=profile.repeat_penalty,
                 max_tokens=profile.max_tokens, reasoning=profile.effective_reasoning,
                 reasoning_budget=profile.reasoning_budget, cancel=payload.get("_cancel"),
-            ):
+            ), prepared, stage="direct", profile=profile.to_dict()):
                 if generation_id != int(getattr(self, "_server_generation", 0) or 0):
                     raise RuntimeError("Generation invalidated because the active cluster/model generation changed")
                 if event.get("type") == "text" and event.get("delta"):
@@ -2833,6 +2897,15 @@ class LlamaForgeState:
         threading.Thread(target=self.scan_models, name="model-scan", daemon=True).start()
 
     def update_settings(self, payload: dict):
+        # Validate before any mutation: bool("false") must never enable access.
+        for key in ("agent_enabled_default", "agent_allow_write", "agent_allow_workspace_write",
+                    "agent_allow_private_network", "agent_browser_headless", "agent_allow_telegram_read", "agent_allow_telegram_write"):
+            if key in payload and not isinstance(payload[key], bool):
+                raise ValueError(f"{key} must be a JSON boolean")
+        if "agent_skill_profile" in payload and payload["agent_skill_profile"] not in {"all", "telegram_only"}:
+            raise ValueError("Invalid Agent skill profile")
+        for key in ("agent_allow_telegram_read", "agent_allow_telegram_write", "agent_skill_profile"):
+            if key in payload: setattr(self.cfg, key, payload[key])
         if "max_ram_percent" in payload:
             self.cfg.max_ram_percent = _safe_int(payload["max_ram_percent"], 88, 50, 95)
         if "port" in payload:
@@ -2899,6 +2972,10 @@ class LlamaForgeState:
     def shutdown(self):
         self.shutting_down = True
         try:
+            if getattr(self, "agent", None): self.agent.telegram.close()
+        except Exception:
+            pass
+        try:
             if getattr(self, "remote_apps", None):
                 self.remote_apps.stop()
         except Exception:
@@ -2955,7 +3032,7 @@ class LlamaForgeHTTPServer(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "LlamaForgeLocal/0.34.1-stability"
+    server_version = "LlamaForgeLocal/0.34.2-diagnostics"
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *args):
@@ -3004,6 +3081,9 @@ class Handler(BaseHTTPRequestHandler):
     def _send_file(self, path: Path, filename: str = "download"):
         data = path.read_bytes()
         ctype = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        return self._send_download(data, filename, ctype)
+
+    def _send_download(self, data: bytes, filename: str, ctype: str):
         safe_name = re.sub(r"[\r\n\"]+", "_", str(filename or "download"))
         self.send_response(200)
         self.send_header("Content-Type", ctype)
@@ -3025,6 +3105,26 @@ class Handler(BaseHTTPRequestHandler):
         return obj if isinstance(obj, dict) else {}
 
     def _route_api_get(self, path: str, query: dict[str, list[str]]):
+        if path.startswith("/api/logs/requests"):
+            if self.headers.get("Sec-Fetch-Site") in {"cross-site", "same-site"}:
+                return self._send_json({"error":"Request transcripts are available only from the local control interface"},403)
+            store=self.state.request_traces
+            if path == "/api/logs/requests":
+                return self._send_json({"traces":store.list(),"settings":store.status()})
+            trace_id=str((query.get("id") or [""])[0])
+            try:
+                if path == "/api/logs/requests/export":
+                    return self._send_download(store.export(trace_id),trace_id+".zip","application/zip")
+                rows=store.events(trace_id)
+                if path == "/api/logs/requests/event":
+                    sequence=_safe_int((query.get("seq") or [0])[0],0,0,2**31-1)
+                    row=next((r for r in rows if r["seq"]==sequence),None)
+                    return self._send_json({"event":row},200 if row else 404)
+                if path == "/api/logs/requests/detail":
+                    return self._send_json({"events":[{k:v for k,v in row.items() if k!="data"} for row in rows]})
+                return self._send_json({"error":"Unknown trace endpoint"},404)
+            except (ValueError,FileNotFoundError) as exc:
+                return self._send_json({"error":str(exc)},404)
         if path == "/api/events/poll":
             after = _safe_int((query.get("after") or [0])[0], 0, 0, 2**63 - 1)
             return self._send_json({"events": self.state.events.poll(after)})
@@ -3121,6 +3221,25 @@ class Handler(BaseHTTPRequestHandler):
         return self._send_json({"error": "Not found"}, 404)
 
     def _route_api_post(self, path: str, body: dict):
+        if path.startswith("/api/agent/telegram/"):
+            if self.headers.get("Sec-Fetch-Site") in {"cross-site", "same-site"}:
+                return self._send_json({"error":"Use the local Agent settings to manage Telegram"},403)
+            if path == "/api/agent/telegram/login":
+                return self._send_json(self.state.agent.telegram.login(body))
+            if path == "/api/agent/telegram/disconnect":
+                return self._send_json(self.state.agent.telegram.disconnect(revoke=body.get("revoke") is True))
+            if path == "/api/agent/telegram/install":
+                return self._send_json(self.state.agent.install_telegram_skill_async())
+            return self._send_json({"error":"Not found"},404)
+        if path == "/api/logs/requests/settings":
+            if self.headers.get("Sec-Fetch-Site") in {"cross-site", "same-site"}:
+                return self._send_json({"error":"Cross-site diagnostic changes are not allowed"},403)
+            if not isinstance(body.get("enabled"),bool):
+                return self._send_json({"error":"enabled must be a boolean"},400)
+            self.state.request_traces.enabled=body["enabled"]
+            self.state.cfg.diagnostic_full_traces=body["enabled"]
+            self.state.cfg.save()
+            return self._send_json(self.state.request_traces.status())
         if path == "/api/chat/cancel":
             event = self.state.chat_cancellations.get(str(body.get("request_id") or ""))
             if event: event.set()

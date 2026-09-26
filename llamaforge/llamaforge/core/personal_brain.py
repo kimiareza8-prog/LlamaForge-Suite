@@ -532,7 +532,7 @@ class PersonalBrain:
         try:
             for _ in range(3):
                 url = "https://huggingface.co/api/models/" + urllib.parse.quote(current, safe="/")
-                req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.34.1-stability", "Accept": "application/json"})
+                req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.34.2-diagnostics", "Accept": "application/json"})
                 with urllib.request.urlopen(req, timeout=25) as r:
                     data = json.loads(r.read().decode("utf-8", errors="replace"))
                 card = data.get("cardData") or {}
@@ -650,7 +650,7 @@ class PersonalBrain:
         BRAIN_ROOT.mkdir(parents=True, exist_ok=True)
         archive = BRAIN_ROOT / "llama-toolchain.zip"
         url = "https://github.com/ggml-org/llama.cpp/archive/refs/heads/master.zip"
-        req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.34.1-stability"})
+        req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.34.2-diagnostics"})
         with urllib.request.urlopen(req, timeout=180) as r, archive.open("wb") as f:
             shutil.copyfileobj(r, f)
         tmp = BRAIN_ROOT / "toolchain-extract"
@@ -1133,6 +1133,7 @@ class PersonalBrain:
         base=self.training_base_for(model); add("training_base", bool(base), base or "Not linked")
         if base:
             bp=Path(os.path.expanduser(base))
+            effective_base=bp
             if bp.exists():
                 adapter_cfg_path=bp/"adapter_config.json"
                 adapter_weight=(bp/"adapter_model.safetensors").is_file() or (bp/"adapter_model.bin").is_file()
@@ -1161,10 +1162,12 @@ class PersonalBrain:
                 add("base_config", (bp/"config.json").is_file() or adapter_cfg_path.is_file(), (bp/"config.json") if (bp/"config.json").is_file() else adapter_cfg_path)
                 weights=list(bp.rglob("*.safetensors"))+list(bp.rglob("*.bin"))
                 add("base_weights", bool(weights), f"{len(weights)} weight/adapter file(s)")
-                toks=list(bp.glob("tokenizer*"))+list(bp.glob("*.model"))
-                if not toks and effective_base != bp:
-                    toks=list(effective_base.glob("tokenizer*"))+list(effective_base.glob("*.model"))
-                add("tokenizer", bool(toks), f"{len(toks)} tokenizer file(s)", "warn" if not toks else "ok")
+                # A tokenizer_config.json names a tokenizer; it does not contain
+                # its vocabulary/model. Metadata-only downloads are not ready.
+                def tokenizer_assets(root):
+                    return [root/name for name in ("tokenizer.json", "tokenizer.model", "spiece.model", "sentencepiece.model", "vocab.json", "vocab.txt") if (root/name).is_file() and (root/name).stat().st_size > 0]
+                toks=tokenizer_assets(bp) or tokenizer_assets(effective_base)
+                add("tokenizer", bool(toks), f"{len(toks)} tokenizer data file(s)" if toks else "Tokenizer data missing: repair/download tokenizer.json or the vocabulary/model files; tokenizer_config.json alone is insufficient")
                 try:
                     cfg_path=(effective_base/"config.json") if (effective_base/"config.json").is_file() else (bp/"config.json")
                     cfg=json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.is_file() else {}
@@ -1199,10 +1202,28 @@ class PersonalBrain:
                 add("dependencies", True, detail)
             else:
                 add("dependencies", False, dep_result.get("detail") or "dependency probe failed")
+        # An Intel/display GPU is not a CUDA training backend. Match the worker's
+        # effective device using its own dependency probe, before unloading chat.
+        dependency_info = {}
+        if py.is_file() and dep_result and dep_result.get("ok"):
+            try: dependency_info = json.loads(dep_result.get("detail") or "{}")
+            except (ValueError, TypeError): pass
+        device = str(self.cfg.device or "auto").lower()
+        cpu_training = device == "cpu" or (device == "auto" and not dependency_info.get("cuda") and not dependency_info.get("mps"))
+        if base and cpu_training and str(getattr(hw, "os_name", platform.system())).lower() == "windows":
+            try:
+                source = effective_base
+                config_file = source / "config.json"
+                source_config = json.loads(config_file.read_text(encoding="utf-8")) if config_file.is_file() else {}
+                quantized = bool(source_config.get("quantization_config"))
+                add("cpu_checkpoint_format", not quantized,
+                    "Windows CPU training requires a full non-prequantized checkpoint; this source has quantization_config. Select the full training source; the GGUF chat copy is unchanged."
+                    if quantized else "Full checkpoint format is compatible with Windows CPU safe LoRA.")
+            except Exception as exc: add("cpu_checkpoint_format", False, str(exc))
         # For CPU-only PEFT bundles backed by bitsandbytes 4-bit weights, verify
         # the actual 4-bit kernel path with a tiny layer before we unload the
         # inference model and spend time loading several GB of checkpoint data.
-        if py.is_file() and base and hw is not None and not getattr(hw,"gpus",[]):
+        if py.is_file() and base and cpu_training and str(getattr(hw,"os_name",platform.system())).lower() != "windows":
             try:
                 bp=Path(os.path.expanduser(base)); cfg_path=bp/"config.json"
                 bundle=bp/".llamaforge-bundle.json"
@@ -1238,7 +1259,7 @@ class PersonalBrain:
                 add("ram", float(hw.ram_total_gb)>=12.0, f"{hw.ram_available_gb:.1f} GB free / {hw.ram_total_gb:.1f} GB total", "warn" if hw.ram_available_gb<6 else "ok")
                 add("cpu", True, f"{hw.physical_cores} physical / {hw.logical_cores} logical · {hw.cpu}")
                 add("gpu", True, ", ".join(g.name for g in hw.gpus) if hw.gpus else "CPU-only")
-                if str(getattr(hw,"os_name","")).lower()=="windows" and not getattr(hw,"gpus",[]):
+                if str(getattr(hw,"os_name","")).lower()=="windows" and cpu_training:
                     add("trainer_backend_policy", True,
                         "Windows CPU safe LoRA: bypass bitsandbytes native 4-bit model loading; use FP16 text-only causal loading, q/v LoRA, rank<=4 and max_length<=192 (Gemma3 gets a dedicated text-only loader when applicable).",
                         "ok")

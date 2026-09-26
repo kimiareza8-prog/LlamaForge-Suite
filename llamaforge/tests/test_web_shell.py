@@ -33,7 +33,7 @@ def test_local_api_ping_and_index(tmp_path):
         with urllib.request.urlopen(url + "api/ping", timeout=3) as r:
             data = json.loads(r.read().decode())
         assert data["ok"] is True
-        assert data["version"] == "0.34.1-stability"
+        assert data["version"] == "0.34.2-diagnostics"
         with urllib.request.urlopen(url, timeout=3) as r:
             html = r.read().decode("utf-8")
             assert "no-store" in (r.headers.get("Cache-Control") or "")
@@ -130,7 +130,7 @@ def test_brain_trainable_library_and_diagnostics_are_present():
 def test_full_diagnostics_endpoint_is_present_in_ui():
     js = (STATIC_ROOT / "app.js").read_text(encoding="utf-8")
     assert "/api/diagnostics" in js
-    assert "Copy full diagnostic" in js
+    assert "Copy system diagnostic" in js
 
 
 def test_studio_theme_is_local_layered_and_covers_core_surfaces():
@@ -228,7 +228,7 @@ def test_memory_mode_ui_uses_stable_apply_buttons_and_preserves_pending_choice()
     assert 'data-memory-mode="${mode}"' in js
     assert 'id="applyMemoryMode"' in js
     assert "App.settingsMemoryDirty=true" in js
-    assert "App.route==='settings'&&(App.settingsMemoryDirty||App.settingsFormDirty)&&!forceRender" in js
+    assert "App.route==='settings'&&(App.settingsMemoryDirty||App.settingsFormDirty)" in js
     assert "body:{model_memory_mode:requested}" in js
     assert 'id="modelMemoryMode"' not in js
 

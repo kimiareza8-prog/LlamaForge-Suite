@@ -1,0 +1,17 @@
+{
+  "fixture": "35 requests / 5 warmup, approximately 8 KB prompt, mocked model; no inference benchmark",
+  "disabled": {
+    "median_ms": 0.016,
+    "p95_ms": 0.017,
+    "python_peak_bytes": 3112,
+    "retained_files": 0,
+    "retained_bytes": 0
+  },
+  "enabled": {
+    "median_ms": 7.862,
+    "p95_ms": 9.08,
+    "python_peak_bytes": 161441,
+    "retained_files": 8,
+    "retained_bytes": 182353
+  }
+}

@@ -71,7 +71,7 @@ class TrainableModelManager:
 
     @property
     def headers(self) -> dict[str, str]:
-        h = {"User-Agent": "LlamaForge-Brain/0.34.1-stability", "Accept": "application/json"}
+        h = {"User-Agent": "LlamaForge-Brain/0.34.2-diagnostics", "Accept": "application/json"}
         if self.token:
             h["Authorization"] = f"Bearer {self.token}"
         return h

@@ -1,3 +1,19 @@
+# 0.34.2-diagnostics
+
+- Full local and Web Bridge request transcripts: routing, typed Skill catalog/shortlist, exact model HTTP payloads and fallback attempts, raw planner replies, tool arguments/results/verification, compact observations and final output.
+- Downloadable JSONL + readable Markdown + manifest ZIP from Logs, with live request IDs, bounded retention, explicit incomplete/interrupted states and credential redaction before disk writes.
+- Preserve streaming delivery and token metrics; record latency, TTFT, runtime snapshots, shared runtime log tail and available transport usage/timings.
+- Accept PHP empty associative file indexes; reject malformed file sync before replacing the calendar.
+- Stop swallowing remote cancellation and propagate heartbeat cancellation to model I/O.
+- Reject incompatible prequantized training sources during Windows CPU preflight, including Intel display-GPU systems.
+
+- Preserve Agent permission drafts during state refresh and late saves; enable fresh-install permissions while preserving stored opt-outs and validate JSON booleans.
+- Shorten family-only routing instructions; retain guard/repaired families instead of requesting them again.
+- Add an optional personal-account Telegram adapter with OS-vault login, bounded per-chat context, unique recipient resolution, serialized sends, cancellation and uncertain-delivery receipts. Include Telegram-only profile and independent read/write permissions.
+- Install runtimes in immutable directories and atomically update the installed pointer; failed promotion leaves the previous build intact.
+- Require tokenizer data instead of treating tokenizer_config.json alone as ready.
+- 400 pytest cases passed, one environment skip; 18 executable UI cases passed. See DIAGNOSTICS_FA.md for measurements, supported Telegram scope and live-hardware limitations.
+
 # 0.34.1-stability
 
 - Fix Brain installer failure reporting, sticky in-flight cancellation, stale preview cancellation, model-switch detection during compilation and preflight failure restoring an initially stopped model.

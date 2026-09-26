@@ -79,6 +79,10 @@
     settingsMemoryDirty:false,
     settingsFormDirty:false,
     settingsDraft:{},
+    agentDraft:{},
+    agentRevision:0,
+    agentRenderRevision:0,
+    agentBusy:false,
     pendingAttachments:[],
     calendarCursor:null,
     calendarSelected:'',
@@ -916,9 +920,65 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     }catch(e){toast('Could not exit cleanly',e.message,'error')}
   }
 
+  function traceOptions(rows){
+    return rows.filter(r=>/^trace_[a-f0-9]{32}$/.test(r.id||'')).map(r=>`<option value="${r.id}">${escapeHtml(`${r.started_at||''} · ${r.origin||'local'} · ${r.status||''}${r.complete===false?' · incomplete':''} · ${r.preview||r.message_id||r.id}`)}</option>`).join('');
+  }
+  async function refreshRequestTraces(){
+    const picker=$('#requestTracePicker');if(App.route!=='logs'||!picker)return;
+    try{
+      const data=await api('/api/logs/requests');if(App.route!=='logs'||!picker.isConnected)return;
+      const old=App.traceSelected||picker.value;
+      picker.innerHTML=traceOptions(data.traces||[]);
+      const chosen=(data.traces||[]).some(r=>r.id===old)?old:(data.traces||[])[0]?.id||'';
+      picker.value=chosen;
+      $('#traceRecording').checked=!!data.settings?.enabled;
+      $('#traceStatus').textContent=data.settings?.error?`Recording error: ${data.settings.error}`:`${(data.traces||[]).length} requests · up to ${data.settings?.max_traces||100} retained · ${Math.round((data.settings?.max_total_bytes||0)/1048576)} MB total limit`;
+      $('#downloadTrace').disabled=!chosen;
+      if(chosen)await showRequestTrace(chosen);
+      else $('#requestTimeline').textContent='No request recorded yet. Reproduce the problem, then refresh this list.';
+    }catch(e){if($('#traceStatus'))$('#traceStatus').textContent=e.message;}
+  }
+  async function showRequestTrace(id){
+    const root=$('#requestTimeline');if(!root||!/^trace_[a-f0-9]{32}$/.test(id||''))return;
+    App.traceSelected=id;const revision=(App.traceRevision||0)+1;App.traceRevision=revision;
+    root.textContent='Loading request timeline…';
+    try{
+      const data=await api(`/api/logs/requests/detail?id=${encodeURIComponent(id)}`);
+      if(App.route!=='logs'||App.traceSelected!==id||App.traceRevision!==revision||!root.isConnected)return;
+      root.innerHTML=(data.events||[]).map(e=>`<details class="trace-event" data-trace-seq="${Number(e.seq)||0}"><summary><span>${Number(e.seq)||0}. ${escapeHtml(e.event||'event')}</span><small>${Number(e.elapsed_ms||0).toLocaleString()} ms</small></summary><pre></pre></details>`).join('');
+      $$('[data-trace-seq]',root).forEach(detail=>{detail.ontoggle=async()=>{
+        if(!detail.open||detail.dataset.loaded)return;
+        const pre=$('pre',detail);pre.textContent='Loading full event…';
+        try{const row=await api(`/api/logs/requests/event?id=${encodeURIComponent(id)}&seq=${Number(detail.dataset.traceSeq)}`);
+          if(detail.isConnected){pre.textContent=JSON.stringify(row.event,null,2);detail.dataset.loaded='1';}
+        }catch(e){pre.textContent=e.message;}
+      }});
+    }catch(e){if(App.traceSelected===id&&App.traceRevision===revision&&root.isConnected)root.textContent=e.message;}
+  }
+  async function downloadRequestTrace(){
+    const id=App.traceSelected;if(!/^trace_[a-f0-9]{32}$/.test(id||''))return;
+    try{
+      const response=await fetch(`/api/logs/requests/export?id=${encodeURIComponent(id)}`);
+      if(!response.ok)throw new Error((await response.json()).error||'Download failed');
+      const objectUrl=URL.createObjectURL(await response.blob());const a=document.createElement('a');
+      a.href=objectUrl;a.download=id+'.zip';document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
+    }catch(e){toast('Could not download request trace',e.message,'error');}
+  }
+
   function renderLogs(view){
-    view.innerHTML=`<div class="page">${pageTitle('Diagnostics','Runtime logs','Live llama.cpp output, Brain Trainer phases, native crash codes, memory snapshots and persistent session logs.')}
-      <div class="log-shell"><div class="log-toolbar"><span id="logCount">Loading…</span><div class="inline-actions"><button id="copyLogs" class="text-button">${icon('copy')} Copy log</button><button id="copyTrainerLog" class="text-button">${icon('brain')} Copy trainer session</button><button id="copyDiagnostics" class="text-button">${icon('info')} Copy full diagnostic</button><button id="clearLogs" class="text-button">Clear</button><button id="refreshLogs" class="text-button">${icon('refresh')} Refresh</button></div></div><div id="logMeta" style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.55"></div><pre id="logOutput" class="log-output"></pre></div></div>`;
+    view.innerHTML=`<div class="page">${pageTitle('Diagnostics','Request traces & runtime logs','Follow each prompt through model routing, Skills, tool results and the final response.')}
+      <section class="request-traces">
+        <div class="trace-heading"><div><h3>Full request log · گزارش کامل درخواست</h3><p>Local chat and Web Bridge requests are recorded here. The ZIP includes prompts, actual model payloads, outputs and tool observations. Credentials are redacted; conversation text remains in the report.</p></div><label class="trace-switch"><input type="checkbox" id="traceRecording"> Record full requests</label></div>
+        <div class="trace-controls"><select id="requestTracePicker" aria-label="Request to inspect"></select><button id="refreshTraces" class="text-button">${icon('refresh')} Refresh requests</button><button id="downloadTrace" class="primary-button" disabled>${icon('download')} Download full log (.zip)</button></div>
+        <p id="traceStatus" class="trace-status" role="status">Loading…</p><div id="requestTimeline" class="trace-timeline"></div>
+      </section>
+      <div class="log-shell"><div class="log-toolbar"><span id="logCount">Loading…</span><div class="inline-actions"><button id="copyLogs" class="text-button">${icon('copy')} Copy log</button><button id="copyTrainerLog" class="text-button">${icon('brain')} Copy trainer session</button><button id="copyDiagnostics" class="text-button">${icon('info')} Copy system diagnostic</button><button id="clearLogs" class="text-button">Clear</button><button id="refreshLogs" class="text-button">${icon('refresh')} Refresh</button></div></div><div id="logMeta" style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.55"></div><pre id="logOutput" class="log-output"></pre></div></div>`;
+    refreshRequestTraces();
+    $('#refreshTraces').onclick=refreshRequestTraces;
+    $('#requestTracePicker').onchange=e=>showRequestTrace(e.target.value);
+    $('#downloadTrace').onclick=downloadRequestTrace;
+    $('#traceRecording').onchange=async e=>{const input=e.target;input.disabled=true;try{await api('/api/logs/requests/settings',{method:'POST',body:{enabled:input.checked}});await refreshRequestTraces()}catch(error){input.checked=!input.checked;toast('Could not change recording',error.message,'error')}finally{input.disabled=false}};
     refreshLogs(); $('#copyLogs').onclick=async()=>{const t=$('#logOutput').textContent||'';await navigator.clipboard.writeText(t);toast('Log copied',`${t.length.toLocaleString()} characters copied`)}; $('#copyTrainerLog').onclick=async()=>{try{const x=await api('/api/logs/trainer');const t=x.text||JSON.stringify(x.info||{},null,2);await navigator.clipboard.writeText(t);toast('Trainer session copied',`${t.length.toLocaleString()} characters copied`)}catch(e){toast('Could not copy trainer session',e.message,'error')}}; $('#copyDiagnostics').onclick=async()=>{try{const d=await api('/api/diagnostics');const t=JSON.stringify(d,null,2);await navigator.clipboard.writeText(t);toast('Full diagnostic copied',`${t.length.toLocaleString()} characters · secrets omitted`)}catch(e){toast('Could not build diagnostic',e.message,'error')}}; $('#clearLogs').onclick=async()=>{await api('/api/logs/clear',{method:'POST'});refreshLogs();toast('Logs cleared')}; $('#refreshLogs').onclick=refreshLogs;
   }
   async function refreshLogs(){ if(App.route!=='logs')return; try{const x=await api('/api/logs');const out=$('#logOutput'); if(!out)return; const near=out.scrollTop+out.clientHeight>=out.scrollHeight-80; out.textContent=(x.lines||[]).join('\n'); $('#logCount').textContent=`${(x.lines||[]).length} lines`; const meta=$('#logMeta'),t=x.last_trainer||{}; if(meta){const ex=t.exit_name?`${t.exit_name} ${t.exit_hex||''}`:'no trainer session yet';meta.textContent=`Persistent: ${x.persistent_log||'—'}  ·  Trainer: ${ex}  ·  Phase: ${t.last_phase||'—'}  ·  Peak RSS: ${Number(t.peak_worker_rss_mb||0).toFixed(0)} MB  ·  Session: ${t.log_path||'—'}`;} if(near)out.scrollTop=out.scrollHeight;}catch{} }
@@ -1254,10 +1314,14 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
   }
 
   async function renderAgent(view){
-    let a=App.state?.agent||{},c=App.state?.config||{};
+    const renderRevision=++App.agentRenderRevision;
+    let a=App.state?.agent||{};
     try{a=await api('/api/agent/status');if(App.state)App.state.agent=a}catch{}
+    if(renderRevision!==App.agentRenderRevision||App.route!=='agent')return;
+    const c={...(App.state?.config||{}),...App.agentDraft};
     const connectors=a.connectors||[],skills=a.skills||[],installer=a.installer||{},catalog=a.skill_catalog||[];
     const remoteInfo=a.remote_apps||{},remoteApps=remoteInfo.apps||[];
+    const telegram=a.telegram||{},tgInstaller=telegram.installer||{};
     const opCount=connectors.reduce((n,x)=>n+(x.operations||[]).length,0);
     const familyDefs={
       web:{title:'Live Web',icon:'globe',desc:'Search, read, check and download current public information.',cats:['web.read','web.search','web.download']},
@@ -1265,15 +1329,16 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       files:{title:'Files & Attachments',icon:'files',desc:'Read uploaded files, inspect ZIP projects, save, organize and edit text/code.',cats:['files']},
       browser:{title:'Browser',icon:'panel',desc:'Escalation for JavaScript pages, login, forms, clicks and typing.',cats:['browser.read','browser.interact','browser.session']},
       api:{title:'API',icon:'link',desc:'HTTP endpoints, structured requests and configured service operations.',cats:['api']},
+      telegram:{title:'Telegram',icon:'chat',desc:'Personal account · people, selected-chat context, messages and replies.',cats:['telegram']},
       extensions:{title:'Extensions',icon:'spark',desc:'OpenAPI connectors and custom declarative skills.',cats:['connector','custom']}
     };
-    const familyOrder=['web','calendar','files','browser','api','extensions'];
+    const familyOrder=['web','calendar','files','telegram','browser','api','extensions'];
     const operationLabels={now:'Current date & time',convert:'Convert dates',month:'Month view',list:'List',create:'Create event',update:'Update',cancel:'Cancel event',delete:'Delete',search:'Search',metadata:'File details',probe:'Identify / list archive',read_content:'Read selected content',store_attachment:'Save attachment',write_text:'Create / edit text',replace_text:'Replace text',mkdir:'Create folder',move:'Move',rename:'Rename',trash:'Move to trash',restore:'Restore'};
     const operationTree=x=>{
       const ops=Object.entries(x.contract?.operations||{});if(!ops.length)return '';
       return `<details class="skill-operations"><summary>${ops.length} reusable operations</summary>${ops.map(([op,p])=>{
-        const allowed=x.available&&(p.permission!=='local_workspace'||c.agent_allow_workspace_write!==false)&&(p.permission!=='external_website'||!!c.agent_allow_write);
-        const label=p.permission==='local_workspace'?'Local change':p.permission==='external_website'?'Website change':p.read_only?'Read only':'Browser session';
+        const allowed=x.available&&(p.permission!=='local_workspace'||c.agent_allow_workspace_write!==false)&&(p.permission!=='external_website'||!!c.agent_allow_write)&&(p.permission!=='telegram_read'||!!c.agent_allow_telegram_read)&&(p.permission!=='telegram_write'||!!c.agent_allow_telegram_write);
+        const label=p.permission==='local_workspace'?'Local change':p.permission==='external_website'?'Website change':p.permission==='telegram_write'?'Telegram message':p.permission==='telegram_read'?'Telegram read':p.read_only?'Read only':'Browser session';
         return `<div class="skill-operation"><span>${escapeHtml(operationLabels[op]||op)}</span><small>${escapeHtml(label)} · ${allowed?'Ready':'Disabled'}</small></div>`;
       }).join('')}</details>`;
     };
@@ -1294,8 +1359,11 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
           <label class="check-row"><input id="agentWrite" type="checkbox" ${c.agent_allow_write?'checked':''}><span><strong>Allow external site actions</strong><small>Separate higher-risk permission for POST/PUT/DELETE, browser clicks, typing and form submission on remote sites.</small></span></label>
           <label class="check-row"><input id="agentPrivate" type="checkbox" ${c.agent_allow_private_network?'checked':''}><span><strong>Allow localhost/private network</strong><small>Needed only for LAN services or local APIs. Public internet works without it.</small></span></label>
           <label class="check-row"><input id="agentHeadless" type="checkbox" ${c.agent_browser_headless?'checked':''}><span><strong>Hide Agent browser window</strong><small>Off is easier to inspect: you can watch Chrome interact with the site.</small></span></label>
+          <label class="check-row"><input id="agentTelegramRead" type="checkbox" ${c.agent_allow_telegram_read?'checked':''}><span><strong>Allow Telegram reads</strong><small>Read only the selected chats and a limited message context.</small></span></label>
+          <label class="check-row"><input id="agentTelegramWrite" type="checkbox" ${c.agent_allow_telegram_write?'checked':''}><span><strong>Allow Telegram messages</strong><small>Send and reply through the connected personal account.</small></span></label>
+          <div class="field"><label>Skill profile</label><select id="agentSkillProfile"><option value="all">All families</option><option value="telegram_only">Telegram only</option></select></div>
           <div class="field" style="margin-top:12px"><label>Maximum tool steps per message</label><input id="agentSteps" type="number" min="1" max="16" value="${Number(c.agent_max_steps||8)}"></div>
-          <div class="inline-actions" style="margin-top:14px"><button id="saveAgentSettings" class="primary-button">Save Agent settings</button></div>
+          <div class="inline-actions" style="margin-top:14px"><button id="saveAgentSettings" class="primary-button">Save Agent settings</button><button id="enableAgentPermissions" class="secondary-button">Enable all permissions</button></div>
         </div>
         <div class="detail-card"><h3>Browser skill</h3><p style="color:var(--muted);font-size:10.5px;line-height:1.55">For normal pages the Agent uses lightweight HTTP tools. For JavaScript apps, forms and buttons it can drive Chrome with Selenium.</p>
           <div class="detail-row"><span>Python browser package</span><strong>${a.browser_available?'Installed':'Not installed'}</strong></div><div class="detail-row"><span>Browser session</span><strong>${a.browser_running?'Running':'Closed'}</strong></div>
@@ -1303,6 +1371,17 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
           ${installer.error?`<p class="agent-error">${escapeHtml(installer.error)}</p>`:''}<small style="display:block;margin-top:10px">Chrome uses a separate persistent LlamaForge profile, so logins/cookies can survive between Agent sessions.</small>
         </div>
       </div>
+      <section class="section"><div class="detail-card telegram-account"><h3>Telegram · حساب شخصی</h3><p>Connect your account using the verification code sent by Telegram. Credentials stay in your computer's OS vault. The Agent sees only the chat context it requests.</p>
+        <div class="detail-row"><span>Account</span><strong>${telegram.connected?escapeHtml(telegram.account?.name||'Connected'):telegram.paused?'Disconnected':'Not connected'} ${telegram.account?.username?'@'+escapeHtml(telegram.account.username):''}</strong></div>
+        ${!telegram.installed||!telegram.vault_installed?`<button id="installTelegram" class="primary-button" ${tgInstaller.state==='running'?'disabled':''}>${tgInstaller.state==='running'?'Installing…':'Install Telegram support'}</button><small>Telethon 1.45.0 + OS keyring. No additional model is loaded.</small>`:''}
+        ${tgInstaller.error?`<p class="agent-error">${escapeHtml(tgInstaller.error)}</p>`:''}
+        <div class="form-grid"><div class="field"><label>API ID</label><input id="telegramApiId" inputmode="numeric" autocomplete="off"></div><div class="field"><label>API Hash</label><input id="telegramApiHash" type="password" autocomplete="new-password"></div><div class="field"><label>Phone (+country code)</label><input id="telegramPhone" type="tel" autocomplete="off"></div></div>
+        <small>Get your API ID and API Hash from <a href="https://my.telegram.org" target="_blank" rel="noopener noreferrer">my.telegram.org</a>. Do not paste them into chat.</small>
+        <div class="inline-actions"><button id="telegramConnect" class="primary-button" ${telegram.connected?'disabled':''}>Send login code</button><button id="telegramResume" class="secondary-button">Resume saved session</button></div>
+        <div class="form-grid"><div class="field"><label>Verification code</label><input id="telegramCode" autocomplete="one-time-code" inputmode="numeric"></div><div class="field"><label>Two-step password (if requested)</label><input id="telegramPassword" type="password" autocomplete="new-password"></div></div>
+        <div class="inline-actions"><button id="telegramVerify" class="primary-button">Verify login</button><button id="telegramDisconnect" class="secondary-button">Disconnect</button><button id="telegramRevoke" class="secondary-button">Revoke session</button></div>
+        <p id="telegramLoginStatus" role="status"></p><small>Reads default to 5 messages from one selected chat (maximum 15). Automatic replies and group administration are not enabled.</small>
+      </div></section>
       <section class="section"><div class="detail-card"><h3>Connected websites / apps</h3><p style="color:var(--muted);font-size:10.5px;line-height:1.65">Paste the <b>LlamaForge Connection URL</b> generated by your website/app. Once connected, LlamaForge watches it in the background while a local model is ready, runs the normal Agent + Skill system for incoming tasks, and sends live execution activity plus the final answer back to the website.</p>
         <div class="form-grid agent-connector-form"><div class="field"><label>Connection URL</label><input id="remoteAppUrl" placeholder="https://example.com/ai/connect.php?token=..."></div><div class="field"><label>Token (optional)</label><input id="remoteAppToken" type="password" placeholder="Leave blank when token is inside URL"></div></div>
         <div class="inline-actions" style="margin-top:12px"><button id="addRemoteApp" class="primary-button">${icon('plus')} Connect website/app</button><button id="refreshRemoteApps" class="secondary-button">Refresh status</button></div>
@@ -1316,8 +1395,18 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       <section class="section"><div class="detail-card smart-skill-tree"><div class="skill-tree-head"><div><span class="eyebrow">AUTO CAPABILITY ROUTER</span><h3>Smart Skill Tree</h3><p>The model thinks in broad capabilities instead of memorizing one skill for every question. High-confidence guards stop small models from saying “no access” when Calendar, Files or Web are actually available.</p></div><span class="skill-auto-badge">Auto</span></div><div class="skill-flow"><span><b>1</b> Understand</span><i>→</i><span><b>2</b> Choose capability</span><i>→</i><span><b>3</b> Use minimum tool</span><i>→</i><span><b>4</b> Verify</span></div><div class="skill-family-grid">${skillCatalogHTML||'<div class="empty-state">No skill catalog available.</div>'}</div></div></section>
       <section class="section"><div class="detail-grid"><div class="detail-card"><h3>Custom skills v2</h3><div class="detail-row"><span>Folder</span><span style="max-width:72%;overflow-wrap:anywhere">${escapeHtml(a.skills_dir||'')}</span></div><p style="color:var(--muted);font-size:10.5px;line-height:1.55">Drop declarative <code>.json</code> skills here. v2 supports request headers/query/JSON body, required arguments, timeout, retries, response format and dot-path extraction. A README with examples is generated automatically.</p>${skills.length?`<div class="tag-row">${skills.map(x=>`<span class="tag">skill_${escapeHtml(x.name)} · ${escapeHtml(x.method||'GET')}</span>`).join('')}</div>`:''}</div><div class="detail-card"><h3>Agent downloads</h3><div class="detail-row"><span>Folder</span><span style="max-width:72%;overflow-wrap:anywhere">${escapeHtml(a.downloads_dir||'')}</span></div><p style="color:var(--muted);font-size:10.5px;line-height:1.55">The <code>download_file</code> skill stores explicitly requested downloads here with a configurable size limit.</p></div></div></section>
     </div>`;
+    const telegramAction=async(path,body)=>{if(App.agentBusy)return;App.agentBusy=true;const status=$('#telegramLoginStatus');status.textContent='Working…';try{const result=await api('/api/agent/telegram/'+path,{method:'POST',body});['telegramApiHash','telegramCode','telegramPassword'].forEach(id=>{$('#'+id).value=''});if(result.next==='password'){status.textContent='Enter your Telegram two-step password, then Verify login.';$('#telegramPassword').focus();}else if(result.next==='code'){status.textContent='Enter the verification code from Telegram, then Verify login.';$('#telegramCode').focus();}else{status.textContent=result.connected?'Account connected.':'Done.';await refreshState(true);}}catch(e){status.textContent=e.message;toast('Telegram',e.message,'error',7000)}finally{App.agentBusy=false}};
+    if($('#installTelegram'))$('#installTelegram').onclick=()=>telegramAction('install',{});
+    $('#telegramConnect').onclick=()=>telegramAction('login',{api_id:Number($('#telegramApiId').value),api_hash:$('#telegramApiHash').value.trim(),phone:$('#telegramPhone').value.trim()});
+    $('#telegramVerify').onclick=()=>telegramAction('login',{code:$('#telegramCode').value.trim(),password:$('#telegramPassword').value});
+    $('#telegramResume').onclick=()=>telegramAction('login',{resume:true});
+    $('#telegramDisconnect').onclick=()=>telegramAction('disconnect',{revoke:false});
+    $('#telegramRevoke').onclick=async()=>{if(await confirmModal('Revoke Telegram session','This logs out LlamaForge from Telegram and removes its saved session.','Revoke'))telegramAction('disconnect',{revoke:true});};
     $('#agentOpenChat').onclick=()=>{setAgentEnabled(true);setRoute('chat')};
-    $('#saveAgentSettings').onclick=async()=>{try{await api('/api/settings',{method:'POST',body:{agent_enabled_default:$('#agentDefault').checked,agent_allow_workspace_write:$('#agentWorkspaceWrite').checked,agent_allow_write:$('#agentWrite').checked,agent_allow_private_network:$('#agentPrivate').checked,agent_browser_headless:$('#agentHeadless').checked,agent_max_steps:Number($('#agentSteps').value)}});await refreshState(true);toast('Agent settings saved')}catch(e){toast('Could not save Agent settings',e.message,'error')}};
+    const controls={agentDefault:'agent_enabled_default',agentWorkspaceWrite:'agent_allow_workspace_write',agentWrite:'agent_allow_write',agentPrivate:'agent_allow_private_network',agentHeadless:'agent_browser_headless',agentTelegramRead:'agent_allow_telegram_read',agentTelegramWrite:'agent_allow_telegram_write',agentSteps:'agent_max_steps',agentSkillProfile:'agent_skill_profile'};
+    Object.entries(controls).forEach(([id,key])=>{const el=$('#'+id);if(!el)return;const number=id==='agentSteps',select=id==='agentSkillProfile';if(number)el.value=Number(c[key]||8);else if(select)el.value=c[key]||'all';else el.checked=!!c[key];el.onchange=()=>{App.agentDraft={...App.agentDraft,[key]:number?Number(el.value):select?el.value:el.checked};App.agentRevision++;};if(number)el.oninput=el.onchange;});
+    $('#saveAgentSettings').onclick=async()=>{if(App.agentBusy)return;const revision=App.agentRevision,payload={};Object.entries(controls).forEach(([id,key])=>{const el=$('#'+id);if(el)payload[key]=id==='agentSteps'?Number(el.value):id==='agentSkillProfile'?el.value:el.checked;});App.agentBusy=true;try{await api('/api/settings',{method:'POST',body:payload});if(App.agentRevision===revision)App.agentDraft={};if(App.state)App.state.config={...App.state.config,...payload};await refreshState(true);toast('Agent settings saved')}catch(e){toast('Could not save Agent settings',e.message,'error')}finally{App.agentBusy=false}};
+    $('#enableAgentPermissions').onclick=()=>{['agentWorkspaceWrite','agentWrite','agentPrivate','agentTelegramRead','agentTelegramWrite'].forEach(id=>{const el=$('#'+id);if(el){el.checked=true;el.onchange();}});};
     if($('#installAgentBrowser'))$('#installAgentBrowser').onclick=async()=>{try{await api('/api/agent/browser/install',{method:'POST',body:{}});toast('Browser skill installation started','Selenium will use Chrome and manage its driver automatically.','info',5200);setTimeout(()=>refreshState(true),1200)}catch(e){toast('Could not install browser skill',e.message,'error')}};
     if($('#closeAgentBrowser'))$('#closeAgentBrowser').onclick=async()=>{try{await api('/api/agent/browser/close',{method:'POST',body:{}});await refreshState(true);toast('Agent browser closed')}catch(e){toast('Could not close browser',e.message,'error')}};
     $('#addRemoteApp').onclick=async()=>{const connect_url=($('#remoteAppUrl').value||'').trim();if(!connect_url){toast('Connection URL is required','','error');return}try{await api('/api/agent/app/add',{method:'POST',body:{connect_url,token:($('#remoteAppToken').value||'').trim()}});await refreshState(true);await renderAgent(view);toast('Website connected','LlamaForge will now watch it whenever the local model is ready.','ok',5200)}catch(e){toast('Could not connect website',e.message,'error',8000)}};
@@ -1655,6 +1744,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
         else if(obj.type==='attachments'){for(const row of obj.messages||[]){const message=t.messages[row.index];if(!message)continue;for(const receipt of row.attachments||[]){const attachment=(message.attachments||[]).find(x=>x.id===receipt.client_id||x.attachment_id===receipt.attachment_id);if(attachment){Object.assign(attachment,receipt,{unavailable:false});delete attachment.data_url;delete attachment.text;}}}saveThreads();}
         else if(obj.type==='agent'){assistant.meta.agent=true;assistant.meta.agentEvents=assistant.meta.agentEvents||[];assistant.meta.agentEvents.push(obj);if(obj.event==='tool_start')assistant.meta.agentTool=obj.tool||'tool';renderMessages();const sc=$('#chatScroll');if(sc&&App.chatFollowTail)sc.scrollTop=sc.scrollHeight;}
         else if(obj.type==='quality'&&obj.quality){quality=obj.quality;assistant.meta.quality=quality;}
+        else if(obj.type==='meta'&&obj.trace){assistant.meta.trace=obj.trace;}
         else if(obj.type==='meta'&&obj.usage){assistant.meta.usage=obj.usage;}
         else if(obj.type==='meta'&&obj.context){assistant.meta.context=obj.context;if(obj.context.trimmed_turns)toast('Context managed',`${obj.context.trimmed_turns} older turn${obj.context.trimmed_turns===1?'':'s'} removed to stay inside the model context.`,'info',3600);}
       }}
@@ -1706,7 +1796,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       // Do not destroy/recreate the Settings controls while a memory-mode choice
       // is pending. Replacing that DOM node was the reason the selector appeared
       // to "jump" back to Hybrid before the user could apply it.
-      if(App.route==='settings'&&(App.settingsMemoryDirty||App.settingsFormDirty)&&!forceRender){
+      if(!forceRender&&((App.route==='settings'&&(App.settingsMemoryDirty||App.settingsFormDirty))||(App.route==='agent'&&(Object.keys(App.agentDraft).length||App.agentBusy||document.activeElement?.closest?.('.agent-page'))))){
         updateLiveMetrics(next.live,next.performance||next.server?.performance);
       }else if(forceRender || key!==App.renderKey){App.renderKey=key;if(App.route==='chat'&&$('#chatScroll'))updateChatStateOnly();else render();}
       else updateLiveMetrics(next.live,next.performance||next.server?.performance);

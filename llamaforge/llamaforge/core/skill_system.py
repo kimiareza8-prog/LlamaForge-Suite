@@ -30,6 +30,7 @@ class SkillMeta:
 
 
 BUILTIN_SKILLS: dict[str, SkillMeta] = {
+    "telegram": SkillMeta("telegram", "telegram", "Telegram account", "Resolve people, read limited selected-chat context, search and send/reply via the personal Telegram account.", risk="mixed", cost="medium", keywords=("telegram", "تلگرام", "پیام", "message")),
     "web_check": SkillMeta(
         "web_check", "web.read", "Check URL", "Quickly check whether a URL is reachable, its HTTP status, redirect target, content type and response time without reading the full page.",
         when_to_use=("User asks whether a site/URL opens or is reachable.", "Need a cheap HTTP health check before a full read."),
@@ -196,6 +197,7 @@ BUILTIN_SKILLS: dict[str, SkillMeta] = {
 }
 
 CATEGORY_LABELS = {
+    "telegram":"personal Telegram account messages",
     "web.read": "read/check a known URL",
     "web.search": "discover information or URLs on the public web",
     "web.download": "download a file",
@@ -210,6 +212,7 @@ CATEGORY_LABELS = {
 }
 
 SKILL_FAMILIES = {
+    "telegram":("telegram",),
     "web": ("web.read", "web.search", "web.download"),
     "api": ("api",),
     "browser": ("browser.read", "browser.interact", "browser.session"),
@@ -220,6 +223,7 @@ SKILL_FAMILIES = {
 }
 
 FAMILY_LABELS = {
+    "telegram":"Telegram account: find people, read selected chats, send or reply",
     "web": "read/check/search/download public web content",
     "api": "call explicit HTTP/API endpoints",
     "browser": "use a real browser for JavaScript or UI interaction",
@@ -239,6 +243,8 @@ class SkillRegistry:
         self._definitions = None
 
     def _availability(self, meta: SkillMeta) -> tuple[bool, str]:
+        if getattr(self.permissions, "skill_profile", "all") == "telegram_only" and meta.category != "telegram":
+            return False, "Disabled by Telegram-only profile"
         if meta.requires_browser and not self.runtime.browser_available():
             return False, "Browser skill (Selenium) is not installed"
         if meta.requires_write and not bool(getattr(self.permissions, "allow_write", False)):
@@ -390,6 +396,9 @@ class SkillRegistry:
             discussion = discussion or any(x in text for x in ("چیست", "یعنی چه", "عبارت", "معنی کلمه"))
             if discussion or re.search(r"^(?:don't|do not|never)\s+(?:create|open|browse|search|save)", text): return []
 
+        if ("telegram" in text or "تلگرام" in text) and (re.search(r"\b(read|send|reply|search|show|list|check|find)\b", text) or any(x in text for x in ("بخون", "بخوان", "بفرست", "ارسال", "پیام", "جواب", "نشون", "نشان", "پیدا"))):
+            add("telegram")
+
         if re.search(r"https?://", text) or any(x in text for x in (
             "search the web", "search online", "browse the web", "look online", "latest", "today's news", "current price",
             "جستجو کن", "سرچ کن", "تو اینترنت", "در اینترنت", "روی وب", "تحقیق کن", "آخرین خبر", "جدیدترین", "قیمت روز",
@@ -483,6 +492,7 @@ class SkillRegistry:
         # route an attachment or date request correctly and then lose the one
         # tool that can actually execute it due to scoring noise.
         mandatory = []
+        if "telegram" in categories: mandatory.append("telegram")
         if "files" in categories: mandatory.append("workspace_files")
         if "calendar" in categories: mandatory.append("calendar")
         for core in mandatory:
@@ -543,6 +553,8 @@ class SkillRegistry:
         error = validate_operation(skill, args)
         if error: return False, error
         policy = operation_policy(skill, args, row)
+        if policy.permission in {"telegram_read", "telegram_write"} and not getattr(self.permissions, "allow_"+policy.permission, False):
+            return False, "Telegram operation permission is disabled"
         if policy.permission == "local_workspace" and not getattr(self.permissions, "allow_workspace_write", True):
             return False, "Local workspace changes are disabled in Agent settings"
         if row.get("requires_write") and not bool(getattr(self.permissions, "allow_write", False)):

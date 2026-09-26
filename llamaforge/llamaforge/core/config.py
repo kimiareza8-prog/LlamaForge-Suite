@@ -55,11 +55,15 @@ class AppConfig:
     ui_disconnect_shutdown_seconds: int = 12
     idle_unload_minutes: int = 0
     agent_enabled_default: bool = False
-    agent_allow_write: bool = False
+    agent_allow_write: bool = True
     agent_allow_workspace_write: bool = True
-    agent_allow_private_network: bool = False
+    agent_allow_private_network: bool = True
     agent_browser_headless: bool = False
+    agent_allow_telegram_read: bool = True
+    agent_allow_telegram_write: bool = True
+    agent_skill_profile: str = "all"
     agent_max_steps: int = 8
+    diagnostic_full_traces: bool = True
     default_context_size: int = 4096
     generation_overrides_enabled: bool = False
     generation_temperature: float = 0.70
@@ -116,6 +120,9 @@ class AppConfig:
         cfg.agent_allow_workspace_write = bool(getattr(cfg, "agent_allow_workspace_write", True))
         cfg.agent_allow_private_network = bool(cfg.agent_allow_private_network)
         cfg.agent_browser_headless = bool(cfg.agent_browser_headless)
+        cfg.agent_allow_telegram_read = bool(cfg.agent_allow_telegram_read)
+        cfg.agent_allow_telegram_write = bool(cfg.agent_allow_telegram_write)
+        if cfg.agent_skill_profile not in {"all", "telegram_only"}: cfg.agent_skill_profile = "all"
         cfg.agent_max_steps = min(16, max(1, int(cfg.agent_max_steps or 8)))
         cfg.default_context_size = min(262144, max(512, int(cfg.default_context_size or 4096)))
         cfg.generation_overrides_enabled = bool(cfg.generation_overrides_enabled)

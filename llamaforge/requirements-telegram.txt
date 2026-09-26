@@ -1,0 +1,3 @@
+# Optional personal-account adapter; no MCP daemon or extra model instance.
+Telethon==1.45.0
+keyring>=25.6,<26

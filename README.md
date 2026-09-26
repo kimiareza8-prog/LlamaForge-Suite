@@ -96,7 +96,7 @@ Adaptive AutoTune now benchmarks the exact GGUF with the installed `llama-bench`
 
 This build adds true Agent/web response streaming, universal metadata-first file attachments, smarter file/calendar Skill routing, compact calendar UI, and Full RAM loading with `--load-mode none` when the model fits safely.
 
-Published package version: 0.34.1-stability
+Published package version: 0.34.2-diagnostics
 
 ## 0.34.0 Smart Skills
 
@@ -109,3 +109,7 @@ Explicit question/answer teaching, grounded automatic lessons, correction-aware 
 ## 0.34.1 stability follow-up
 
 Fixes Brain setup/cancellation and background chat availability; adds reliable duration-preserving calendar rescheduling and cross-month event search. [Follow-up report](llamaforge/FOLLOWUP_REPORT_FA.md).
+
+Full request tracing, diagnostic ZIP exports and observed-log fixes: [Persian guide](llamaforge/DIAGNOSTICS_FA.md).
+
+0.34.2 adds staged Agent routing, persistent permission controls, full request log ZIPs, and an optional personal Telegram account skill. [Usage and verification](llamaforge/DIAGNOSTICS_FA.md).

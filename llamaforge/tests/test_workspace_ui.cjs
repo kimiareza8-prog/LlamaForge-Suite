@@ -22,7 +22,7 @@ function harness() {
     AbortController,DOMException,TextDecoder,performance,
     window:{addEventListener(){}},setTimeout(){},requestAnimationFrame(){},LFProtocol:require(path.join(staticDir,'stream_protocol.js')),LFWorkspaceUI:require(path.join(staticDir,'workspace_ui.js')), Date, console};
   let src=fs.readFileSync(path.join(staticDir,'app.js'),'utf8').split('  // shell events')[0];
-  src+='\n renderMessages=()=>{};renderNav=()=>{};updateChrome=()=>{};this.fixture={App,renderChat,selectThread,renderMarkdown,stopGeneration,generateAssistant,addChatAttachments,openCalendarEventModal,updateChatStateOnly,searchCalendarEvents,setFileReader:fn=>fileDataUrl=fn};})();';
+  src+='\n renderMessages=()=>{};renderNav=()=>{};updateChrome=()=>{};this.fixture={App,renderAgent,refreshState,renderChat,selectThread,renderMarkdown,stopGeneration,generateAssistant,addChatAttachments,openCalendarEventModal,updateChatStateOnly,searchCalendarEvents,showRequestTrace,traceOptions,setFileReader:fn=>fileDataUrl=fn};})();';
   vm.runInNewContext(src,sandbox);
   const f=sandbox.fixture;
   f.App.state={server:{ready:true},brain:{enabled:false},config:{}};
@@ -125,4 +125,44 @@ test('composer rerender preserves a pending strict lesson lock',()=>{
   App.brainTurnPending=true;App.state.brain={enabled:true,strict_learning:true,job:{state:'idle'}};
   renderChat(el('#view'));
   assert.equal(el('#composerInput').disabled,true);
+});
+
+
+test('request trace timeline ignores stale detail and escapes event text',async()=>{
+  const {App,el,sandbox,showRequestTrace}=harness();const replies=[];
+  App.route='logs';sandbox.fetch=url=>new Promise(resolve=>replies.push({url,resolve}));
+  const one='trace_'+'1'.repeat(32),two='trace_'+'2'.repeat(32);
+  const first=showRequestTrace(one),second=showRequestTrace(two);
+  replies[1].resolve({ok:true,json:async()=>({events:[{seq:1,event:'<img onerror=alert(1)>',elapsed_ms:1}]})});await second;
+  const latest=el('#requestTimeline').innerHTML;
+  assert.match(latest,/&lt;img/);assert.ok(!latest.includes('<img'));
+  replies[0].resolve({ok:true,json:async()=>({events:[{seq:1,event:'old',elapsed_ms:1}]})});await first;
+  assert.equal(el('#requestTimeline').innerHTML,latest);
+});
+test('trace picker escapes prompt previews and excludes invalid identifiers',()=>{
+  const {traceOptions}=harness();
+  const html=traceOptions([{id:'trace_'+'a'.repeat(32),preview:'<script>alert(1)</script>',status:'error'},
+    {id:'../private',preview:'not an id',status:'error'}]);
+  assert.match(html,/&lt;script/);assert.ok(!html.includes('<script>'));assert.ok(!html.includes('../private'));
+});
+
+
+test('agent permission draft survives background refresh and revisiting page',async()=>{
+  const {App,el,sandbox,renderAgent,refreshState}=harness();App.route='agent';
+  const state={server:{ready:true},brain:{enabled:false},config:{agent_allow_write:true},agent:{}};
+  App.state=state;sandbox.fetch=async url=>({ok:true,json:async()=>url==='/api/state'?{...state,agent:{revision:2}}:{}});
+  await renderAgent(el('#view'));
+  const tick=el('#agentWrite');tick.checked=false;tick.onchange?.();
+  await refreshState();await renderAgent(el('#view'));
+  assert.equal(el('#agentWrite').checked,false);
+  assert.equal(App.agentDraft.agent_allow_write,false);
+});
+test('agent save retains a newer edit while request is in flight',async()=>{
+  const {App,el,sandbox,renderAgent}=harness();App.route='agent';App.state.config={agent_allow_write:false};let finish,payload;
+  sandbox.fetch=async (url,opts)=>url==='/api/settings'?new Promise(resolve=>{finish=resolve;payload=JSON.parse(opts.body)}):({ok:true,json:async()=>url==='/api/state'?App.state:{}});
+  await renderAgent(el('#view'));
+  const tick=el('#agentWrite');tick.checked=true;tick.onchange?.();
+  const save=el('#saveAgentSettings').onclick();await new Promise(setImmediate);
+  tick.checked=false;tick.onchange?.();finish({ok:true,json:async()=>({ok:true})});await save;
+  assert.equal(payload.agent_allow_write,true);assert.equal(App.agentDraft.agent_allow_write,false);
 });

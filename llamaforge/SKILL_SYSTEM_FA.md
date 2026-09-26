@@ -1,4 +1,4 @@
-# Smart Skill Tree — نسخهٔ 0.34.0
+# Smart Skill Tree — نسخهٔ 0.34.2
 
 مسیر اجرا:
 
@@ -17,6 +17,7 @@ Guardها برای زمان واقعی، فایل پیوست، URL و درخوا
 | خانواده | عملیات عمومی |
 |---|---|
 | Time / Calendar | now، convert، month، list، create، update، cancel، delete |
+| Telegram | status، recent_chats، resolve_person، messages، my_messages، search، send، reply |
 | Files / Workspace | metadata، probe، list، search، read_content، store_attachment، write_text، replace_text، mkdir، move، rename، trash، restore، delete |
 | Web | خواندن URL، بررسی دسترسی، جستجو، یافتن متن و دانلود |
 | Browser | مشاهده و جابه‌جایی نشست؛ کلیک، تایپ و انتخاب با مجوز Website Write |
@@ -77,3 +78,9 @@ Planner JSON کامل دریافت می‌شود و سپس اجرا می‌شو�
 ## اصلاح زمان قرار در 0.34.1
 
 همان عملیات عمومی `calendar.update` می‌تواند `time`، `jalali`، `gregorian`، `relative_date` یا `start` کامل بگیرد. تغییر تاریخ به‌تنهایی ساعت قبلی را حفظ می‌کند؛ تغییر ساعت به‌تنهایی روز قبلی را نگه می‌دارد. اگر `end` نفرستید، مدت قرار قبلی حفظ می‌شود. رشتهٔ تاریخ/ساعت خالی خطاست و رویداد قبلی را تغییر نمی‌دهد. برای ساخت رویداد تمام‌روز با تاریخ شروع، پایان پیش‌فرض یک روز بعد است. Skill جدیدی مخصوص این جمله‌ها ساخته نشده است.
+
+## اصلاحات 0.34.2
+
+Router فقط عنوان خانواده‌ها را در مرحلهٔ اول می‌بیند؛ Schemaها پس از انتخاب شاخه می‌آیند. خانوادهٔ حاصل از Guard و JSON اصلاحی حفظ می‌شود تا مرحلهٔ انتخاب خانواده بی‌دلیل تکرار نشود. پروفایل Telegram only در Discovery و Executor اعمال می‌شود.
+
+Permissionهای نصب تازه روشن هستند و تنظیم ذخیره‌شدهٔ قبلی حفظ می‌شود؛ ویرایش تیک‌ها با Refresh یا پاسخ دیرهنگام Save از بین نمی‌رود. Telegram read/write مستقل از Local Workspace و External Website است. لاگ کامل شامل ورودی/خروجی واقعی مدل، انتخاب شاخه، Operation و Observation است. [راهنمای کامل و محدودیت‌ها](DIAGNOSTICS_FA.md).

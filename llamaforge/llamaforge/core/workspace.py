@@ -721,6 +721,10 @@ class FileWorkspace:
             return {"index": idx, "folders": folders, "files": blobs}
 
     def import_snapshot(self, payload: dict[str, Any]) -> None:
+        # PHP encodes an empty associative array as [] unless JSON_FORCE_OBJECT
+        # is used. Normalize only this empty map, never a non-empty list.
+        if isinstance(payload, dict) and isinstance(payload.get("index"), dict) and payload["index"].get("items") == []:
+            payload = {**payload, "index": {**payload["index"], "items": {}}}
         if not isinstance(payload, dict) or not isinstance(payload.get("index"), dict) or not isinstance(payload["index"].get("items"), dict):
             raise ValueError("Invalid workspace snapshot index")
         index = payload["index"]

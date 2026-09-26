@@ -5,8 +5,11 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from dataclasses import dataclass
+from dataclasses import asdict
+from contextvars import copy_context
 from typing import Any, Callable, Iterator
 from .skill_contracts import operation_policy
+from .request_tracing import record, logged_model, logged_stream, current_trace
 
 
 @dataclass
@@ -257,30 +260,21 @@ class AgentEngine:
         return cls._needs_external_action(task)
 
     @staticmethod
-    def _route_prompt(conversation: str) -> str:
+    def _route_prompt(conversation: str, families: list[str] | None = None) -> str:
+        from .skill_system import FAMILY_LABELS
+        titles = "\n".join(f"- {name}: {description}" for name,description in FAMILY_LABELS.items()
+                           if families is None or name in families)
         return f"""You are stage 0 of a local AI agent router.
-Decide ONLY whether the user's request should be answered directly by the local model or should enter the external Skill system. Do not answer the user's task.
-
-ROUTING RULES:
-- route=direct for greetings, ordinary conversation, writing, summarizing text already provided, translation, coding/explanations, brainstorming, and questions that can be answered from the model's own knowledge without performing a real external action.
-- route=skills whenever the user asks to actually open/check/read a URL or website, search/browse the web, get fresh/current external information, download something, call GET/POST/PUT/PATCH/DELETE or another API/HTTP endpoint, interact with a browser/site, or operate a configured connector/custom external skill.
-- route=skills when the answer requires live personal state/tools: current local time/date, the user's calendar/schedule/reminders, or the LlamaForge File Manager/workspace.
-- A staged attachment marker means a real file exists. Route to skills when the user wants to store/organize/find/read/inspect that file. Do NOT assume file content must be read; File Manager can organize it from metadata alone.
-- Merely discussing what an API/browser/website is does NOT require skills. Asking to USE it does.
-- If the user supplies a URL and asks you to look at/open/check/read it, route MUST be skills.
-- If the user asks for current/live/latest information that requires retrieval, route MUST be skills.
-- When uncertain between direct and skills because completing the request requires verifying something outside the conversation, choose skills.
-
+Does the latest request need a real tool? Do not answer or execute the task.
+Use direct for greetings, writing, explanations, translation and text already in the conversation.
+Use skills for current clock/date, personal state, reading URLs/files, search, actual calendar/file changes, Telegram messages or website actions.
+Mentioning a tool is not an instruction to use it. Attachments are metadata first; do not read content unless needed.
+Choose only needed families by title. Tool schemas are supplied AFTER this decision, never here.
 RETURN EXACTLY ONE JSON OBJECT AND NOTHING ELSE:
-{{"route":"direct","summary":"short reason","confidence":0}}
-or
-{{"route":"skills","summary":"short reason","confidence":0,"families":["web"],"goal":"user goal","needs_write":false}}
-
-For skills, choose only the necessary capability families: web (read/search URLs),
-api (HTTP endpoint), browser (UI interaction), calendar (clock/date/schedule),
-files (attachments/workspace), connector (configured service), custom (installed skill).
-Include families in this same decision to avoid another model call.
-
+{{"route":"direct"}} OR {{"route":"skills","families":["files"],"goal":"short goal"}}
+Families enabled in this profile:
+{titles}
+If a needed family is disabled, do not invent access; explain the setting in the direct answer.
 CONVERSATION / LATEST USER TASK:
 {conversation[-7000:]}"""
 
@@ -289,13 +283,14 @@ CONVERSATION / LATEST USER TASK:
         call_model: Callable[[list[dict], list[dict]], dict],
         conversation: str,
         latest_user: str,
+        families: list[str] | None = None,
     ) -> tuple[AgentRouteDecision, str]:
         # Exact social turns have no live-state dependency. Mixed turns still go
         # through the model ("hello, create a meeting" is not a greeting shortcut).
         social = re.sub(r"[!?؟،,.\s]+$", "", latest_user.strip().lower())
         if social in {"سلام", "درود", "سلام خوبی", "سلام چطوری", "hi", "hello", "hey", "thanks", "thank you", "ممنون", "متشکرم"}:
             return AgentRouteDecision("direct", "Simple conversational turn", 100), ""
-        prompt = self._route_prompt(conversation)
+        prompt = self._route_prompt(conversation, families)
         msg = call_model([{"role": "user", "content": prompt}], [])
         raw = ""
         if isinstance(msg, dict):
@@ -341,7 +336,9 @@ CONVERSATION / LATEST USER TASK:
                 confidence = max(0, min(100, int((obj or {}).get("confidence") or 0)))
             except Exception:
                 confidence = 0
-            return AgentRouteDecision(route=route, summary=str((obj or {}).get("summary") or "").strip()[:500], confidence=confidence), repaired_raw
+            return AgentRouteDecision(route=route, summary=str((obj or {}).get("summary") or "").strip()[:500], confidence=confidence,
+                families=[str(x) for x in obj.get("families", [])] if isinstance(obj.get("families"), list) else None,
+                goal=str(obj.get("goal") or "")[:500], needs_write=bool(obj.get("needs_write"))), repaired_raw
 
         # Last-resort compatibility fallback only if the model failed to provide
         # a usable route twice. This is no longer the normal decision path.
@@ -770,7 +767,7 @@ Return only the final user-facing answer."""
         original_model = call_model
         def guarded_model(messages, tools):
             check_cancel()
-            response = original_model(messages, tools)
+            response = logged_model(lambda: original_model(messages, tools), messages, tools=tools)
             check_cancel()
             return response
         call_model = guarded_model
@@ -778,7 +775,7 @@ Return only the final user-facing answer."""
             original_stream = stream_final
             def guarded_stream(messages):
                 check_cancel()
-                iterator = original_stream(messages)
+                iterator = logged_stream(original_stream(messages), messages)
                 try:
                     for event in iterator:
                         check_cancel()
@@ -788,7 +785,10 @@ Return only the final user-facing answer."""
             stream_final = guarded_stream
 
         registry = SkillRegistry(self.runtime, permissions)
-        capability_hints = registry.hinted_families(latest_user)
+        enabled_families = ["telegram"] if getattr(permissions, "skill_profile", "all") == "telegram_only" else None
+        capability_hints = [f for f in registry.hinted_families(latest_user) if enabled_families is None or f in enabled_families]
+        record('agent.context', messages=messages, conversation=conversation, latest_user=latest_user,
+               policy=policy, permissions=vars(permissions), capability_hints=capability_hints)
 
         # Stage 0: the model decides Direct vs Skills, with domain-level guard rails.
         # Guard rails are intentionally broad (calendar/files/web/api/browser), not
@@ -796,14 +796,17 @@ Return only the final user-facing answer."""
         # "no access" for capabilities the runtime actually has.
         yield {"type": "agent", "event": "phase", "phase": "route", "label": "Deciding whether this request needs Skills"}
         route_started = time.monotonic()
-        route_decision, route_raw = self._route_decision(call_model, conversation, latest_user)
+        route_decision, route_raw = self._route_decision(call_model, conversation, latest_user, enabled_families)
+        record('router.decision', decision=asdict(route_decision), raw=route_raw, hints=capability_hints)
         route_seconds = max(0.0, time.monotonic() - route_started)
         external_required = route_decision.route == "skills" or bool(capability_hints)
         if capability_hints and route_decision.route != "skills":
+            record('router.guard', before=asdict(route_decision), reason='clear capability hint', families=capability_hints)
             route_decision = AgentRouteDecision(
                 route="skills",
                 summary="Runtime capability guard: " + ", ".join(capability_hints),
                 confidence=max(90, route_decision.confidence),
+                families=capability_hints, goal=latest_user[:500],
             )
         yield {
             "type": "agent", "event": "route_decision", "route": route_decision.route,
@@ -852,6 +855,8 @@ Return only the final user-facing answer."""
             return
 
         tool_defs = self.runtime.tool_definitions(permissions)
+        if current_trace() is not None:
+            record('skills.catalog', catalog=registry.catalog(tool_defs), definitions=tool_defs)
         observations: list[dict[str, str]] = []
         yield {"type": "agent", "event": "route", "route": "agent", "label": "Local model requested external Skills", "response_language": target_language}
         yield {
@@ -876,6 +881,8 @@ Return only the final user-facing answer."""
         families = registry.families_for_categories(categories)
         shortlist = registry.shortlist(latest_user, categories, limit=policy["skill_limit"])
         manifest, available = registry.manifest(shortlist, tool_defs)
+        record('skills.shortlist', goal=goal, families=families, categories=categories, rows=shortlist,
+               available=sorted(available), manifest=manifest, model_output=cap_raw)
         yield {
             "type": "agent", "event": "capabilities", "goal": goal or latest_user[:220],
             "families": families, "categories": categories, "needs_write": bool(needs_write),
@@ -896,6 +903,7 @@ Return only the final user-facing answer."""
             for o in observations[-max(1, policy["observation_keep"]):]:
                 recent_vision.extend([str(x) for x in (o.get("vision") or []) if str(x).startswith("data:image/")])
             decision, raw = self._model_decision(call_model, prompt, manifest, vision=recent_vision[-2:])
+            record('planner.decision', step=step, raw=raw, parsed=asdict(decision) if decision else None)
             model_seconds = max(0.0, time.monotonic() - started)
 
             if decision is None:
@@ -929,6 +937,7 @@ Return only the final user-facing answer."""
                 decision.actions = filled_actions
             else:
                 decision = self._fill_common_args(decision, latest_user)
+            record('planner.arguments', step=step, decision=asdict(decision))
 
             if decision.action == "parallel":
                 catalog_rows = registry.catalog(tool_defs)
@@ -968,7 +977,7 @@ Return only the final user-facing answer."""
                             if previous is not None: self.runtime.set_workspace_scope(previous)
                     for idx, row in enumerate(batch):
                         t0 = time.monotonic()
-                        fut = pool.submit(execute_scoped, str(row["skill"]), dict(row.get("arguments") or {}))
+                        fut = pool.submit(copy_context().run, execute_scoped, str(row["skill"]), dict(row.get("arguments") or {}))
                         futures[fut] = (idx, row, t0)
                     pending = set(futures)
                     while pending:
@@ -1000,6 +1009,7 @@ Return only the final user-facing answer."""
                     attempts[self._call_signature(skill, row.get("arguments"))] = {"ok":ok, "error":error_text, "result":result}
                     compact = _safe_json(result, max_chars=policy["observation_chars"]) if ok else _safe_json({"tool_result": result, "error": error_text}, max_chars=policy["observation_chars"])
                     observations.append({"skill": skill, "result": compact})
+                    record('observation', step=step, skill=skill, parallel=True, raw=result, presented_to_model=compact)
                     yield {"type": "agent", "event": "tool_result", "tool": skill, "ok": ok, "step": step, "parallel": True, "tool_seconds": round(tool_seconds, 2), "error_preview": error_text[:300] if error_text else ""}
                 yield {"type": "agent", "event": "parallel_done", "count": len(results), "wall_seconds": round(max(0.0, time.monotonic() - started_parallel), 2), "label": "Independent reads completed in parallel"}
                 continue
@@ -1070,6 +1080,7 @@ Return only the final user-facing answer."""
                     if not any(x["name"] == decision.skill for x in shortlist):
                         shortlist = [requested] + shortlist[:policy["skill_limit"]-1]
                     manifest, available = registry.manifest(shortlist, tool_defs)
+                    record('skills.shortlist', reason='replan', rows=shortlist, available=sorted(available), manifest=manifest)
                     observations.append({"skill":"discovery", "result":"Expanded capability branch. Review the newly supplied input schema and plan again."})
                     yield {"type":"agent", "event":"replan", "skills":sorted(available), "label":"Expanded relevant capability branch"}
                     continue
@@ -1108,6 +1119,7 @@ Return only the final user-facing answer."""
                 continue
 
             valid, validation_error = registry.validate_call(decision.skill, decision.arguments or {})
+            record("preflight", step=step, skill=decision.skill, arguments=decision.arguments, valid=valid, error=validation_error)
             if not valid:
                 attempts[self._call_signature(decision.skill, decision.arguments)] = {"ok":False, "error":validation_error}
                 meta = next((x for x in registry.catalog(tool_defs) if x.get("name") == decision.skill), {})
@@ -1167,6 +1179,8 @@ Return only the final user-facing answer."""
             if vision_items:
                 observation_row["vision"] = vision_items
             observations.append(observation_row)
+            record('observation', step=step, skill=decision.skill, raw=result, presented_to_model=compact,
+                   ok=ok, failure=failure)
             yield {
                 "type": "agent", "event": "tool_result", "tool": decision.skill, "ok": ok,
                 "step": step, "tool_seconds": round(tool_seconds, 2), "observation_chars": len(compact),

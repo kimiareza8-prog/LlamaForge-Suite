@@ -124,7 +124,7 @@ Browser فقط برای صفحات JavaScript، فرم، لاگین، کلیک �
 ## Permissionها
 
 - **Allow local calendar & file changes**: تغییرات داخل Workspace و تقویم محلی؛ پیش‌فرض روشن.
-- **Allow external site actions**: POST/PUT/PATCH/DELETE و click/type/select روی سرویس‌های بیرونی؛ مستقل از Workspace و پیش‌فرض خاموش.
+- **Allow external site actions**: POST/PUT/PATCH/DELETE و click/type/select روی سرویس‌های بیرونی؛ مستقل از Workspace و در نصب تازه پیش‌فرض روشن؛ انتخاب ذخیره‌شدهٔ قبلی حفظ می‌شود.
 - **Allow localhost/private network**: دسترسی به localhost/LAN.
 - **Hide Agent browser window**: اجرای Chrome به‌صورت Headless.
 - **Maximum tool steps**: سقف مرحله‌های Agent.
@@ -136,3 +136,9 @@ Browser فقط برای صفحات JavaScript، فرم، لاگین، کلیک �
 ## تغییرات اجرایی 0.34.0
 
 قرارداد عملیات، پیش‌نیازهای تایپ‌شده، رسید قابل استفادهٔ مجدد فایل/نوشتن، لغو خواندن‌های موازی، خواندن امن ZIP/TAR/Office و استریم مسیرهای خطا اضافه شده‌اند. ابزار جدیدی برای جمله‌های خاص ساخته نشده است. شرح دقیق رفتار و محدودیت‌ها در [SKILL_SYSTEM_FA.md](SKILL_SYSTEM_FA.md) و نتیجهٔ تست در [AUDIT_REPORT_FA.md](AUDIT_REPORT_FA.md) آمده است.
+
+## Telegram و عیب‌یابی 0.34.2
+
+کارت Telegram در Agent اتصال حساب شخصی با کد ورود و رمز دومرحله‌ای، نصب وابستگی اختیاری و Disconnect/Resume/Revoke دارد. هشت Operation عمومی زیر یک Skill ارائه می‌شوند و Context به همان گفت‌وگو محدود است. Auto Reply و ابزارهای مدیریتی گروه فعال نشده‌اند. در نصب قبلی برای تغییر همهٔ مجوزها از Enable all permissions و سپس Save Agent settings استفاده کنید.
+
+برای گزارش خطا از Logs → Full request log → Download full log ZIP استفاده کنید. [شرح درخت، ذخیرهٔ امن حساب، Permissionها و شواهد تست](DIAGNOSTICS_FA.md).

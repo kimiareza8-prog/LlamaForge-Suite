@@ -312,3 +312,15 @@ body.chat-active .topbar {display:none}
 @media (prefers-reduced-motion: reduce) {
   *,*:before,*:after {animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
+
+/* Request transcripts: progressive event loading keeps large prompts out of the initial DOM. */
+.request-traces {border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px;background:var(--surface)}
+.trace-heading {display:flex;align-items:flex-start;justify-content:space-between;gap:22px}
+.trace-heading h3 {margin:0 0 8px;font-size:17px}.trace-heading p {margin:0;color:var(--muted);font-size:12px;line-height:1.65;max-width:750px}
+.trace-switch {display:flex;gap:8px;align-items:center;white-space:nowrap;font-size:12px;min-height:36px}
+.trace-controls {display:flex;align-items:center;gap:10px;margin-top:18px;flex-wrap:wrap}.trace-controls select {flex:1;min-width:200px;max-width:100%;padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text)}
+.trace-controls button {display:flex;align-items:center;gap:7px;min-height:38px}.trace-controls svg {width:16px;height:16px}
+.trace-status {color:var(--muted);font-size:11px;overflow-wrap:anywhere}.trace-timeline {max-height:480px;overflow:auto;overscroll-behavior:contain}
+.trace-event {border-top:1px solid var(--border);padding:0 4px}.trace-event summary {display:flex;justify-content:space-between;gap:12px;padding:11px 0;cursor:pointer;font-size:12px;overflow-wrap:anywhere}.trace-event summary small {color:var(--muted);white-space:nowrap}
+.trace-event pre {direction:ltr;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto;background:var(--bg);padding:14px;border-radius:8px;font-size:11px;line-height:1.6}
+@media(max-width:700px){.request-traces{padding:14px}.trace-heading{flex-direction:column;gap:10px}.trace-controls select{flex-basis:100%;width:100%}.trace-controls button{flex:1;justify-content:center;font-size:11px}.trace-timeline{max-height:360px}}

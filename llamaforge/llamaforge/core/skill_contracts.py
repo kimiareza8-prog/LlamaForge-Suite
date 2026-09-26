@@ -8,6 +8,9 @@ from dataclasses import asdict, dataclass
 from typing import Any, Literal
 import re
 
+TELEGRAM_READS = {"status", "recent_chats", "resolve_person", "messages", "my_messages", "search"}
+TELEGRAM_WRITES = {"send", "reply"}
+
 LOCAL_WRITES = {
     "calendar": {"create", "update", "cancel", "delete"},
     "workspace_files": {"store_attachment", "write_text", "replace_text", "mkdir", "move", "rename", "trash", "restore", "delete"},
@@ -20,6 +23,11 @@ LOCAL_READS = {
 # Required alternatives are explicit metadata, also surfaced in the compact
 # planner manifest. Domain stores remain the final authority for valid dates/IDs.
 OPERATION_INPUTS = {
+    "telegram": {"resolve_person":{"required":["query"]},
+        **{op:{"required":["chat_ref"]} for op in ("messages", "my_messages")},
+        "search":{"required":["chat_ref", "query"]},
+        "send":{"required":["chat_ref","text","request_key"]},
+        "reply":{"required":["chat_ref","text","message_id","request_key"]}},
     "calendar": {
         "create": {"required": ["title"], "one_of": [["start"], ["gregorian", "time"], ["jalali", "time"], ["relative_date", "time"]]},
         "update": {"required": ["id"]}, "cancel": {"required": ["id"]}, "delete": {"required": ["id"]},
@@ -54,7 +62,7 @@ def validate_operation(name: str, args: dict) -> str:
 @dataclass(frozen=True)
 class OperationPolicy:
     effect: Literal["read", "local_write", "external_write", "session", "unknown"] = "unknown"
-    permission: Literal["none", "local_workspace", "external_website"] = "external_website"
+    permission: Literal["none", "local_workspace", "external_website", "telegram_read", "telegram_write"] = "external_website"
     parallel_safe: bool = False
     idempotent: bool = False
     network: bool = False
@@ -73,6 +81,10 @@ class OperationPolicy:
 def operation_policy(name: str, args: dict | None = None, metadata: dict | None = None) -> OperationPolicy:
     args = args or {}; metadata = metadata or {}
     op = str(args.get("operation") or "").lower()
+    if name == "telegram":
+        if op in TELEGRAM_READS:
+            return OperationPolicy("read", "telegram_read", False, True, op!="status", 35, 0, "bounded structured result")
+        return OperationPolicy("external_write", "telegram_write", False, False, True, 35, 0, "message ID and readback; never retry unknown delivery")
     if name in LOCAL_READS:
         if op in LOCAL_READS[name]:
             return OperationPolicy("read", "none", True, True, False, 30, 0, "structured result")
@@ -94,6 +106,7 @@ def operation_policy(name: str, args: dict | None = None, metadata: dict | None 
 def contract(name: str, category: str, schema: dict, metadata: dict | None = None) -> dict:
     operations = {op:operation_policy(name, {"operation":op}).public()
                   for op in sorted(LOCAL_READS.get(name, set()) | LOCAL_WRITES.get(name, set()))}
+    if name == "telegram": operations = {op:operation_policy(name, {"operation":op}).public() for op in sorted(TELEGRAM_READS|TELEGRAM_WRITES)}
     for op, spec in operations.items():
         spec["input_requirements"] = OPERATION_INPUTS.get(name, {}).get(op, {})
     policy = operation_policy(name, metadata=metadata).public()

@@ -1,0 +1,116 @@
+........FFF                                                              [100%]
+=================================== FAILURES ===================================
+___________ test_runtime_install_never_removes_previous_build[False] ___________
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-newlogs-red/test_runtime_install_never_rem0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f7c78aca4b0>
+promotion_fails = False
+
+    @pytest.mark.parametrize('promotion_fails',[False,True])
+    def test_runtime_install_never_removes_previous_build(tmp_path,monkeypatch,promotion_fails):
+        import io
+        import zipfile
+        from pathlib import Path
+        from llamaforge.core import runtime as mod
+        mgr=mod.RuntimeManager(str(tmp_path));old=tmp_path/'b11195';old.mkdir()
+        binary=mgr._exe('llama-server');(old/binary).write_text('old running build')
+        pointer=tmp_path/'installed.json';pointer.write_text(json.dumps({'tag':'b11195','path':str(old)}))
+        buf=io.BytesIO()
+        with zipfile.ZipFile(buf,'w') as archive:archive.writestr(binary,'new build')
+        class Response(io.BytesIO):headers={}
+        monkeypatch.setattr(mod,'open_url',lambda *_a,**_k:Response(buf.getvalue()))
+        monkeypatch.setattr(mgr,'status',lambda:{})
+        original=Path.replace
+        def replace(p,target):
+            if promotion_fails and p.name.endswith('.installing'):raise PermissionError('Windows antivirus lock')
+            return original(p,target)
+        monkeypatch.setattr(Path,'replace',replace)
+        if promotion_fails:
+            with pytest.raises(PermissionError):mgr._install_release({'tag':'b11195'},{'name':'test.zip','url':'https://example.com/test.zip'})
+            assert json.loads(pointer.read_text())['path']==str(old)
+        else:
+            mgr._install_release({'tag':'b11195'},{'name':'test.zip','url':'https://example.com/test.zip'})
+>           assert json.loads(pointer.read_text())['path']!=str(old)
+E           AssertionError: assert '/workspace/scratch/a9d8f0e64114/pytest-newlogs-red/test_runtime_install_never_rem0/b11195' != '/workspace/scratch/a9d8f0e64114/pytest-newlogs-red/test_runtime_install_never_rem0/b11195'
+E            +  where '/workspace/scratch/a9d8f0e64114/pytest-newlogs-red/test_runtime_install_never_rem0/b11195' = str(PosixPath('/workspace/scratch/a9d8f0e64114/pytest-newlogs-red/test_runtime_install_never_rem0/b11195'))
+
+tests/test_diagnostic_regressions.py:91: AssertionError
+___________ test_runtime_install_never_removes_previous_build[True] ____________
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-newlogs-red/test_runtime_install_never_rem1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f7c78aca240>
+promotion_fails = True
+
+    @pytest.mark.parametrize('promotion_fails',[False,True])
+    def test_runtime_install_never_removes_previous_build(tmp_path,monkeypatch,promotion_fails):
+        import io
+        import zipfile
+        from pathlib import Path
+        from llamaforge.core import runtime as mod
+        mgr=mod.RuntimeManager(str(tmp_path));old=tmp_path/'b11195';old.mkdir()
+        binary=mgr._exe('llama-server');(old/binary).write_text('old running build')
+        pointer=tmp_path/'installed.json';pointer.write_text(json.dumps({'tag':'b11195','path':str(old)}))
+        buf=io.BytesIO()
+        with zipfile.ZipFile(buf,'w') as archive:archive.writestr(binary,'new build')
+        class Response(io.BytesIO):headers={}
+        monkeypatch.setattr(mod,'open_url',lambda *_a,**_k:Response(buf.getvalue()))
+        monkeypatch.setattr(mgr,'status',lambda:{})
+        original=Path.replace
+        def replace(p,target):
+            if promotion_fails and p.name.endswith('.installing'):raise PermissionError('Windows antivirus lock')
+            return original(p,target)
+        monkeypatch.setattr(Path,'replace',replace)
+        if promotion_fails:
+            with pytest.raises(PermissionError):mgr._install_release({'tag':'b11195'},{'name':'test.zip','url':'https://example.com/test.zip'})
+            assert json.loads(pointer.read_text())['path']==str(old)
+        else:
+            mgr._install_release({'tag':'b11195'},{'name':'test.zip','url':'https://example.com/test.zip'})
+            assert json.loads(pointer.read_text())['path']!=str(old)
+>       assert (old/binary).read_text()=='old running build'
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_diagnostic_regressions.py:92:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-newlogs-red/test_runtime_install_never_rem1/b11195/llama-server')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/workspace/scratch/a9d8f0e64114/pytest-newlogs-red/test_runtime_install_never_rem1/b11195/llama-server'
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py:1013: FileNotFoundError
+_____________ test_brain_tokenizer_config_alone_is_not_a_tokenizer _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f7c78aca300>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-newlogs-red/test_brain_tokenizer_config_al0')
+
+    def test_brain_tokenizer_config_alone_is_not_a_tokenizer(monkeypatch,tmp_path):
+        brain=_isolated_brain(monkeypatch,tmp_path)
+        base=tmp_path/'source';base.mkdir()
+        (base/'config.json').write_text('{}');(base/'model.safetensors').write_text('fixture')
+        (base/'tokenizer_config.json').write_text('{"tokenizer_class":"PreTrainedTokenizerFast"}')
+        brain.training_base_for=lambda _:str(base)
+        result=brain.doctor()
+        check=next(c for c in result['checks'] if c['name']=='tokenizer')
+>       assert not check['ok'] and check['level']=='error'
+E       assert (not True)
+
+tests/test_diagnostic_regressions.py:103: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_diagnostic_regressions.py::test_runtime_install_never_removes_previous_build[False]
+FAILED tests/test_diagnostic_regressions.py::test_runtime_install_never_removes_previous_build[True]
+FAILED tests/test_diagnostic_regressions.py::test_brain_tokenizer_config_alone_is_not_a_tokenizer
+3 failed, 8 passed in 0.14s
