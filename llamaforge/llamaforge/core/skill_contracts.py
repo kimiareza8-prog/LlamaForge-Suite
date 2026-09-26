@@ -26,8 +26,8 @@ OPERATION_INPUTS = {
     "telegram": {"resolve_person":{"required":["query"]},
         **{op:{"required":["chat_ref"]} for op in ("messages", "my_messages")},
         "search":{"required":["chat_ref", "query"]},
-        "send":{"required":["chat_ref","text","request_key"]},
-        "reply":{"required":["chat_ref","text","message_id","request_key"]}},
+        "send":{"required":["chat_ref","text"]},
+        "reply":{"required":["chat_ref","text","message_id"]}},
     "calendar": {
         "create": {"required": ["title"], "one_of": [["start"], ["gregorian", "time"], ["jalali", "time"], ["relative_date", "time"]]},
         "update": {"required": ["id"]}, "cancel": {"required": ["id"]}, "delete": {"required": ["id"]},

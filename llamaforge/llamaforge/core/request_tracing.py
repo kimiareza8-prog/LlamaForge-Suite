@@ -6,12 +6,13 @@ credential split across transport chunks cannot leak into a persistent log.
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from datetime import datetime, timezone
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import re
 import threading
@@ -38,6 +39,10 @@ def record(event, /, **data):
 
 def _json(value):
     return json.dumps(value, ensure_ascii=False, separators=(',', ':'), allow_nan=False)
+
+
+def _reject_constant(value):
+    raise ValueError('Non-finite JSON value')
 
 
 def _plain(value):
@@ -177,48 +182,113 @@ class TraceStore:
     def list(self):
         rows=[]
         with self.lock:
-            for path in self.root.glob('trace_*.json'):
+            ids={p.stem for pattern in ('trace_*.json','trace_*.jsonl') for p in self.root.glob(pattern)}
+            for trace_id in ids:
+                if not _ID.fullmatch(trace_id):continue
                 try:
-                    if path.is_symlink():continue
-                    row=json.loads(path.read_text(encoding='utf-8'))
-                    if not _ID.fullmatch(str(row.get('id',''))):continue
-                    if row['id'] in self.active:
-                        active=self.active[row['id']]
-                        with active.lock: row=active.sanitize(dict(active.meta))
-                    elif row.get('status')=='running':row.update(status='interrupted',complete=False)
+                    self._path(trace_id);self._path(trace_id,'.json')
+                    row=self._metadata(trace_id)
                     rows.append(row)
                 except (ValueError,OSError):continue
         return sorted(rows,key=lambda x:x['started_at'],reverse=True)
 
+    def _metadata(self, trace_id):
+        """Called under the store lock. Corrupt sidecars cannot hide good logs."""
+        active=self.active.get(trace_id)
+        if active:
+            with active.lock:return active.sanitize(dict(active.meta))
+        path=self._path(trace_id,'.json')
+        try:
+            row=json.loads(path.read_text(encoding='utf-8'),parse_constant=_reject_constant)
+            if (not isinstance(row,dict) or row.get('id')!=trace_id
+                    or not isinstance(row.get('started_at'),str)
+                    or not isinstance(row.get('complete'),bool)
+                    or row.get('status') not in {'running','completed','error','cancelled','disconnected','interrupted'}):
+                raise ValueError('Invalid trace metadata')
+            datetime.fromisoformat(row['started_at'])
+            if row['status']=='running':row.update(status='interrupted',complete=False)
+            return redact(row)
+        except (ValueError,OSError,TypeError):
+            source=path if path.is_file() else self._path(trace_id)
+            started=datetime.fromtimestamp(source.stat().st_mtime,timezone.utc).isoformat()
+            return {'id':trace_id,'schema':1,'origin':'unknown','started_at':started,
+                    'status':'interrupted','complete':False,'events':0,
+                    'read_errors':['Metadata is missing or invalid; recovered event data only.']}
+
+    def _snapshot(self, trace_id):
+        """Freeze bytes + metadata together; parse/compress outside writer locks."""
+        with self.lock:
+            path=self._path(trace_id)
+            active=self.active.get(trace_id)
+            with active.lock if active else nullcontext():
+                meta=self._metadata(trace_id)
+                errors=list(meta.get('read_errors') or [])
+                try:
+                    with path.open('rb') as f:
+                        data=f.read(self.max_trace_bytes+65536)
+                        if f.read(1):errors.append('Event file exceeds the capture limit; remaining bytes omitted.')
+                except FileNotFoundError:
+                    if not self._path(trace_id,'.json').exists():raise
+                    data=b'';errors.append('Event file is missing.')
+        try:text=data.decode('utf-8')
+        except UnicodeDecodeError:
+            text=data.decode('utf-8',errors='replace');errors.append('Event file contains incomplete UTF-8.')
+        rows=[]
+        previous=0
+        for line_number,line in enumerate(text.splitlines(),1):
+            if not line.strip():continue
+            try:
+                row=json.loads(line,parse_constant=_reject_constant)
+                if (not isinstance(row,dict) or row.get('trace_id')!=trace_id
+                        or not isinstance(row.get('event'),str) or not isinstance(row.get('data'),dict)
+                        or type(row.get('seq')) is not int or row['seq']<=previous
+                        or not isinstance(row.get('elapsed_ms'),(int,float))):
+                    raise ValueError('Invalid event record')
+                if row['seq']!=previous+1:errors.append(f'Missing event before line {line_number}.')
+                rows.append(row);previous=row['seq']
+            except (ValueError,TypeError):
+                errors.append(f'Invalid or partial event at line {line_number}; omitted.')
+        terminal=bool(rows and rows[-1]['event']=='request.end' and rows[-1]['data'].get('complete'))
+        complete=bool(meta.get('complete') and terminal and not errors
+                      and meta.get('events')==len(rows) and meta.get('status') not in {'running','interrupted'})
+        meta={**meta,'events':len(rows),'complete':complete,'read_errors':errors}
+        return meta,rows
+
     def _prune(self):
         try:
-            rows=self.list();total=sum(self._path(x['id']).stat().st_size for x in rows if self._path(x['id']).is_file())
-            count=len(rows)
-            for row in reversed(rows):
+            # Retention needs age/size only. Do not parse and redact the entire
+            # transcript index twice on every request; reserve that for the UI.
+            rows={}
+            with os.scandir(self.root) as entries:
+                for entry in entries:
+                    trace_id, _, suffix=entry.name.rpartition('.')
+                    if suffix not in {'json','jsonl'} or not _ID.fullmatch(trace_id):continue
+                    if not entry.is_file(follow_symlinks=False):continue
+                    info=entry.stat(follow_symlinks=False)
+                    row=rows.setdefault(trace_id,{'id':trace_id,'updated':0,'bytes':0})
+                    row['updated']=max(row['updated'],info.st_mtime_ns)
+                    row['bytes']+=info.st_size
+            total=sum(row['bytes'] for row in rows.values());count=len(rows)
+            for row in sorted(rows.values(),key=lambda row:row['updated']):
                 if count<=self.max_traces and total<=self.max_total_bytes:break
                 if row['id'] in self.active:continue
-                path=self._path(row['id']);total-=path.stat().st_size if path.exists() else 0
-                path.unlink(missing_ok=True);self._path(row['id'],'.json').unlink(missing_ok=True);count-=1
+                paths=(self._path(row['id']),self._path(row['id'],'.json'))
+                for path in paths:path.unlink(missing_ok=True)
+                total-=row['bytes'];count-=1
         except Exception as exc:self.last_error=redact(str(exc))
 
     def events(self, trace_id):
-        path=self._path(trace_id)
-        with self.lock:trace=self.active.get(trace_id)
-        with trace.lock if trace else threading.RLock():
-            return [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines() if line.strip()]
+        return self._snapshot(trace_id)[1]
 
     def export(self, trace_id):
-        self._path(trace_id)
-        rows=self.events(trace_id)
-        meta=next((r for r in self.list() if r['id']==trace_id),None)
-        if meta is None:raise FileNotFoundError('Trace not found')
-        meta={**meta,'complete':bool(meta.get('complete')) and meta.get('status') not in {'running','interrupted'},
-              'events':len(rows),'exported_at':datetime.now(timezone.utc).isoformat(),
+        meta,rows=self._snapshot(trace_id)
+        meta={**meta,'exported_at':datetime.now(timezone.utc).isoformat(),
               'notes':['Credential fields redacted before storage. Binary attachments represented by metadata.',
                        'Prompts and model/tool outputs are diagnostic data. No inferred internal reasoning.',
                        'Stream output is assembled for redaction; delivery to the user remains live.']}
         report=['# LlamaForge request transcript',f"Trace: {trace_id}",f"Status: {meta['status']} · complete: {meta['complete']}",
                 'Contains user prompts, model input/output and tool observations. Review before sharing.']
+        if meta['read_errors']:report.append('Recovery notes:\n'+'\n'.join(meta['read_errors']))
         def human(value, path='data'):
             if isinstance(value, dict) and value:
                 return '\n\n'.join(human(v, path+'.'+k) for k,v in value.items())

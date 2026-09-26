@@ -1,3 +1,13 @@
+# 0.34.3-hotfix
+
+- Export trace bytes and metadata from one consistent snapshot; salvage valid events from partial JSONL and missing/corrupt sidecars, with explicit recovery errors and incomplete status.
+- Apply the intersection of request-time and current permissions before every new tool call; record both grants in diagnostics.
+- Use the same generated request ID for HTTP streaming, tracing and cancellation; remote request IDs remain stable for each Bridge message.
+- Bind Telegram send deduplication to the actual user turn and typed recipient/content, independent of model-generated retry keys. New user turns may intentionally repeat messages.
+- Keep local Telegram state paused after disconnect/revoke failures, discard stale login challenges, reject already-cancelled work before submission, and propagate Telegram rate-limit cooldowns.
+- Retention scans file age/size without parsing and redacting old metadata on every request. Measured synthetic capture overhead improves; no inference speed claim.
+- 20 new backend regression cases. See HOTFIX_REPORT_FA.md for suite evidence, paired measurements and remaining live-account/hardware limits.
+
 # 0.34.2-diagnostics
 
 - Full local and Web Bridge request transcripts: routing, typed Skill catalog/shortlist, exact model HTTP payloads and fallback attempts, raw planner replies, tool arguments/results/verification, compact observations and final output.

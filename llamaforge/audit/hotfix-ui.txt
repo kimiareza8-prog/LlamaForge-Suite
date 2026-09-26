@@ -1,0 +1,29 @@
+SSE split/dedup, reconnect cursor, and context draft: passed
+Brain completion/cancel/error releases the composer: passed
+✔ llamaforge/tests/test_web_protocol.cjs (63.089996ms)
+✔ composer text survives attachment/options rerender and returning to its thread (19.9149ms)
+✔ changing thread cancels the original stream before switching (3.36884ms)
+✔ calendar payload keeps server wall time when browser uses another timezone (0.788241ms)
+✔ late cancelled stream cannot delete or unlock the next response (6.783619ms)
+✔ agenda overlap excludes midnight end and includes the following occupied day (0.281655ms)
+✔ attachment finishing after navigation stays in its original conversation (3.346872ms)
+✔ background Brain auto-setup keeps chat usable on render and refresh (2.231903ms)
+✔ background Brain download-base keeps chat usable on render and refresh (1.672737ms)
+✔ background Brain detect-base keeps chat usable on render and refresh (2.298112ms)
+✔ background Brain trainer keeps chat usable on render and refresh (1.704265ms)
+✔ background Brain doctor keeps chat usable on render and refresh (1.7311ms)
+✔ typing a date invalidates an older conversion response before blur (2.060934ms)
+✔ calendar search ignores stale responses and escapes titles (2.601701ms)
+✔ composer rerender preserves a pending strict lesson lock (1.711026ms)
+✔ request trace timeline ignores stale detail and escapes event text (1.878879ms)
+✔ trace picker escapes prompt previews and excludes invalid identifiers (2.093393ms)
+✔ agent permission draft survives background refresh and revisiting page (2.91893ms)
+✔ agent save retains a newer edit while request is in flight (5.057101ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 133.667189

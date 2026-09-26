@@ -46,7 +46,7 @@ from ..core.autotune import AdaptiveTuner
 from ..core.redaction import redact
 from ..core.request_tracing import TraceStore, current_trace, record, logged_stream
 
-APP_VERSION = "0.34.2-diagnostics"
+APP_VERSION = "0.34.3-hotfix"
 STATIC_ROOT = Path(__file__).parent / "static"
 
 # Curated one-click bundles intentionally bind one chat artifact to one exact
@@ -237,6 +237,7 @@ class LlamaForgeState:
         self.request_traces.enabled = bool(getattr(self.cfg,"diagnostic_full_traces",True))
         self.app_root = Path(__file__).resolve().parents[2]
         self.agent = AgentRuntime(log=self.log)
+        self.agent.permission_provider = self.agent_permissions
         # Keep downloaded trainable checkpoints portable and visible: one level
         # above the LlamaForge application folder, inside a sibling
         # ``LlamaForgeModels`` directory. Example:
@@ -1894,6 +1895,7 @@ class LlamaForgeState:
             "reasoning_budget": -1,
             "max_tokens": 4096,
             "agent": True,
+            "request_id": "remote_" + str(app.get("id") or "") + "_" + str(item.get("message_id") or uuid.uuid4().hex),
         }
         payload["_trace_metadata"] = {"app_id":str(app.get("id") or ""), "message_id":str(item.get("message_id") or ""),
                                       "workspace_scope":str(item.get("workspace_scope") or "local")}
@@ -2077,7 +2079,7 @@ class LlamaForgeState:
         self._last_inference_at = time.monotonic(); self._idle_unload_fired = False
         try:
             for event in self.agent.run(
-                prepared, call_model, permissions, max_steps=int(self.cfg.agent_max_steps),
+                prepared, call_model, permissions, max_steps=int(self.cfg.agent_max_steps), request_id=request_id,
                 context_limit=int(getattr(self.active_plan, "ctx_size", 0) or getattr(self.cfg, "default_context_size", 8192) or 8192),
                 stream_final=stream_final, cancel=payload.get("_cancel"),
             ):
@@ -3032,7 +3034,7 @@ class LlamaForgeHTTPServer(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "LlamaForgeLocal/0.34.2-diagnostics"
+    server_version = "LlamaForgeLocal/0.34.3-hotfix"
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *args):
@@ -3480,6 +3482,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise RuntimeError("Request is already running")
             active[request_id] = cancel
             registered = True
+            body["request_id"] = request_id
             body["_cancel"] = cancel
             iterator = self.state.chat_stream(body)
             self.send_response(200)

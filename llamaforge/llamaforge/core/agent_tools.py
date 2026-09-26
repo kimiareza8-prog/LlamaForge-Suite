@@ -14,7 +14,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable, Iterator
@@ -202,6 +202,7 @@ class AgentRuntime:
 
     def __init__(self, log: Callable[[str], None] | None = None):
         self.log = lambda line: log(redact(str(line))) if log else None
+        self.permission_provider = None
         self.lock = threading.RLock()
         self.browser_lock = threading.RLock()
         self.driver = None
@@ -1330,15 +1331,30 @@ return {title:document.title,url:location.href,text:(document.body?.innerText||'
                 fn["parameters"]["properties"]["members"] = {"type":"array","items":{"type":"string"},"description":"Archive member paths selected after probe; reads only these members"}
         return defs + [telegram]
 
+    def _effective_permissions(self, permissions: AgentPermissions) -> AgentPermissions:
+        if self.permission_provider is None:return permissions
+        live = self.permission_provider()
+        if not isinstance(live, AgentPermissions):raise RuntimeError('Invalid live permission state')
+        grants = {key:bool(getattr(permissions,key) and getattr(live,key)) for key in (
+            'allow_write','allow_workspace_write','allow_private_network','allow_telegram_read','allow_telegram_write')}
+        grants['skill_profile'] = 'telegram_only' if 'telegram_only' in {permissions.skill_profile,live.skill_profile} else permissions.skill_profile
+        return replace(permissions, **grants)
+
     def execute(self, name: str, args: dict, permissions: AgentPermissions) -> str:
         from .request_tracing import record, current_trace
         from .skill_contracts import operation_policy
+        requested_permissions = permissions
+        try:
+            permissions = self._effective_permissions(permissions)
+        except Exception:
+            record('tool.permission_error',name=name,error='Live permission state unavailable')
+            return _json_text({'ok':False,'tool':name,'error':'Live permission state unavailable; operation blocked'})
         if current_trace() is None:
             return self._execute(name, args, permissions)
         started = time.monotonic()
         tool_id = "tool_" + uuid.uuid4().hex[:16]
         record("tool.start", tool_id=tool_id, name=name, arguments=args,
-               scope=self.workspace_scope(), permissions=vars(permissions), policy=vars(operation_policy(name, args)))
+               scope=self.workspace_scope(), permissions=vars(permissions), requested_permissions=vars(requested_permissions), policy=vars(operation_policy(name, args)))
         try:
             result = self._execute(name, args, permissions)
             try: parsed = json.loads(result)
@@ -1356,6 +1372,12 @@ return {title:document.title,url:location.href,text:(document.body?.innerText||'
         args = args if isinstance(args, dict) else {}
         self.log(f"[agent:tool] {name}")
         try:
+            from .skill_contracts import operation_policy
+            policy = operation_policy(name,args)
+            required = {'local_workspace':'allow_workspace_write','external_website':'allow_write',
+                        'telegram_read':'allow_telegram_read','telegram_write':'allow_telegram_write'}.get(policy.permission)
+            if required and policy.effect != 'unknown' and not getattr(permissions,required):
+                raise AgentToolError(f'{policy.permission} permission is disabled')
             if permissions.skill_profile == "telegram_only" and name != "telegram":
                 raise AgentToolError("This operation is disabled by the Telegram-only profile")
             if name == "telegram": result = self.telegram.tool(args, permissions, self.workspace_scope())
@@ -1435,13 +1457,14 @@ return {title:document.title,url:location.href,text:(document.body?.innerText||'
     def run(self, messages: list[dict], call_model: Callable[[list[dict], list[dict]], dict], permissions: AgentPermissions,
             max_steps: int = 8, context_limit: int = 8192,
             stream_final: Callable[[list[dict]], Iterator[dict[str, Any]]] | None = None,
-            cancel: threading.Event | None = None) -> Iterator[dict[str, Any]]:
+            cancel: threading.Event | None = None, request_id: str = "") -> Iterator[dict[str, Any]]:
         # AgentEngine deliberately does not use llama.cpp native function parsers.
         # The local model first selects a skill with plain JSON, the runtime executes
         # it, and the observation is fed back into the next planning inference.
         from .agent_engine import AgentEngine
-        from .telegram_skill import TELEGRAM_CANCEL
+        from .telegram_skill import TELEGRAM_CANCEL, TELEGRAM_TURN
         token = TELEGRAM_CANCEL.set(cancel)
+        turn_token = TELEGRAM_TURN.set(request_id or uuid.uuid4().hex)
         try:
             engine = AgentEngine(self, log=self.log)
             for event in engine.run(
@@ -1452,4 +1475,5 @@ return {title:document.title,url:location.href,text:(document.body?.innerText||'
                 if event.get("type") == "agent": record("agent.event", **event)
                 yield redact(event) if event.get("type") == "agent" else event
         finally:
+            TELEGRAM_TURN.reset(turn_token)
             TELEGRAM_CANCEL.reset(token)

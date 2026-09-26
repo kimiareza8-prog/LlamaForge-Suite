@@ -142,3 +142,5 @@ Browser فقط برای صفحات JavaScript، فرم، لاگین، کلیک �
 کارت Telegram در Agent اتصال حساب شخصی با کد ورود و رمز دومرحله‌ای، نصب وابستگی اختیاری و Disconnect/Resume/Revoke دارد. هشت Operation عمومی زیر یک Skill ارائه می‌شوند و Context به همان گفت‌وگو محدود است. Auto Reply و ابزارهای مدیریتی گروه فعال نشده‌اند. در نصب قبلی برای تغییر همهٔ مجوزها از Enable all permissions و سپس Save Agent settings استفاده کنید.
 
 برای گزارش خطا از Logs → Full request log → Download full log ZIP استفاده کنید. [شرح درخت، ذخیرهٔ امن حساب، Permissionها و شواهد تست](DIAGNOSTICS_FA.md).
+
+در 0.34.3، مجوزهای خاموش‌شده پس از Save قبل از فراخوانی بعدی دوباره بررسی می‌شوند. Telegram send/reply دیگر به ساختن `request_key` توسط مدل وابسته نیست؛ رسید در محدودهٔ همان درخواست از ارسال تکراری جلوگیری می‌کند. [جزئیات عیب‌یابی](HOTFIX_REPORT_FA.md).

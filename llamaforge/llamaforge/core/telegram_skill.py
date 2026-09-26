@@ -16,6 +16,7 @@ import time
 import uuid
 
 TELEGRAM_CANCEL = ContextVar('telegram_cancel', default=None)
+TELEGRAM_TURN = ContextVar('telegram_turn', default='')
 
 READS = {'status', 'recent_chats', 'resolve_person', 'messages', 'my_messages', 'search'}
 WRITES = {'send', 'reply'}
@@ -26,7 +27,7 @@ SCHEMA = {'type':'object', 'required':['operation'], 'additionalProperties':Fals
     'limit':{'type':'integer','minimum':1,'maximum':15,'description':'Default 5; history only for the chosen chat'},
     'text':{'type':'string','description':'Plain message text, maximum 4096 characters'},
     'message_id':{'type':'integer','minimum':1,'description':'Required for reply; from the selected chat'},
-    'request_key':{'type':'string','description':'Stable unique key for one intended send/reply; reuse after uncertain delivery, never change to retry'},
+    'request_key':{'type':'string','description':'Optional compatibility key; the runtime deduplicates sends within the current user request'},
 }}
 
 
@@ -58,7 +59,7 @@ def _client(credentials):
     from telethon.sessions import StringSession
     return TelegramClient(StringSession(credentials.get('session', '')), int(credentials['api_id']), credentials['api_hash'],
                           receive_updates=False, request_retries=0, connection_retries=1,
-                          flood_sleep_threshold=0, timeout=10, device_model='LlamaForge', app_version='0.34.2')
+                          flood_sleep_threshold=0, timeout=10, device_model='LlamaForge', app_version='0.34.3')
 
 
 class TelegramService:
@@ -87,6 +88,10 @@ class TelegramService:
                 'operations':sorted(READS | WRITES), 'context_messages':5, 'context_limit':15}
 
     def _submit(self, coroutine):
+        cancel = TELEGRAM_CANCEL.get()
+        if cancel is not None and cancel.is_set():
+            coroutine.close()
+            raise RuntimeError('Telegram cancelled before execution')
         with self._start_lock:
             if self._loop is None:
                 self._loop = asyncio.new_event_loop()
@@ -160,6 +165,8 @@ class TelegramService:
             if api_id <= 0 or not re.fullmatch(r'[a-fA-F0-9]{32}', api_hash) or not re.fullmatch(r'\+[0-9]{7,16}', phone):
                 raise ValueError('Enter a valid API ID, API Hash and phone number with country code')
             self.vault.load()  # Verify vault access before requesting a code.
+            # A failed second login must not reuse the previous phone/code hash.
+            self.pending = None
             if self.client: await self.client.disconnect()
             self.refs.clear(); self.receipts.clear(); self._paused = False
             self.credentials = {'api_id':api_id, 'api_hash':api_hash, 'session':''}
@@ -191,15 +198,18 @@ class TelegramService:
         return self._submit(self._disconnect(revoke))
 
     async def _disconnect(self, revoke):
-        if revoke:
-            self._paused = False
-            client = await self._ensure_client()
-            if not await client.log_out(): raise RuntimeError('Telegram did not confirm session revocation')
-            self.vault.clear()
-        if self.client: await self.client.disconnect()
-        self.client = None; self.credentials = None; self.pending = None
-        self.connected = False; self._paused = True; self.account = {}
-        self.refs.clear(); self.receipts.clear()
+        try:
+            if revoke:
+                self._paused = False
+                client = await self._ensure_client()
+                if not await client.log_out(): raise RuntimeError('Telegram did not confirm session revocation')
+                self.vault.clear()
+        finally:
+            client, self.client = self.client, None
+            self.credentials = None; self.pending = None
+            self.connected = False; self._paused = True; self.account = {}
+            self.refs.clear(); self.receipts.clear()
+            if client: await client.disconnect()
         return self.status()
 
     @staticmethod
@@ -271,11 +281,14 @@ class TelegramService:
     async def _send(self, client, peer, args, scope):
         text = str(args.get('text') or ''); key = str(args.get('request_key') or '')
         if not text.strip() or len(text)>4096: raise ValueError('text must contain 1..4096 characters')
-        if not key or len(key)>128: raise ValueError('request_key is required (maximum 128 characters)')
+        if len(key)>128: raise ValueError('request_key maximum is 128 characters')
         reply = args.get('message_id') if args['operation']=='reply' else None
         if args['operation']=='reply' and (not isinstance(reply,int) or isinstance(reply,bool) or reply<=0): raise ValueError('reply requires a message_id from this chat')
-        signature = hashlib.sha256(json.dumps([scope,peer.id,text,reply],ensure_ascii=False).encode()).hexdigest()
-        receipt_key = (scope,key)
+        # The model may change or reuse its key. Bind deduplication to the real
+        # user turn and typed peer instead; a later user turn may repeat a send.
+        signature = hashlib.sha256(json.dumps([scope,type(peer).__name__,peer.id,text,reply],ensure_ascii=False).encode()).hexdigest()
+        turn = TELEGRAM_TURN.get()
+        receipt_key = (scope,turn,signature) if turn else (scope,key or signature)
         previous = self.receipts.get(receipt_key)
         if previous:
             if previous['signature']!=signature: raise ValueError('request_key already belongs to another message')
@@ -285,7 +298,14 @@ class TelegramService:
         self.receipts[receipt_key] = {'signature':signature}
         try:
             sent = await client.send_message(peer,text,reply_to=reply,parse_mode=None,link_preview=False)
-        except BaseException:
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            if type(exc).__name__ in {'FloodWaitError', 'SlowModeWaitError'} and getattr(exc,'seconds',None):
+                # Telegram explicitly rejected this RPC. Preserve the SDK wait
+                # information so subsequent reads/writes respect the cooldown.
+                self.receipts.pop(receipt_key, None)
+                raise
             # Keep the uncertain receipt: a socket timeout is not proof of failure.
             raise RuntimeError('Telegram delivery is unknown; inspect the chat, do not resend blindly') from None
         result = {'chat_ref':args['chat_ref'],'message_id':sent.id,'verification':{'verified':False,'method':'message ID readback'}}

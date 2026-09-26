@@ -33,7 +33,7 @@ def test_local_api_ping_and_index(tmp_path):
         with urllib.request.urlopen(url + "api/ping", timeout=3) as r:
             data = json.loads(r.read().decode())
         assert data["ok"] is True
-        assert data["version"] == "0.34.2-diagnostics"
+        assert data["version"] == "0.34.3-hotfix"
         with urllib.request.urlopen(url, timeout=3) as r:
             html = r.read().decode("utf-8")
             assert "no-store" in (r.headers.get("Cache-Control") or "")

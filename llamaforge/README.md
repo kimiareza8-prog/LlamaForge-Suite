@@ -1,4 +1,4 @@
-# LlamaForge 0.34.0 Smart Skills — Local AI + Skill-driven Agent
+# LlamaForge 0.34.3 Hotfix — Local AI + Skill-driven Agent
 
 ## Adaptive AutoTune
 
@@ -12,7 +12,7 @@ On Windows, LlamaForge now detects AMD/Intel integrated graphics as well as NVID
 
 ## Internal Agent / Internet Skills
 
-Version 0.21 uses a model-first Skill System designed for local 4B/7B-class models:
+The Agent uses a model-first Skill System designed for local 4B/7B-class models:
 
 - The local GGUF first identifies the task goal and capability category.
 - A Skill Registry shortlists only the relevant skills instead of dumping every installed tool into the prompt.
@@ -23,7 +23,7 @@ Version 0.21 uses a model-first Skill System designed for local 4B/7B-class mode
 - Low-cost tools are preferred before browser automation.
 - State-changing actions remain permission-gated and should be verified before success is claimed.
 
-Built-in skills include web check/read/search, HTTP/API, downloads, OpenAPI connectors, and optional Selenium browser open/snapshot/wait/scroll/click/type/select.
+Built-in skills include web check/read/search, local files/calendar, HTTP/API, downloads, OpenAPI connectors, optional personal Telegram support, and Selenium browser open/snapshot/wait/scroll/click/type/select.
 
 Custom Skill v2 files under `~/.llamaforge/agent/skills` support request headers/query/JSON body, required parameters, timeout, retries and response extraction. See `AGENT_SKILLS_FA.md` and `SKILL_SYSTEM_FA.md`.
 
@@ -65,3 +65,5 @@ The Qwen GGUF is the only artifact required to start chatting. Personal Brain tr
 Brain now accepts an explicit question and user-provided correct answer. Automatic learning skips plain questions and greetings; teacher-generated answers need a supporting quote from the current user message. The replay curriculum suppresses superseded answers and interleaves earlier examples within short step budgets. Candidate loss checks and a successful adapter reload precede confirmation.
 
 Zero-context remains an explicit setting: training archives are never injected into chat. The bounded loss check is a sanity check, not a held-out recall score. See [BRAIN_SYSTEM_FA.md](BRAIN_SYSTEM_FA.md) and [AUDIT_REPORT_FA.md](AUDIT_REPORT_FA.md).
+
+For full request log exports and Telegram setup, see [DIAGNOSTICS_FA.md](DIAGNOSTICS_FA.md). Version 0.34.3 corrections and test results are in [HOTFIX_REPORT_FA.md](HOTFIX_REPORT_FA.md).
