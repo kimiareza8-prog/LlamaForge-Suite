@@ -46,7 +46,7 @@ from ..core.autotune import AdaptiveTuner
 from ..core.redaction import redact
 from ..core.request_tracing import TraceStore, current_trace, record, logged_stream
 
-APP_VERSION = "0.34.3-hotfix"
+APP_VERSION = "0.34.4-telegram-ui"
 STATIC_ROOT = Path(__file__).parent / "static"
 
 # Curated one-click bundles intentionally bind one chat artifact to one exact
@@ -3034,7 +3034,7 @@ class LlamaForgeHTTPServer(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "LlamaForgeLocal/0.34.3-hotfix"
+    server_version = "LlamaForgeLocal/0.34.4-telegram-ui"
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *args):

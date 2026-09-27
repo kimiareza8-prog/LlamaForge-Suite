@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const staticDir = path.join(__dirname, '../llamaforge/web/static');
-function harness() {
+function harness({agentDOM=false}={}) {
   let sequence=0;
   let elements = new Map();
   const el = key => {
@@ -12,12 +12,25 @@ function harness() {
       let html = '';
       const e = {isConnected:true,value:'',style:{setProperty(){}},classList:{add(){},remove(){},toggle(){}},dataset:{},setAttribute(){},focus(){},scrollHeight:100,clientHeight:100,
         appendChild(){},querySelector:s=>el(s),querySelectorAll:()=>[]};
-      Object.defineProperty(e, 'innerHTML', {get:()=>html,set:x=>{html=x;if(key==='#view'){elements.delete('#composerInput');const tag=x.match(/<textarea[^>]*id="composerInput"[^>]*>/);if(tag)el('#composerInput').disabled=/\sdisabled(?:\s|>)/.test(tag[0]);}}});
+      if(agentDOM){e.focus=()=>{document.activeElement=e};e.closest=s=>s==='.agent-page'&&e.agentControl&&e.isConnected?el('#view'):null;}
+      Object.defineProperty(e, 'innerHTML', {get:()=>html,set:x=>{
+        if(agentDOM&&key==='#view'){
+          for(const match of html.matchAll(/\bid="([^"]+)"/g)){
+            const old=elements.get('#'+match[1]);if(old){old.isConnected=false;if(document.activeElement===old)document.activeElement=document.body;}
+            elements.delete('#'+match[1]);
+          }
+          for(const match of x.matchAll(/<([a-z]+)\b[^>]*\bid="([^"]+)"[^>]*>/g)){
+            const node=el('#'+match[2]);node.tagName=match[1].toUpperCase();node.agentControl=x.includes('agent-page');
+            node.disabled=/\sdisabled(?:\s|>)/.test(match[0]);node.checked=/\schecked(?:\s|>)/.test(match[0]);
+          }
+        }
+        html=x;if(key==='#view'){elements.delete('#composerInput');const tag=x.match(/<textarea[^>]*id="composerInput"[^>]*>/);if(tag)el('#composerInput').disabled=/\sdisabled(?:\s|>)/.test(tag[0]);}
+      }});
       elements.set(key,e);
     }
     return elements.get(key);
   };
-  const document={createElement:()=>el('created'),querySelector:el,querySelectorAll:()=>[],body:{classList:{toggle(){}},dataset:{}}};
+  const document={createElement:()=>el('created'),querySelector:s=>agentDOM&&/^#(?:telegram|installTelegram)/.test(s)?elements.get(s)||null:el(s),querySelectorAll:()=>[],body:{classList:{toggle(){}},dataset:{}}};
   const sandbox={document,localStorage:{getItem:()=>null,setItem(){},removeItem(){}},location:{hash:'#chat'},crypto:{randomUUID:()=> 'test-'+(++sequence)},
     AbortController,DOMException,TextDecoder,performance,
     window:{addEventListener(){}},setTimeout(){},requestAnimationFrame(){},LFProtocol:require(path.join(staticDir,'stream_protocol.js')),LFWorkspaceUI:require(path.join(staticDir,'workspace_ui.js')), Date, console};
@@ -165,4 +178,108 @@ test('agent save retains a newer edit while request is in flight',async()=>{
   const save=el('#saveAgentSettings').onclick();await new Promise(setImmediate);
   tick.checked=false;tick.onchange?.();finish({ok:true,json:async()=>({ok:true})});await save;
   assert.equal(payload.agent_allow_write,true);assert.equal(App.agentDraft.agent_allow_write,false);
+});
+
+async function telegramFixture(){
+  const h=harness({agentDOM:true});h.App.route='agent';h.App.state.agent={telegram:{installed:true,vault_installed:true}};
+  h.requests=[];h.persisted=[];h.reply=async()=>({next:'code',login_pending:true,connected:false});
+  h.sandbox.localStorage.setItem=(...args)=>h.persisted.push(args);
+  h.sandbox.fetch=async(url,opts={})=>{
+    if(url.startsWith('/api/agent/telegram/')){h.requests.push({url,body:JSON.parse(opts.body)});const reply=await h.reply(url);return {ok:true,json:async()=>reply};}
+    return {ok:true,json:async()=>url==='/api/agent/status'?h.App.state.agent:url==='/api/state'?h.App.state:{ok:true}};
+  };
+  h.fill=(id,value)=>{const input=h.el('#'+id);input.value=value;input.oninput?.({currentTarget:input});return input};
+  await h.renderAgent(h.el('#view'));
+  h.fillLogin=()=>{h.fill('telegramApiId','123');h.fill('telegramApiHash','a'.repeat(32));h.fill('telegramPhone','+12025550123')};
+  return h;
+}
+test('late Agent status cannot replace the focused Telegram input while typing',async()=>{
+  const h=await telegramFixture();let resolve;
+  h.sandbox.fetch=()=>new Promise(r=>{resolve=r});
+  const pending=h.renderAgent(h.el('#view'));
+  const phone=h.fill('telegramPhone','+1202');phone.focus();phone.selectionStart=5;
+  resolve({ok:true,json:async()=>({telegram:{installed:true,vault_installed:true}})});await pending;
+  assert.equal(h.el('#telegramPhone'),phone);assert.equal(phone.value,'+1202');assert.equal(h.sandbox.document.activeElement,phone);
+});
+test('Telegram login fields survive forced refresh and revisiting without browser storage',async()=>{
+  const h=await telegramFixture();h.fillLogin();h.fill('telegramCode','12345');h.fill('telegramPassword','fixture password');
+  await h.refreshState(true);await new Promise(setImmediate);
+  h.App.route='chat';h.el('#view').innerHTML='<section>Another page</section>';h.App.route='agent';await h.renderAgent(h.el('#view'));
+  for(const [id,value] of [['telegramApiId','123'],['telegramApiHash','a'.repeat(32)],['telegramPhone','+12025550123'],['telegramCode','12345'],['telegramPassword','fixture password']])assert.equal(h.el('#'+id).value,value,id);
+  assert.deepEqual(h.persisted,[]);
+});
+test('Telegram login completion after leaving the page preserves the next step',async()=>{
+  const h=await telegramFixture();h.fillLogin();let resolve;h.reply=()=>new Promise(r=>{resolve=r});
+  const pending=h.el('#telegramConnect').onclick();await new Promise(setImmediate);
+  h.App.route='chat';h.el('#view').innerHTML='<section>Another page</section>';
+  resolve({next:'code',login_pending:true,connected:false});await pending;
+  h.App.route='agent';await h.renderAgent(h.el('#view'));
+  assert.match(h.el('#telegramLoginStatus').textContent,/verification code/i);
+  assert.equal(h.el('#telegramApiHash').value,'');assert.equal(h.el('#telegramVerify').disabled,false);
+});
+test('Telegram busy controls prevent duplicate requests and restore after errors',async()=>{
+  const h=await telegramFixture();h.fillLogin();let reject;h.reply=()=>new Promise((_,r)=>{reject=r});
+  const first=h.el('#telegramConnect').onclick();await new Promise(setImmediate);
+  assert.equal(h.el('#telegramConnect').disabled,true);assert.equal(h.el('#telegramResume').disabled,true);
+  await h.el('#telegramConnect').onclick();assert.equal(h.requests.length,1);
+  reject(new Error('fixture connection failed'));await first;
+  assert.equal(h.el('#telegramConnect').disabled,false);assert.match(h.el('#telegramLoginStatus').textContent,/fixture connection failed/);
+  await h.renderAgent(h.el('#view'));
+  assert.match(h.el('#telegramLoginStatus').textContent,/fixture connection failed/);assert.equal(h.el('#telegramApiHash').value,'a'.repeat(32));
+});
+test('Telegram buttons submit normalized Persian digits through code and two-step login',async()=>{
+  const h=await telegramFixture();h.fill('telegramApiId','۱۲۳');h.fill('telegramApiHash','a'.repeat(32));h.fill('telegramPhone','+۱ ۲۰۲-۵۵۵۰۱۲۳');
+  await h.el('#telegramConnect').onclick();assert.deepEqual(h.requests[0].body,{api_id:123,api_hash:'a'.repeat(32),phone:'+12025550123'});
+  h.reply=async()=>({next:'password',login_pending:true,connected:false});h.fill('telegramCode','۱۲۳۴۵');await h.el('#telegramVerify').onclick();
+  assert.equal(h.requests[1].body.code,'12345');assert.match(h.el('#telegramLoginStatus').textContent,/two-step password/i);
+  await h.renderAgent(h.el('#view'));assert.match(h.el('#telegramLoginStatus').textContent,/two-step password/i);
+  h.reply=async()=>({connected:true,login_pending:false,account:{name:'Fixture'}});h.fill('telegramPassword','  exact password  ');await h.el('#telegramVerify').onclick();
+  assert.equal(h.requests[2].body.password,'  exact password  ');assert.equal(h.el('#telegramPassword').value,'');
+  assert.match(h.el('#telegramLoginStatus').textContent,/connected/i);assert.equal(h.el('#telegramConnect').disabled,true);assert.deepEqual(h.persisted,[]);
+});
+test('empty Telegram credentials explain the missing fields without calling login',async()=>{
+  const h=await telegramFixture();await h.el('#telegramConnect').onclick();
+  assert.equal(h.requests.length,0);assert.match(h.el('#telegramLoginStatus').textContent,/API ID|API Hash|phone/i);
+});
+test('saving Agent permissions preserves unfinished Telegram credentials',async()=>{
+  const h=await telegramFixture();h.fillLogin();const tick=h.el('#agentWrite');tick.checked=false;tick.onchange();
+  await h.el('#saveAgentSettings').onclick();await new Promise(setImmediate);
+  assert.equal(h.el('#telegramPhone').value,'+12025550123');assert.equal(h.el('#telegramApiHash').value,'a'.repeat(32));assert.equal(h.el('#agentWrite').checked,false);
+});
+test('Telegram resume, disconnect and confirmed revoke update the visible account',async()=>{
+  const h=await telegramFixture();h.reply=async url=>url.endsWith('/login')?{connected:true,account:{name:'Fixture',username:'fixture'}}:{connected:false,paused:true,account:{}};
+  await h.el('#telegramResume').onclick();assert.deepEqual(h.requests[0].body,{resume:true});
+  assert.match(h.el('#telegramAccountStatus').textContent,/Fixture.*@fixture/);
+  await h.el('#telegramDisconnect').onclick();assert.deepEqual(h.requests[1].body,{revoke:false});
+  assert.equal(h.requests[1].url,'/api/agent/telegram/disconnect');assert.match(h.el('#telegramAccountStatus').textContent,/Disconnected/);
+  const revoke=h.el('#telegramRevoke').onclick();assert.equal(h.requests.length,2);h.el('[data-yes]').onclick();await revoke;
+  assert.deepEqual(h.requests[2].body,{revoke:true});
+  const cancelled=h.el('#telegramRevoke').onclick();h.el('[data-no]').onclick();await cancelled;assert.equal(h.requests.length,3);
+});
+test('Telegram installation preserves entered credentials and updates its controls',async()=>{
+  const h=await telegramFixture();h.App.state.agent.telegram={installed:false,vault_installed:false};await h.renderAgent(h.el('#view'));h.fillLogin();
+  h.reply=async()=>({state:'running',error:''});await h.el('#installTelegram').onclick();
+  assert.equal(h.requests[0].url,'/api/agent/telegram/install');assert.equal(h.el('#installTelegram').disabled,true);
+  assert.equal(h.el('#telegramPhone').value,'+12025550123');assert.equal(h.el('#telegramApiHash').value,'a'.repeat(32));
+  const phone=h.el('#telegramPhone');phone.focus();h.App.state.agent.telegram={installed:true,vault_installed:true,installer:{state:'done'}};
+  await h.refreshState();assert.equal(h.el('#telegramPhone'),phone);assert.equal(h.el('#telegramConnect').disabled,false);
+  assert.match(h.el('#telegramLoginStatus').textContent,/support installed/);
+});
+test('autofilled Telegram credentials survive a render without input events',async()=>{
+  const h=await telegramFixture();h.el('#telegramPhone').value='+12025550123';h.el('#telegramApiHash').value='b'.repeat(32);
+  await h.renderAgent(h.el('#view'));assert.equal(h.el('#telegramPhone').value,'+12025550123');assert.equal(h.el('#telegramApiHash').value,'b'.repeat(32));
+});
+test('an older Agent response cannot overwrite a completed Telegram login',async()=>{
+  const h=await telegramFixture();h.fillLogin();const fetch=h.sandbox.fetch;let resolve;
+  h.sandbox.fetch=(url,opts)=>url==='/api/agent/status'?new Promise(r=>{resolve=r}):fetch(url,opts);
+  const old=h.renderAgent(h.el('#view'));h.reply=async()=>({connected:true,account:{name:'Fixture'}});await h.el('#telegramConnect').onclick();
+  resolve({ok:true,json:async()=>({telegram:{installed:true,vault_installed:true,connected:false}})});await old;
+  assert.equal(h.App.state.agent.telegram.connected,true);assert.equal(h.el('#telegramConnect').disabled,true);
+});
+test('state refresh started before login cannot revert the new Telegram status',async()=>{
+  const h=await telegramFixture();h.fillLogin();const oldState=JSON.parse(JSON.stringify(h.App.state)),fetch=h.sandbox.fetch;let resolve;
+  h.sandbox.fetch=(url,opts)=>url==='/api/state'?new Promise(r=>{resolve=r}):fetch(url,opts);
+  const old=h.refreshState();h.reply=async()=>({connected:true,account:{name:'Fixture'}});await h.el('#telegramConnect').onclick();
+  resolve({ok:true,json:async()=>oldState});await old;await new Promise(setImmediate);
+  assert.equal(h.App.state.agent.telegram.connected,true);assert.equal(h.el('#telegramConnect').disabled,true);
 });

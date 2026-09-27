@@ -10,7 +10,7 @@ import urllib.request
 from .request_tracing import record
 from typing import Iterator
 
-UA = "LlamaForge/0.34.3-hotfix"
+UA = "LlamaForge/0.34.4-telegram-ui"
 
 
 @contextmanager

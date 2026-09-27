@@ -1,1 +1,1 @@
-__version__ = "0.34.3-hotfix"
+__version__ = "0.34.4-telegram-ui"

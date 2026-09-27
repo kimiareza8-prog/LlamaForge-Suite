@@ -1,0 +1,180 @@
+✔ composer text survives attachment/options rerender and returning to its thread (26.003365ms)
+✔ changing thread cancels the original stream before switching (4.261608ms)
+✔ calendar payload keeps server wall time when browser uses another timezone (0.813423ms)
+✔ late cancelled stream cannot delete or unlock the next response (7.076632ms)
+✔ agenda overlap excludes midnight end and includes the following occupied day (0.268464ms)
+✔ attachment finishing after navigation stays in its original conversation (3.49779ms)
+✔ background Brain auto-setup keeps chat usable on render and refresh (2.096022ms)
+✔ background Brain download-base keeps chat usable on render and refresh (1.788299ms)
+✔ background Brain detect-base keeps chat usable on render and refresh (2.677006ms)
+✔ background Brain trainer keeps chat usable on render and refresh (1.643902ms)
+✔ background Brain doctor keeps chat usable on render and refresh (1.680928ms)
+✔ typing a date invalidates an older conversion response before blur (2.198546ms)
+✔ calendar search ignores stale responses and escapes titles (2.824998ms)
+✔ composer rerender preserves a pending strict lesson lock (1.629511ms)
+✔ request trace timeline ignores stale detail and escapes event text (1.905014ms)
+✔ trace picker escapes prompt previews and excludes invalid identifiers (2.4136ms)
+✔ agent permission draft survives background refresh and revisiting page (3.014203ms)
+✔ agent save retains a newer edit while request is in flight (4.269942ms)
+✖ late Agent status cannot replace the focused Telegram input while typing (4.493217ms)
+✖ Telegram login fields survive forced refresh and revisiting without browser storage (5.117376ms)
+✖ Telegram login completion after leaving the page preserves the next step (2.828564ms)
+✖ Telegram busy controls prevent duplicate requests and restore after errors (2.834231ms)
+✖ Telegram buttons submit normalized Persian digits through code and two-step login (5.483437ms)
+✖ empty Telegram credentials explain the missing fields without calling login (1.959477ms)
+✖ saving Agent permissions preserves unfinished Telegram credentials (3.475306ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 18
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 194.167599
+
+✖ failing tests:
+
+test at llamaforge/tests/test_workspace_ui.cjs:196:1
+✖ late Agent status cannot replace the focused Telegram input while typing (4.493217ms)
+  AssertionError [ERR_ASSERTION]: Expected "actual" to be reference-equal to "expected":
+  + actual - expected
+  ... Skipped lines
+
+    {
+      agentControl: true,
+      appendChild: [Function: appendChild],
+      checked: false,
+      classList: {
+  ...
+      focus: [Function (anonymous)],
+  +   isConnected: true,
+  -   isConnected: false,
+      querySelector: [Function: querySelector],
+      querySelectorAll: [Function: querySelectorAll],
+      scrollHeight: 100,
+  -   selectionStart: 5,
+      setAttribute: [Function: setAttribute],
+      style: {
+        setProperty: [Function: setProperty]
+      },
+      tagName: 'INPUT',
+  +   value: ''
+  -   value: '+1202'
+    }
+
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:202:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [Object],
+    expected: [Object],
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at llamaforge/tests/test_workspace_ui.cjs:204:1
+✖ Telegram login fields survive forced refresh and revisiting without browser storage (5.117376ms)
+  AssertionError [ERR_ASSERTION]: telegramApiId
+
+  '' !== '123'
+
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:208:193)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: '123',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at llamaforge/tests/test_workspace_ui.cjs:211:1
+✖ Telegram login completion after leaving the page preserves the next step (2.828564ms)
+  AssertionError [ERR_ASSERTION]: The "string" argument must be of type string. Received type undefined (undefined)
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:217:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /verification code/i,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at llamaforge/tests/test_workspace_ui.cjs:220:1
+✖ Telegram busy controls prevent duplicate requests and restore after errors (2.834231ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  false !== true
+
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:223:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at llamaforge/tests/test_workspace_ui.cjs:230:1
+✖ Telegram buttons submit normalized Persian digits through code and two-step login (5.483437ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+    {
+      api_hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  +   api_id: null,
+  +   phone: '+۱ ۲۰۲-۵۵۵۰۱۲۳'
+  -   api_id: 123,
+  -   phone: '+12025550123'
+    }
+
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:232:51)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { api_id: null, api_hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', phone: '+۱ ۲۰۲-۵۵۵۰۱۲۳' },
+    expected: { api_id: 123, api_hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', phone: '+12025550123' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at llamaforge/tests/test_workspace_ui.cjs:240:1
+✖ empty Telegram credentials explain the missing fields without calling login (1.959477ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  1 !== 0
+
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:242:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at llamaforge/tests/test_workspace_ui.cjs:244:1
+✖ saving Agent permissions preserves unfinished Telegram credentials (3.475306ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  '' !== '+12025550123'
+
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:247:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: '+12025550123',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

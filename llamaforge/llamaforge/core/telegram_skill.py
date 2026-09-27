@@ -59,7 +59,7 @@ def _client(credentials):
     from telethon.sessions import StringSession
     return TelegramClient(StringSession(credentials.get('session', '')), int(credentials['api_id']), credentials['api_hash'],
                           receive_updates=False, request_retries=0, connection_retries=1,
-                          flood_sleep_threshold=0, timeout=10, device_model='LlamaForge', app_version='0.34.3')
+                          flood_sleep_threshold=0, timeout=10, device_model='LlamaForge', app_version='0.34.4')
 
 
 class TelegramService:

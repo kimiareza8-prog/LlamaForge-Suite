@@ -1,3 +1,11 @@
+# 0.34.4-telegram-ui
+
+- Keep Telegram form values and login steps in tab memory across Agent renders/navigation; preserve the focused input when a delayed status response arrives.
+- Restore autofill values, keep status/errors visible, separate Telegram pending state from permission saves, disable conflicting controls during a request and prevent duplicate submissions.
+- Normalize Persian/Arabic digits in API ID, phone and verification code; validate missing credentials before sending and use associated labels with LTR fields.
+- Update account/install status in place; ignore pre-login status replies and poll installation while its page is open.
+- Add 12 executable UI regressions and a more faithful detached-node fixture. No new runtime dependency. See TELEGRAM_UI_FIX_FA.md.
+
 # 0.34.3-hotfix
 
 - Export trace bytes and metadata from one consistent snapshot; salvage valid events from partial JSONL and missing/corrupt sidecars, with explicit recovery errors and incomplete status.

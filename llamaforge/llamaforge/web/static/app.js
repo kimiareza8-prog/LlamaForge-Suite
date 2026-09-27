@@ -83,6 +83,9 @@
     agentRevision:0,
     agentRenderRevision:0,
     agentBusy:false,
+    telegramForm:{values:{},step:'',status:'',busy:false,lastAction:''},
+    telegramPollTimer:null,
+    telegramRevision:0,
     pendingAttachments:[],
     calendarCursor:null,
     calendarSelected:'',
@@ -1313,11 +1316,97 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     }catch(e){toast('Could not read Bridge backups',e.message,'error',7000)}
   }
 
+  const telegramFields=['telegramApiId','telegramApiHash','telegramPhone','telegramCode','telegramPassword'];
+  function agentInputFocused(){
+    const active=document.activeElement;
+    return ['INPUT','TEXTAREA','SELECT'].includes(active?.tagName)&&!!active.closest?.('.agent-page');
+  }
+  function telegramDigits(value){
+    return String(value||'').replace(/[۰-۹٠-٩]/g,c=>String(c.charCodeAt(0)-(c>='۰'?1776:1632)));
+  }
+  function updateTelegramControls(){
+    if(App.route!=='agent'||!$('#telegramPhone'))return;
+    const form=App.telegramForm,tg=App.state?.agent?.telegram||{},installer=tg.installer||{};
+    const installed=!!tg.installed&&!!tg.vault_installed,connected=!!tg.connected;
+    const account=$('#telegramAccountStatus');
+    if(account)account.textContent=(connected?tg.account?.name||'Connected':tg.paused?'Disconnected':'Not connected')+(tg.account?.username?' @'+tg.account.username:'');
+    const step=form.step||(tg.login_pending?'code':'');
+    const disabled={installTelegram:form.busy||installer.state==='running',telegramConnect:form.busy||connected||!installed,
+      telegramVerify:form.busy||connected||!installed||!step,telegramResume:form.busy||connected||!installed,
+      telegramDisconnect:form.busy,telegramRevoke:form.busy||!installed};
+    Object.entries(disabled).forEach(([id,value])=>{const el=$('#'+id);if(el)el.disabled=value});
+    telegramFields.forEach(id=>{const el=$('#'+id);if(el)el.disabled=form.busy});
+    const install=$('#installTelegram');if(install){install.hidden=installed;install.textContent=installer.state==='running'?'Installing…':'Install Telegram support';}
+    const status=$('#telegramLoginStatus');
+    let message=form.status||(connected?'Account connected.':step==='password'?'Enter your Telegram two-step password, then Verify login.':step?'Enter the verification code from Telegram, then Verify login.':'');
+    if(!form.busy&&form.lastAction==='install')message=installer.state==='error'?installer.error||'Installation failed. Try again.':installed?'Telegram support installed. Enter your API ID, API Hash and phone number.':'Installing Telegram support…';
+    if(status){status.textContent=message;status.setAttribute('aria-busy',String(form.busy));}
+    if(installer.state==='running'&&!App.telegramPollTimer){
+      App.telegramPollTimer=setTimeout(()=>{App.telegramPollTimer=null;if(App.route==='agent')refreshState(false)},1500);
+    }
+  }
+  function clearTelegramFields(ids=telegramFields){
+    ids.forEach(id=>{delete App.telegramForm.values[id];const el=App.route==='agent'?$('#'+id):null;if(el)el.value=''});
+  }
+  async function telegramAction(path,body){
+    const form=App.telegramForm;if(form.busy)return;
+    form.busy=true;form.lastAction=path;form.status='Working…';App.telegramRevision++;App.agentRenderRevision++;
+    updateTelegramControls();
+    let next='';
+    try{
+      const result=await api('/api/agent/telegram/'+path,{method:'POST',body});
+      if(App.state){App.state.agent=App.state.agent||{};const before=App.state.agent.telegram||{};App.state.agent.telegram=path==='install'?{...before,installer:result}:{...before,...result};}
+      if(path==='install'){form.status='Installing Telegram support…';}
+      else if(result.next==='password'){
+        form.step=next='password';clearTelegramFields(['telegramCode','telegramPassword']);
+        form.status='Enter your Telegram two-step password, then Verify login.';
+      }else if(result.next==='code'){
+        form.step=next='code';clearTelegramFields(['telegramApiHash','telegramCode','telegramPassword']);
+        form.status='Enter the verification code from Telegram, then Verify login.';
+      }else{form.step='';clearTelegramFields();form.status=result.connected?'Account connected.':'Account disconnected.';}
+    }catch(e){form.status=e.message;toast('Telegram',e.message,'error',7000)}
+    finally{form.busy=false;App.telegramRevision++;App.agentRenderRevision++;updateTelegramControls();scheduleStateRefresh();}
+    if(next&&App.route==='agent')$('#'+(next==='password'?'telegramPassword':'telegramCode'))?.focus();
+  }
+  function bindTelegramControls(){
+    const form=App.telegramForm;
+    telegramFields.forEach(id=>{const el=$('#'+id);if(!el)return;el.value=form.values[id]||'';el.oninput=el.onchange=()=>{form.values[id]=el.value};});
+    const value=id=>$('#'+id)?.value??form.values[id]??'';
+    const invalid=message=>{form.status=message;form.lastAction='';updateTelegramControls();};
+    if($('#installTelegram'))$('#installTelegram').onclick=()=>telegramAction('install',{});
+    $('#telegramConnect').onclick=()=>{
+      if(form.busy)return;
+      const apiId=telegramDigits(value('telegramApiId')).trim(),apiHash=value('telegramApiHash').trim();
+      const phone=telegramDigits(value('telegramPhone')).replace(/[\s()\-]/g,'');
+      if(!/^[1-9]\d*$/.test(apiId)||!Number.isSafeInteger(Number(apiId)))return invalid('Enter a valid numeric API ID from my.telegram.org.');
+      if(!/^[a-fA-F0-9]{32}$/.test(apiHash))return invalid('Enter the 32-character API Hash from my.telegram.org.');
+      if(!/^\+[0-9]{7,16}$/.test(phone))return invalid('Enter your phone number with country code, for example +989123456789.');
+      return telegramAction('login',{api_id:Number(apiId),api_hash:apiHash,phone});
+    };
+    $('#telegramVerify').onclick=()=>{
+      if(form.busy)return;
+      const code=telegramDigits(value('telegramCode')).replace(/[\s-]/g,''),password=value('telegramPassword');
+      if(form.step==='password'&&!password)return invalid('Enter your Telegram two-step password.');
+      if(form.step!=='password'&&!/^\d+$/.test(code))return invalid('Enter the verification code sent by Telegram.');
+      return telegramAction('login',form.step==='password'?{password}:{code});
+    };
+    $('#telegramResume').onclick=()=>telegramAction('login',{resume:true});
+    $('#telegramDisconnect').onclick=()=>telegramAction('disconnect',{revoke:false});
+    $('#telegramRevoke').onclick=async()=>{if(form.busy)return;if(await confirmModal('Revoke Telegram session','This logs out LlamaForge from Telegram and removes its saved session.','Revoke'))return telegramAction('disconnect',{revoke:true});};
+    updateTelegramControls();
+  }
+
   async function renderAgent(view){
     const renderRevision=++App.agentRenderRevision;
     let a=App.state?.agent||{};
-    try{a=await api('/api/agent/status');if(App.state)App.state.agent=a}catch{}
+    if(!App.telegramForm.busy){try{a=await api('/api/agent/status')}catch{}}
     if(renderRevision!==App.agentRenderRevision||App.route!=='agent')return;
+    if(App.state)App.state.agent=a;
+    // A status request may have started before the user focused an input.
+    // Check again after awaiting it so typing/IME and selection keep their DOM.
+    if(agentInputFocused()){updateTelegramControls();return;}
+    // Autofill may update values without dispatching an input event.
+    telegramFields.forEach(id=>{const el=$('#'+id);if(el)App.telegramForm.values[id]=el.value;});
     const c={...(App.state?.config||{}),...App.agentDraft};
     const connectors=a.connectors||[],skills=a.skills||[],installer=a.installer||{},catalog=a.skill_catalog||[];
     const remoteInfo=a.remote_apps||{},remoteApps=remoteInfo.apps||[];
@@ -1372,13 +1461,13 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
         </div>
       </div>
       <section class="section"><div class="detail-card telegram-account"><h3>Telegram · حساب شخصی</h3><p>Connect your account using the verification code sent by Telegram. Credentials stay in your computer's OS vault. The Agent sees only the chat context it requests.</p>
-        <div class="detail-row"><span>Account</span><strong>${telegram.connected?escapeHtml(telegram.account?.name||'Connected'):telegram.paused?'Disconnected':'Not connected'} ${telegram.account?.username?'@'+escapeHtml(telegram.account.username):''}</strong></div>
+        <div class="detail-row"><span>Account</span><strong id="telegramAccountStatus">${telegram.connected?escapeHtml(telegram.account?.name||'Connected'):telegram.paused?'Disconnected':'Not connected'} ${telegram.account?.username?'@'+escapeHtml(telegram.account.username):''}</strong></div>
         ${!telegram.installed||!telegram.vault_installed?`<button id="installTelegram" class="primary-button" ${tgInstaller.state==='running'?'disabled':''}>${tgInstaller.state==='running'?'Installing…':'Install Telegram support'}</button><small>Telethon 1.45.0 + OS keyring. No additional model is loaded.</small>`:''}
         ${tgInstaller.error?`<p class="agent-error">${escapeHtml(tgInstaller.error)}</p>`:''}
-        <div class="form-grid"><div class="field"><label>API ID</label><input id="telegramApiId" inputmode="numeric" autocomplete="off"></div><div class="field"><label>API Hash</label><input id="telegramApiHash" type="password" autocomplete="new-password"></div><div class="field"><label>Phone (+country code)</label><input id="telegramPhone" type="tel" autocomplete="off"></div></div>
+        <div class="form-grid"><div class="field"><label for="telegramApiId">API ID</label><input id="telegramApiId" dir="ltr" inputmode="numeric" autocomplete="off"></div><div class="field"><label for="telegramApiHash">API Hash</label><input id="telegramApiHash" dir="ltr" type="password" autocomplete="new-password"></div><div class="field"><label for="telegramPhone">Phone (+country code)</label><input id="telegramPhone" dir="ltr" type="tel" autocomplete="off" placeholder="+989123456789"></div></div>
         <small>Get your API ID and API Hash from <a href="https://my.telegram.org" target="_blank" rel="noopener noreferrer">my.telegram.org</a>. Do not paste them into chat.</small>
         <div class="inline-actions"><button id="telegramConnect" class="primary-button" ${telegram.connected?'disabled':''}>Send login code</button><button id="telegramResume" class="secondary-button">Resume saved session</button></div>
-        <div class="form-grid"><div class="field"><label>Verification code</label><input id="telegramCode" autocomplete="one-time-code" inputmode="numeric"></div><div class="field"><label>Two-step password (if requested)</label><input id="telegramPassword" type="password" autocomplete="new-password"></div></div>
+        <div class="form-grid"><div class="field"><label for="telegramCode">Verification code</label><input id="telegramCode" dir="ltr" autocomplete="one-time-code" inputmode="numeric"></div><div class="field"><label for="telegramPassword">Two-step password (if requested)</label><input id="telegramPassword" dir="ltr" type="password" autocomplete="new-password"></div></div>
         <div class="inline-actions"><button id="telegramVerify" class="primary-button">Verify login</button><button id="telegramDisconnect" class="secondary-button">Disconnect</button><button id="telegramRevoke" class="secondary-button">Revoke session</button></div>
         <p id="telegramLoginStatus" role="status"></p><small>Reads default to 5 messages from one selected chat (maximum 15). Automatic replies and group administration are not enabled.</small>
       </div></section>
@@ -1395,13 +1484,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       <section class="section"><div class="detail-card smart-skill-tree"><div class="skill-tree-head"><div><span class="eyebrow">AUTO CAPABILITY ROUTER</span><h3>Smart Skill Tree</h3><p>The model thinks in broad capabilities instead of memorizing one skill for every question. High-confidence guards stop small models from saying “no access” when Calendar, Files or Web are actually available.</p></div><span class="skill-auto-badge">Auto</span></div><div class="skill-flow"><span><b>1</b> Understand</span><i>→</i><span><b>2</b> Choose capability</span><i>→</i><span><b>3</b> Use minimum tool</span><i>→</i><span><b>4</b> Verify</span></div><div class="skill-family-grid">${skillCatalogHTML||'<div class="empty-state">No skill catalog available.</div>'}</div></div></section>
       <section class="section"><div class="detail-grid"><div class="detail-card"><h3>Custom skills v2</h3><div class="detail-row"><span>Folder</span><span style="max-width:72%;overflow-wrap:anywhere">${escapeHtml(a.skills_dir||'')}</span></div><p style="color:var(--muted);font-size:10.5px;line-height:1.55">Drop declarative <code>.json</code> skills here. v2 supports request headers/query/JSON body, required arguments, timeout, retries, response format and dot-path extraction. A README with examples is generated automatically.</p>${skills.length?`<div class="tag-row">${skills.map(x=>`<span class="tag">skill_${escapeHtml(x.name)} · ${escapeHtml(x.method||'GET')}</span>`).join('')}</div>`:''}</div><div class="detail-card"><h3>Agent downloads</h3><div class="detail-row"><span>Folder</span><span style="max-width:72%;overflow-wrap:anywhere">${escapeHtml(a.downloads_dir||'')}</span></div><p style="color:var(--muted);font-size:10.5px;line-height:1.55">The <code>download_file</code> skill stores explicitly requested downloads here with a configurable size limit.</p></div></div></section>
     </div>`;
-    const telegramAction=async(path,body)=>{if(App.agentBusy)return;App.agentBusy=true;const status=$('#telegramLoginStatus');status.textContent='Working…';try{const result=await api('/api/agent/telegram/'+path,{method:'POST',body});['telegramApiHash','telegramCode','telegramPassword'].forEach(id=>{$('#'+id).value=''});if(result.next==='password'){status.textContent='Enter your Telegram two-step password, then Verify login.';$('#telegramPassword').focus();}else if(result.next==='code'){status.textContent='Enter the verification code from Telegram, then Verify login.';$('#telegramCode').focus();}else{status.textContent=result.connected?'Account connected.':'Done.';await refreshState(true);}}catch(e){status.textContent=e.message;toast('Telegram',e.message,'error',7000)}finally{App.agentBusy=false}};
-    if($('#installTelegram'))$('#installTelegram').onclick=()=>telegramAction('install',{});
-    $('#telegramConnect').onclick=()=>telegramAction('login',{api_id:Number($('#telegramApiId').value),api_hash:$('#telegramApiHash').value.trim(),phone:$('#telegramPhone').value.trim()});
-    $('#telegramVerify').onclick=()=>telegramAction('login',{code:$('#telegramCode').value.trim(),password:$('#telegramPassword').value});
-    $('#telegramResume').onclick=()=>telegramAction('login',{resume:true});
-    $('#telegramDisconnect').onclick=()=>telegramAction('disconnect',{revoke:false});
-    $('#telegramRevoke').onclick=async()=>{if(await confirmModal('Revoke Telegram session','This logs out LlamaForge from Telegram and removes its saved session.','Revoke'))telegramAction('disconnect',{revoke:true});};
+    bindTelegramControls();
     $('#agentOpenChat').onclick=()=>{setAgentEnabled(true);setRoute('chat')};
     const controls={agentDefault:'agent_enabled_default',agentWorkspaceWrite:'agent_allow_workspace_write',agentWrite:'agent_allow_write',agentPrivate:'agent_allow_private_network',agentHeadless:'agent_browser_headless',agentTelegramRead:'agent_allow_telegram_read',agentTelegramWrite:'agent_allow_telegram_write',agentSteps:'agent_max_steps',agentSkillProfile:'agent_skill_profile'};
     Object.entries(controls).forEach(([id,key])=>{const el=$('#'+id);if(!el)return;const number=id==='agentSteps',select=id==='agentSkillProfile';if(number)el.value=Number(c[key]||8);else if(select)el.value=c[key]||'all';else el.checked=!!c[key];el.onchange=()=>{App.agentDraft={...App.agentDraft,[key]:number?Number(el.value):select?el.value:el.checked};App.agentRevision++;};if(number)el.oninput=el.onchange;});
@@ -1790,13 +1873,17 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
 
   async function refreshState(forceRender=false){
     try{
-      const next=await api('/api/state'); App.state=next; App.lastStateError='';
+      const telegramRevision=App.telegramRevision;
+      const next=await api('/api/state');
+      if(telegramRevision!==App.telegramRevision&&next.agent&&App.state?.agent?.telegram)next.agent.telegram=App.state.agent.telegram;
+      App.state=next; App.lastStateError='';
+      updateTelegramControls();
       if(!(App.route==='chat'&&App.streaming))updateChrome();
       const key=stateRenderKey(next);
       // Do not destroy/recreate the Settings controls while a memory-mode choice
       // is pending. Replacing that DOM node was the reason the selector appeared
       // to "jump" back to Hybrid before the user could apply it.
-      if(!forceRender&&((App.route==='settings'&&(App.settingsMemoryDirty||App.settingsFormDirty))||(App.route==='agent'&&(Object.keys(App.agentDraft).length||App.agentBusy||document.activeElement?.closest?.('.agent-page'))))){
+      if(!forceRender&&((App.route==='settings'&&(App.settingsMemoryDirty||App.settingsFormDirty))||(App.route==='agent'&&(Object.keys(App.agentDraft).length||App.agentBusy||App.telegramForm.busy||agentInputFocused())))){
         updateLiveMetrics(next.live,next.performance||next.server?.performance);
       }else if(forceRender || key!==App.renderKey){App.renderKey=key;if(App.route==='chat'&&$('#chatScroll'))updateChatStateOnly();else render();}
       else updateLiveMetrics(next.live,next.performance||next.server?.performance);

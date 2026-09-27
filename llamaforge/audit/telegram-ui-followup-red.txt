@@ -1,0 +1,71 @@
+✔ composer text survives attachment/options rerender and returning to its thread (19.170937ms)
+✔ changing thread cancels the original stream before switching (3.173966ms)
+✔ calendar payload keeps server wall time when browser uses another timezone (0.841584ms)
+✔ late cancelled stream cannot delete or unlock the next response (7.144168ms)
+✔ agenda overlap excludes midnight end and includes the following occupied day (0.357116ms)
+✔ attachment finishing after navigation stays in its original conversation (2.194425ms)
+✔ background Brain auto-setup keeps chat usable on render and refresh (2.169227ms)
+✔ background Brain download-base keeps chat usable on render and refresh (2.450049ms)
+✔ background Brain detect-base keeps chat usable on render and refresh (1.546182ms)
+✔ background Brain trainer keeps chat usable on render and refresh (1.63806ms)
+✔ background Brain doctor keeps chat usable on render and refresh (2.093363ms)
+✔ typing a date invalidates an older conversion response before blur (1.952962ms)
+✔ calendar search ignores stale responses and escapes titles (1.982947ms)
+✔ composer rerender preserves a pending strict lesson lock (1.637118ms)
+✔ request trace timeline ignores stale detail and escapes event text (2.289338ms)
+✔ trace picker escapes prompt previews and excludes invalid identifiers (1.493562ms)
+✔ agent permission draft survives background refresh and revisiting page (6.214031ms)
+✔ agent save retains a newer edit while request is in flight (4.988371ms)
+✔ late Agent status cannot replace the focused Telegram input while typing (2.296929ms)
+✔ Telegram login fields survive forced refresh and revisiting without browser storage (3.35012ms)
+✔ Telegram login completion after leaving the page preserves the next step (2.826325ms)
+✔ Telegram busy controls prevent duplicate requests and restore after errors (3.855169ms)
+✔ Telegram buttons submit normalized Persian digits through code and two-step login (3.08321ms)
+✔ empty Telegram credentials explain the missing fields without calling login (2.148547ms)
+✔ saving Agent permissions preserves unfinished Telegram credentials (8.056909ms)
+✖ Telegram resume, disconnect and confirmed revoke update the visible account (2.818753ms)
+✔ Telegram installation preserves entered credentials and updates its controls (2.341096ms)
+✖ autofilled Telegram credentials survive a render without input events (2.432042ms)
+✔ an older Agent response cannot overwrite a completed Telegram login (2.800275ms)
+✔ state refresh started before login cannot revert the new Telegram status (3.808589ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 28
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 183.740157
+
+✖ failing tests:
+
+test at llamaforge/tests/test_workspace_ui.cjs:249:1
+✖ Telegram resume, disconnect and confirmed revoke update the visible account (2.818753ms)
+  AssertionError [ERR_ASSERTION]: The "string" argument must be of type string. Received type undefined (undefined)
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:252:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /Fixture.*@fixture/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at llamaforge/tests/test_workspace_ui.cjs:268:1
+✖ autofilled Telegram credentials survive a render without input events (2.432042ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  '' !== '+12025550123'
+
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:270:45)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: '+12025550123',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

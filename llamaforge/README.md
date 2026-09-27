@@ -1,4 +1,4 @@
-# LlamaForge 0.34.3 Hotfix — Local AI + Skill-driven Agent
+# LlamaForge 0.34.4 Telegram UI — Local AI + Skill-driven Agent
 
 ## Adaptive AutoTune
 
@@ -67,3 +67,5 @@ Brain now accepts an explicit question and user-provided correct answer. Automat
 Zero-context remains an explicit setting: training archives are never injected into chat. The bounded loss check is a sanity check, not a held-out recall score. See [BRAIN_SYSTEM_FA.md](BRAIN_SYSTEM_FA.md) and [AUDIT_REPORT_FA.md](AUDIT_REPORT_FA.md).
 
 For full request log exports and Telegram setup, see [DIAGNOSTICS_FA.md](DIAGNOSTICS_FA.md). Version 0.34.3 corrections and test results are in [HOTFIX_REPORT_FA.md](HOTFIX_REPORT_FA.md).
+
+Telegram form/focus fixes in 0.34.4: [TELEGRAM_UI_FIX_FA.md](TELEGRAM_UI_FIX_FA.md).

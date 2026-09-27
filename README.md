@@ -96,7 +96,7 @@ Adaptive AutoTune now benchmarks the exact GGUF with the installed `llama-bench`
 
 This build adds true Agent/web response streaming, universal metadata-first file attachments, smarter file/calendar Skill routing, compact calendar UI, and Full RAM loading with `--load-mode none` when the model fits safely.
 
-Published package version: 0.34.3-hotfix
+Published package version: 0.34.4-telegram-ui
 
 ## 0.34.0 Smart Skills
 
@@ -117,3 +117,7 @@ Full request tracing, diagnostic ZIP exports and observed-log fixes: [Persian gu
 ## 0.34.3 debugging follow-up
 
 Recover partial diagnostic logs, take consistent live exports, apply revoked permissions to subsequent tool calls, align stream/cancellation IDs, and prevent duplicate Telegram sends when a model changes its retry key. Telegram disconnect/login/rate-limit failures now leave coherent state. Retention avoids parsing old transcripts on each request. [Regression evidence, measurements and limits](llamaforge/HOTFIX_REPORT_FA.md).
+
+## 0.34.4 Telegram form fix
+
+Telegram input, focus and verification steps survive background refresh and route changes. Controls show pending work, prevent duplicate submissions and handle Persian/Arabic digits. Account and installation status update without replacing the focused form. [Report and installation notes](llamaforge/TELEGRAM_UI_FIX_FA.md).
