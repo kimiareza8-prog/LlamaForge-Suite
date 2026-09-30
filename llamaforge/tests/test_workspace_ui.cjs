@@ -10,7 +10,7 @@ function harness({agentDOM=false}={}) {
   const el = key => {
     if (!elements.has(key)) {
       let html = '';
-      const e = {isConnected:true,value:'',style:{setProperty(){}},classList:{add(){},remove(){},toggle(){}},dataset:{},setAttribute(){},focus(){},scrollHeight:100,clientHeight:100,
+      const e = {isConnected:true,value:'',style:{setProperty(){}},classList:{add(){},remove(){},toggle(){}},dataset:{},setAttribute(){},addEventListener(type,fn){this['on'+type]=fn},focus(){},scrollHeight:100,clientHeight:100,
         appendChild(){},querySelector:s=>el(s),querySelectorAll:()=>[]};
       if(agentDOM){e.focus=()=>{document.activeElement=e};e.closest=s=>s==='.agent-page'&&e.agentControl&&e.isConnected?el('#view'):null;}
       Object.defineProperty(e, 'innerHTML', {get:()=>html,set:x=>{
@@ -33,9 +33,9 @@ function harness({agentDOM=false}={}) {
   const document={createElement:()=>el('created'),querySelector:s=>agentDOM&&/^#(?:telegram|installTelegram)/.test(s)?elements.get(s)||null:el(s),querySelectorAll:()=>[],body:{classList:{toggle(){}},dataset:{}}};
   const sandbox={document,localStorage:{getItem:()=>null,setItem(){},removeItem(){}},location:{hash:'#chat'},crypto:{randomUUID:()=> 'test-'+(++sequence)},
     AbortController,DOMException,TextDecoder,performance,
-    window:{addEventListener(){}},setTimeout(){},requestAnimationFrame(){},LFProtocol:require(path.join(staticDir,'stream_protocol.js')),LFWorkspaceUI:require(path.join(staticDir,'workspace_ui.js')), Date, console};
+    window:{addEventListener(){},open(){return {}}},setTimeout(){},clearTimeout(){},requestAnimationFrame(){},LFProtocol:require(path.join(staticDir,'stream_protocol.js')),LFWorkspaceUI:require(path.join(staticDir,'workspace_ui.js')), Date, console};
   let src=fs.readFileSync(path.join(staticDir,'app.js'),'utf8').split('  // shell events')[0];
-  src+='\n renderMessages=()=>{};renderNav=()=>{};updateChrome=()=>{};this.fixture={App,renderAgent,refreshState,renderChat,selectThread,renderMarkdown,stopGeneration,generateAssistant,addChatAttachments,openCalendarEventModal,updateChatStateOnly,searchCalendarEvents,showRequestTrace,traceOptions,setFileReader:fn=>fileDataUrl=fn};})();';
+  src+='\n renderMessages=()=>{};renderNav=()=>{};updateChrome=()=>{};this.fixture={App,renderAgent,refreshState,renderChat,selectThread,renderMarkdown,stopGeneration,generateAssistant,addChatAttachments,toggleVoiceRecording,openCalendarEventModal,updateChatStateOnly,searchCalendarEvents,showRequestTrace,traceOptions,chatPrefs,contextLabel,contextPercent,showChatOptions,apiProviderEditing,apiProviderCard,holdApiProviderInteraction,telegramPageShell,telegramSendFromPage,telegramLoadMedia,loadTelegramMessages,loadTelegramDashboard,programMonitorEvent,programMonitorFinish,setRender:fn=>render=fn,setFileReader:fn=>fileDataUrl=fn};})();';
   vm.runInNewContext(src,sandbox);
   const f=sandbox.fixture;
   f.App.state={server:{ready:true},brain:{enabled:false},config:{}};
@@ -54,6 +54,83 @@ test('composer text survives attachment/options rerender and returning to its th
   selectThread('one');assert.equal(el('#composerInput').value,'این فایل را خلاصه کن');
   assert.equal(App.pendingAttachments[0].id,'a');
 });
+
+test('API provider pointer interaction blocks pre-focus background rerender',()=>{
+  const {App,apiProviderEditing,holdApiProviderInteraction,sandbox}=harness();
+  App.route='models';App.apiProviderDraft={openai:'',gemini:''};App.apiProviderBusy={openai:false,gemini:false};
+  assert.equal(apiProviderEditing(),false);
+  holdApiProviderInteraction(2000);
+  assert.equal(apiProviderEditing(),true);
+  App.apiProviderInteractionUntil=0;
+  sandbox.document.activeElement={matches:selector=>selector.includes('select[data-api-model]')};
+  assert.equal(apiProviderEditing(),true);
+  sandbox.document.activeElement={matches:selector=>selector.includes('input[data-api-output-open]')};
+  assert.equal(apiProviderEditing(),true,'a focused API output marker editor is protected from refresh rerenders');
+  sandbox.document.activeElement=sandbox.document.body;
+  App.apiProviderInteractionUntil=0;App.apiProviderSelectOpen.openai=true;
+  assert.equal(apiProviderEditing(),true,'the native popup stays protected after the pointer timer expires');
+  App.apiProviderSelectOpen.openai=false;
+  App.apiProviderDraft.openai='key-in-progress';
+  assert.equal(apiProviderEditing(),false,'the input draft is retained in app state after blur');
+});
+test('API model choice and per-model test results survive provider-card rerenders',()=>{
+  const {App,apiProviderCard}=harness();
+  App.apiProviderSelection.openai='gpt-second';
+  App.apiProviderTests.openai['gpt-second']={ok:true,response:'سلام!'};
+  const html=apiProviderCard('openai',{name:'OpenAI',configured:true,models:[{id:'gpt-first'},{id:'gpt-second'}]}, {}, {backend:'openai',model:{id:'gpt-first'}});
+  assert.match(html,/value="gpt-second" selected/);
+  assert.match(html,/✓ gpt-second/);
+  assert.match(html,/Test passed · gpt-second/);
+});
+test('API model output syntax is editable and stays scoped to its provider model',()=>{
+  const {App,apiProviderCard}=harness();
+  App.apiProviderSelection.gemini='gemma-output-test';
+  const provider={name:'Gemini',configured:true,models:[{id:'gemma-output-test'}],output_syntax:{'gemma-output-test':{open_marker:'<thought>',close_marker:'</thought>'}}};
+  let html=apiProviderCard('gemini',provider,{},{});
+  assert.match(html,/Output syntax/);
+  assert.match(html,/<details class="api-output-syntax" open>/);
+  assert.match(html,/Custom markers/);
+  assert.match(html,/value="&lt;thought&gt;"/);
+  assert.match(html,/value="&lt;\/thought&gt;"/);
+  App.apiOutputSyntaxDraft['gemini::gemma-output-test']={open_marker:'BEGIN',close_marker:'END'};
+  html=apiProviderCard('gemini',provider,{},{});
+  assert.match(html,/value="BEGIN"/);
+  assert.match(html,/value="END"/);
+});
+test('forced state refresh does not replace a focused API key field',async()=>{
+  const {App,sandbox,refreshState,setRender}=harness();
+  App.route='models';App.renderKey='before';
+  sandbox.document.activeElement={matches:selector=>selector.includes('input[id^="apiKey-"]')};
+  sandbox.fetch=async()=>({ok:true,json:async()=>({server:{ready:false,running:false},inference:{backend:'openai',external:true,ready:true,model:{id:'gpt-test'}},api:{providers:{}},models:[],trainable_models:[]})});
+  let renders=0;setRender(()=>renders++);
+  await refreshState(true);
+  assert.equal(renders,0);
+  assert.equal(App.uiDeferredRender,true);
+});
+test('ready Gemini model can send chat while the local server is stopped',async()=>{
+  const {App,sandbox,generateAssistant}=harness();
+  App.route='chat';
+  App.state={server:{ready:false,running:false},inference:{backend:'gemini',external:true,ready:true,model:{id:'gemini-2.5-flash'}},brain:{enabled:false},config:{agent_enabled_default:false}};
+  let requested='';
+  sandbox.fetch=async url=>{requested=url;return {ok:false,status:503,json:async()=>({error:'test stop'})}};
+  await generateAssistant();
+  assert.equal(requested,'/api/chat/stream');
+});
+
+test('chat and API context read the saved shared settings instead of an old browser cap or local plan',()=>{
+  const {App,sandbox,chatPrefs,contextLabel,contextPercent,showChatOptions,el}=harness();
+  sandbox.localStorage.getItem=key=>key==='lf.maxTokens'?'16':null;
+  App.state={config:{default_context_size:12000,generation_max_tokens:7000},server:{ready:false,plan:{ctx_size:512}},
+    inference:{backend:'gemini',external:true,ready:true,model:{id:'gemini-test'}},brain:{enabled:false}};
+  App.contextTokens=100;
+  assert.equal(chatPrefs().maxTokens,7000);
+  assert.equal(contextLabel(),'~100 / 12,000 budget');
+  assert.equal(contextPercent(),100/12000*100);
+  showChatOptions();
+  assert.match(el('#modalRoot').innerHTML,/Current output limit: 7,000 tokens/);
+  assert.doesNotMatch(el('#modalRoot').innerHTML,/id="maxTokens"/);
+});
+
 test('changing thread cancels the original stream before switching',()=>{
   const {App,selectThread}=harness();let activeAtAbort='';App.streaming=true;
   App.chatAbort={abort(){activeAtAbort=App.activeThreadId;}};
@@ -159,6 +236,72 @@ test('trace picker escapes prompt previews and excludes invalid identifiers',()=
   assert.match(html,/&lt;script/);assert.ok(!html.includes('<script>'));assert.ok(!html.includes('../private'));
 });
 
+test('Telegram page renders attachment metadata, explicit download, and composer',()=>{
+  const {App,el,telegramPageShell}=harness();App.route='telegram';
+  App.state={config:{agent_allow_telegram_write:true,agent_allow_workspace_write:true},agent:{telegram:{connected:true,installed:true}}};
+  App.telegramPage.selected='chat_abc';App.telegramPage.data={dialogs:[{chat_ref:'chat_abc',name:'Friends',kind:'group'}]};
+  App.telegramPage.messages=[{message_id:3,text:'<img src=x>',has_media:true,media:{name:'photo.jpg',kind:'photo',size:3,mime_type:'image/jpeg'},outgoing:false}];
+  telegramPageShell(el('#view'));const html=el('#view').innerHTML;
+  assert.match(html,/data-tg-media="3"/);assert.match(html,/photo.jpg/);
+  assert.match(html,/id="telegramMessageDraft"/);assert.match(html,/id="telegramFileInput"/);
+  assert.match(html,/id="telegramSendMessage"/);assert.ok(!html.includes('<img src=x>'));
+});
+
+
+
+test('Telegram page explicit reconnect overrides a persisted paused saved session',async()=>{
+  const {App,sandbox,loadTelegramDashboard}=harness();App.route='telegram';
+  App.state={config:{},agent:{telegram:{connected:false,saved_session:true,paused:true,installed:true,vault_installed:true}}};
+  const calls=[];
+  sandbox.fetch=async(url,options)=>{
+    const body=options?.body?JSON.parse(options.body):null;calls.push({url,body});
+    if(url==='/api/agent/status')return {ok:true,json:async()=>({telegram:{connected:false,saved_session:true,paused:true,installed:true,vault_installed:true}})};
+    if(url==='/api/agent/telegram/login')return {ok:true,json:async()=>({connected:true,saved_session:true,paused:false,installed:true,vault_installed:true,account:{name:'Me'}})};
+    if(url==='/api/agent/telegram/dashboard')return {ok:true,json:async()=>({dialogs:[]})};
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  await loadTelegramDashboard(true,true);
+  const resume=calls.find(x=>x.url==='/api/agent/telegram/login');
+  assert.deepEqual(resume?.body,{resume:true});
+  assert.equal(App.state.agent.telegram.connected,true);
+});
+
+test('Telegram page sends once and clears its draft after confirmation',async()=>{
+  const {App,el,sandbox,telegramPageShell,telegramSendFromPage}=harness();App.route='telegram';
+  App.state={config:{agent_allow_telegram_write:true,agent_allow_workspace_write:true},agent:{telegram:{connected:true,installed:true}}};
+  App.telegramPage.selected='chat_abc';App.telegramPage.data={dialogs:[{chat_ref:'chat_abc',name:'Friends',kind:'group'}]};
+  const actions=[];sandbox.fetch=async(url,options)=>{
+    if(url==='/api/agent/telegram/action'){actions.push(JSON.parse(options.body));return {ok:true,json:async()=>({message_id:77,verification:{verified:true}})};}
+    if(url==='/api/agent/telegram/messages')return {ok:true,json:async()=>({messages:[{message_id:77,text:'سلام',outgoing:true}]})};
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  telegramPageShell(el('#view'));el('#telegramMessageDraft').value='سلام';
+  await telegramSendFromPage();
+  assert.equal(actions.length,1);assert.deepEqual(actions[0],{operation:'send',chat_ref:'chat_abc',text:'سلام'});
+  assert.equal(App.telegramPage.drafts.chat_abc,'');assert.equal(App.telegramPage.messages[0].message_id,77);
+});
+
+test('Telegram media download is explicit, saved once, and previews a photo locally',async()=>{
+  const {App,el,sandbox,telegramPageShell,telegramLoadMedia}=harness();App.route='telegram';
+  App.state={config:{agent_allow_telegram_write:true,agent_allow_workspace_write:true},agent:{telegram:{connected:true,installed:true}}};
+  App.telegramPage.selected='chat_abc';App.telegramPage.data={dialogs:[{chat_ref:'chat_abc',name:'Friends',kind:'group'}]};
+  App.telegramPage.messages=[{message_id:9,has_media:true,media:{kind:'photo',mime_type:'image/jpeg'},outgoing:false}];
+  let downloads=0,clicked=0;
+  sandbox.URL={createObjectURL:()=> 'blob:photo',revokeObjectURL(){}};sandbox.Blob=Blob;
+  sandbox.document.body.appendChild=()=>{};el('created').click=()=>{clicked++};el('created').remove=()=>{};
+  sandbox.fetch=async url=>{
+    if(url==='/api/agent/telegram/download'){downloads++;return {ok:true,json:async()=>({file:{id:'file_9',name:'photo.jpg'}})};}
+    if(url==='/api/workspace/download?id=file_9')return {ok:true,blob:async()=>new Blob(['photo'],{type:'image/jpeg'})};
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  telegramPageShell(el('#view'));
+  assert.equal(downloads,0);
+  await telegramLoadMedia(9);
+  assert.equal(downloads,1);assert.equal(clicked,1);
+  assert.match(el('#view').innerHTML,/src="blob:photo"/);
+  await telegramLoadMedia(9);assert.equal(downloads,1);
+});
+
 
 test('agent permission draft survives background refresh and revisiting page',async()=>{
   const {App,el,sandbox,renderAgent,refreshState}=harness();App.route='agent';
@@ -178,6 +321,151 @@ test('agent save retains a newer edit while request is in flight',async()=>{
   const save=el('#saveAgentSettings').onclick();await new Promise(setImmediate);
   tick.checked=false;tick.onchange?.();finish({ok:true,json:async()=>({ok:true})});await save;
   assert.equal(payload.agent_allow_write,true);assert.equal(App.agentDraft.agent_allow_write,false);
+});
+
+test('Agent settings expose disabled-by-default command/tool toggles and separate local voice paths',async()=>{
+  const {App,el,sandbox,renderAgent,setRender}=harness();App.route='agent';setRender(()=>{});
+  const state={server:{ready:true},brain:{enabled:false},config:{agent_allow_system_commands:false,agent_allow_tool_creation:false,audio_ffmpeg_path:'',audio_vosk_model_path:''},agent:{builtin_tools:['calendar'],telegram:{}}};
+  App.state=state;
+  sandbox.fetch=async(url,opts={})=>{
+    if(url==='/api/agent/status')return {ok:true,json:async()=>state.agent};
+    if(url==='/api/settings')return {ok:true,json:async()=>({ok:true})};
+    if(url==='/api/state')return {ok:true,json:async()=>state};
+    if(url==='/api/voice/status')return {ok:true,json:async()=>({ready:false,recordings_dir:'/local/voice'})};
+    return {ok:true,json:async()=>({ok:true})};
+  };
+  await renderAgent(el('#view'));
+  assert.equal(el('#agentSystemCommands').checked,false);assert.equal(el('#agentCreateTools').checked,false);
+  assert.ok(el('#audioFfmpegPath'));assert.ok(el('#audioVoskModelPath'));assert.ok(el('#saveVoiceSettings'));
+  el('#audioFfmpegPath').value='/tools/ffmpeg';el('#audioVoskModelPath').value='/models/vosk-model-fa';
+  let saved;const original=sandbox.fetch;sandbox.fetch=async(url,opts={})=>{if(url==='/api/settings')saved=JSON.parse(opts.body);return original(url,opts)};
+  await el('#saveVoiceSettings').onclick();
+  assert.equal(saved.audio_ffmpeg_path,'/tools/ffmpeg');assert.equal(saved.audio_vosk_model_path,'/models/vosk-model-fa');
+});
+test('program builder toggle and job status save through Agent settings',async()=>{
+  const {App,el,sandbox,renderAgent,setRender}=harness();App.route='agent';setRender(()=>{});
+  App.state={server:{ready:true},brain:{enabled:false},config:{agent_allow_code_execution:false},agent:{code_jobs:{jobs:[{job_id:'job_1234567890abcdef',name:'Demo',status:'running'}]}}};
+  let saved;
+  sandbox.fetch=async(url,opts={})=>({ok:true,json:async()=>{
+    if(url==='/api/settings'){saved=JSON.parse(opts.body);return {ok:true}}
+    return url==='/api/agent/status'?App.state.agent:App.state;
+  }});
+  await renderAgent(el('#view'));
+  assert.equal(el('#agentCodeExecution').checked,false);
+  assert.match(el('#view').innerHTML,/Demo/);
+  const toggle=el('#agentCodeExecution');toggle.checked=true;toggle.onchange();
+  await el('#saveAgentSettings').onclick();
+  assert.equal(saved.agent_allow_code_execution,true);
+});
+test('program window opens for generic code actions and streams process output',async()=>{
+  const {App,el,sandbox,programMonitorEvent,programMonitorFinish}=harness();
+  const id='job_1234567890abcdef';
+  sandbox.fetch=async()=>({ok:true,json:async()=>({ok:true,result:{job_id:id,status:'running',output:'سلام از برنامه\n'}})});
+  programMonitorEvent({tool:'code_job',event:'tool_start',arguments:{operation:'new',name:'Example'}});
+  assert.equal(el('#programMonitor').hidden,false);
+  programMonitorEvent({tool:'code_job',event:'tool_result',ok:true,code_job:{operation:'new',job_id:id,status:'created'}});
+  programMonitorEvent({tool:'code_job',event:'tool_start',arguments:{operation:'write',job_id:id,path:'main.py',content:'print("سلام")'}});
+  assert.equal(el('#programMonitorCode').textContent,'print("سلام")');
+  programMonitorEvent({tool:'code_job',event:'tool_result',ok:true,code_job:{operation:'write',job_id:id}});
+  programMonitorEvent({tool:'code_job',event:'tool_start',arguments:{operation:'run',job_id:id,path:'main.py'}});
+  programMonitorEvent({tool:'code_job',event:'tool_result',ok:true,code_job:{operation:'run',job_id:id,status:'running'}});
+  await new Promise(setImmediate);
+  assert.equal(el('#programMonitorOutput').textContent,'سلام از برنامه\n');
+  assert.equal(el('#programMonitorStop').disabled,false);
+  programMonitorFinish();
+  assert.equal(App.programMonitor.visible,true);
+});
+test('a failed code action does not falsely mark a live program as failed',async()=>{
+  const {App,el,sandbox,programMonitorEvent}=harness();
+  const id='job_1234567890abcdef';
+  sandbox.fetch=async()=>({ok:true,json:async()=>({ok:true,result:{job_id:id,status:'running',output:'GUI is still alive\n'}})});
+  programMonitorEvent({tool:'code_job',event:'tool_start',arguments:{operation:'run',job_id:id,path:'main.py'}});
+  programMonitorEvent({tool:'code_job',event:'tool_result',ok:true,code_job:{operation:'run',job_id:id,status:'running'}});
+  assert.equal(App.programMonitor.processStatus,'running');
+  programMonitorEvent({tool:'code_job',event:'tool_start',arguments:{operation:'run',job_id:id,path:'main.py'}});
+  programMonitorEvent({tool:'code_job',event:'tool_result',ok:false,error_preview:'Stop or finish this job before starting another process',code_job:{operation:'run',job_id:id,status:''}});
+  await new Promise(setImmediate);
+  assert.equal(App.programMonitor.processStatus,'running');
+  assert.equal(App.programMonitor.status,'running');
+  assert.equal(el('#programMonitorStop').disabled,false);
+  assert.match(el('#programMonitorSteps').innerHTML,/failed/);
+});
+
+test('program window escapes untrusted labels and keeps failures visible',()=>{
+  const {App,el,programMonitorEvent,programMonitorFinish}=harness();
+  programMonitorEvent({tool:'code_job',event:'tool_start',arguments:{operation:'write',job_id:'job_1234567890abcdef',path:'<img src=x onerror=alert(1)>',content:'<script>not HTML</script>'}});
+  assert.ok(!el('#programMonitorSteps').innerHTML.includes('<img'));
+  assert.equal(el('#programMonitorCode').textContent,'<script>not HTML</script>');
+  programMonitorEvent({tool:'code_job',event:'tool_result',ok:false,error_preview:'syntax error',code_job:{operation:'write'}});
+  programMonitorFinish();
+  assert.equal(App.programMonitor.visible,true);
+  assert.match(el('#programMonitorSteps').innerHTML,/failed/);
+});
+test('successful program window closes after the Agent finishes; hiding does not stop the program',()=>{
+  const {App,el,sandbox,programMonitorEvent,programMonitorFinish}=harness();
+  let closeTimer,requests=0;sandbox.setTimeout=fn=>{closeTimer=fn;return 1};sandbox.fetch=async()=>{requests++;return {ok:true,json:async()=>({ok:true})}};
+  programMonitorEvent({tool:'code_job',event:'tool_start',arguments:{operation:'run',job_id:'job_1234567890abcdef',path:'main.py'}});
+  programMonitorEvent({tool:'code_job',event:'tool_result',ok:true,code_job:{operation:'run',job_id:'job_1234567890abcdef',status:'finished',output:'done'}});
+  programMonitorFinish();assert.equal(typeof closeTimer,'function');closeTimer();
+  assert.equal(el('#programMonitor').hidden,true);assert.equal(requests,0);
+  programMonitorEvent({tool:'code_job',event:'tool_start',arguments:{operation:'run',job_id:'job_1234567890abcdef'}});
+  el('#programMonitorClose').onclick();
+  assert.equal(App.programMonitor.dismissed,true);
+  assert.equal(requests,0,'hiding the monitor does not call stop');
+});
+test('chat composer includes a microphone control for local Vosk voice input',()=>{
+  const {App,el,renderChat}=harness();App.route='chat';App.state={server:{ready:true},inference:{ready:true,backend:'local',external:false},active_model:{name:'Local'},voice:{ready:true},brain:{enabled:false},config:{}};
+  renderChat(el('#view'));
+  assert.match(el('#view').innerHTML,/id="recordVoice"/);assert.match(el('#view').innerHTML,/Record, transcribe locally and send/);
+});
+
+test('voice transcription stays in its original chat after navigation',async()=>{
+  const {App,el,sandbox,renderChat,selectThread,toggleVoiceRecording}=harness();
+  App.route='chat';App.state={server:{ready:true},inference:{ready:true,backend:'local',external:false},active_model:{name:'Local'},voice:{ready:true},brain:{enabled:false},config:{}};
+  const recorders=[];let finishUpload,chatRequests=0;
+  class Recorder {
+    static isTypeSupported(){return true}
+    constructor(){this.mimeType='audio/webm';this.state='inactive';recorders.push(this)}
+    start(){this.state='recording'}
+    stop(){this.state='inactive';this.ondataavailable({data:new Blob(['audio'])});this.finished=this.onstop()}
+  }
+  sandbox.window.isSecureContext=true;sandbox.window.MediaRecorder=Recorder;sandbox.MediaRecorder=Recorder;sandbox.Blob=Blob;
+  sandbox.navigator={mediaDevices:{getUserMedia:async()=>({getTracks:()=>[{stop(){}}]})}};
+  sandbox.setTimeout=(callback,delay)=>{if(delay===800)queueMicrotask(callback);return 1};
+  sandbox.fetch=async url=>{
+    if(url==='/api/voice/transcribe')return new Promise(resolve=>{finishUpload=resolve});
+    if(url.startsWith('/api/voice/job'))return {ok:true,json:async()=>({state:'done',text:'سلام',filename:'voice.webm'})};
+    if(url==='/api/chat/stream')chatRequests++;
+    return {ok:true,json:async()=>({})};
+  };
+  renderChat(el('#view'));await toggleVoiceRecording();recorders[0].stop();
+  selectThread('two');assert.match(el('#view').innerHTML,/aria-label="Cancel upload"/);
+  finishUpload({ok:true,json:async()=>({job:'voice_test'})});
+  await recorders[0].finished;
+  assert.equal(chatRequests,0);assert.equal(App.threads.find(t=>t.id==='two').messages.length,0);
+  assert.equal(App.chatDrafts.one,'سلام');assert.equal(el('#composerInput').value,'');
+  selectThread('one');assert.equal(el('#composerInput').value,'سلام');
+});
+
+test('voice recording stops before collecting more than 25 MB',async()=>{
+  const {App,el,sandbox,renderChat,toggleVoiceRecording}=harness();
+  App.route='chat';App.state={server:{ready:true},inference:{ready:true,backend:'local',external:false},active_model:{name:'Local'},voice:{ready:true},brain:{enabled:false},config:{}};
+  let recorder,uploads=0;
+  class Recorder {
+    static isTypeSupported(){return true}
+    constructor(){this.mimeType='audio/webm';this.state='inactive';recorder=this}
+    start(){this.state='recording'}
+    stop(){this.state='inactive';this.finished=this.onstop()}
+  }
+  sandbox.window.isSecureContext=true;sandbox.window.MediaRecorder=Recorder;sandbox.MediaRecorder=Recorder;sandbox.Blob=Blob;
+  sandbox.navigator={mediaDevices:{getUserMedia:async()=>({getTracks:()=>[{stop(){}}]})}};
+  sandbox.fetch=async()=>{uploads++;return {ok:true,json:async()=>({})}};
+  renderChat(el('#view'));await toggleVoiceRecording();
+  renderChat(el('#view'));assert.match(el('#view').innerHTML,/aria-label="Stop recording and transcribe"/);
+  recorder.ondataavailable({data:{size:25*1024*1024+1}});
+  await recorder.finished;
+  assert.equal(recorder.state,'inactive');assert.equal(uploads,0);
+  assert.equal(App.voiceChunks.length,0);assert.equal(App.voiceRecording,false);
 });
 
 async function telegramFixture(){
@@ -282,4 +570,13 @@ test('state refresh started before login cannot revert the new Telegram status',
   const old=h.refreshState();h.reply=async()=>({connected:true,account:{name:'Fixture'}});await h.el('#telegramConnect').onclick();
   resolve({ok:true,json:async()=>oldState});await old;await new Promise(setImmediate);
   assert.equal(h.App.state.agent.telegram.connected,true);assert.equal(h.el('#telegramConnect').disabled,true);
+});
+
+test('Telegram Ping button calls the credential-aware RPC diagnostic endpoint and shows route result',async()=>{
+  const h=await telegramFixture();h.fillLogin();
+  h.reply=async url=>url.endsWith('/ping')?{ok:true,message:'Telegram RPC reachable via socks5 127.0.0.1:1080 (42 ms).'}:{next:'code'};
+  await h.el('#telegramPing').onclick();
+  assert.equal(h.requests[0].url,'/api/agent/telegram/ping');
+  assert.deepEqual(h.requests[0].body,{api_id:123,api_hash:'a'.repeat(32)});
+  assert.match(h.el('#telegramLoginStatus').textContent,/RPC reachable via socks5/i);
 });

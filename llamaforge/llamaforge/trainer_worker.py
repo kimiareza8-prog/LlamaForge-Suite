@@ -418,8 +418,17 @@ def main():
                     tokenizer_source=load_base
                     emit(phase='tokenizer', message='Source adapter has no tokenizer; using underlying base tokenizer',
                          progress=.085, tokenizer_source=load_base)
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_source,
-                                                   trust_remote_code=bool(a.trust_remote_code), use_fast=True)
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(tokenizer_source,
+                                                       trust_remote_code=bool(a.trust_remote_code), use_fast=True)
+        except (ValueError, ImportError, OSError) as fast_exc:
+            # Some valid checkpoints only expose a slow tokenizer.  Falling back
+            # avoids failing an otherwise usable training base purely because the
+            # fast-tokenizer conversion path or one optional converter is missing.
+            emit(phase='tokenizer', message='Fast tokenizer unavailable; trying slow tokenizer',
+                 progress=.095, warning=str(fast_exc)[:500])
+            tokenizer = AutoTokenizer.from_pretrained(tokenizer_source,
+                                                       trust_remote_code=bool(a.trust_remote_code), use_fast=False)
         if tokenizer.pad_token_id is None:
             tokenizer.pad_token = tokenizer.eos_token
         emit(phase='tokenizer', message='Tokenizer ready', progress=.12,

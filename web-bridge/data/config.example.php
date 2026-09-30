@@ -2,7 +2,7 @@
 // Example only. On first request the bridge creates data/config.php automatically
 // with unique random secrets. Do not commit the generated config.php.
 return [
-    'version' => '3.9.0-live-stream-files',
+    'version' => '3.10.1-updater-reliability',
     'app_name' => 'AI Bridge',
     'agent_token' => 'GENERATED_ON_FIRST_RUN',
     'owner_key' => 'GENERATED_ON_FIRST_RUN',

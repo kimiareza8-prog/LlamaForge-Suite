@@ -175,9 +175,9 @@
     if (currentOptions !== nextOptions || els.modelSelect.options.length !== models.length) {
       els.modelSelect.textContent='';
       if (!models.length) {
-        const o=document.createElement('option');o.value='';o.textContent=agent?.online?'هیچ مدل محلی پیدا نشد':'منتظر LlamaForge…';els.modelSelect.appendChild(o);
+        const o=document.createElement('option');o.value='';o.textContent=agent?.online?'هیچ مدلی پیدا نشد':'منتظر LlamaForge…';els.modelSelect.appendChild(o);
       } else {
-        models.forEach(m=>{const o=document.createElement('option');o.value=String(m.id||'');const bits=[m.name||'Model'];if(m.quantization)bits.push(m.quantization);if(m.vision_capable)bits.push('Vision');if(Number(m.size_gb||0)>0)bits.push(`${Number(m.size_gb).toFixed(1)} GB`);o.textContent=bits.join(' · ');els.modelSelect.appendChild(o)});
+        models.forEach(m=>{const o=document.createElement('option');o.value=String(m.id||'');const bits=[m.name||'Model'];if(m.provider&&m.provider!=='local')bits.push(String(m.provider).toUpperCase());else if(m.quantization)bits.push(m.quantization);if(m.vision_capable)bits.push('Vision');if(Number(m.size_gb||0)>0)bits.push(`${Number(m.size_gb).toFixed(1)} GB`);o.textContent=bits.join(' · ');els.modelSelect.appendChild(o)});
       }
     }
     const validDesired=models.some(m=>String(m.id||'')===desiredId);
@@ -196,7 +196,7 @@
       els.modelState.textContent=label; els.modelState.className=cls;
       if(control.error) els.modelState.title=String(control.error); else els.modelState.removeAttribute('title');
     }
-    if(els.modelStop)els.modelStop.disabled=!agent?.online || (!agent?.model_ready && !agent?.model_loading) || ['pending','loading'].includes(String(control.status||''));
+    if(els.modelStop){const selected=models.find(m=>String(m.id||'')===String(target||loadedId||''));const apiModel=selected&&String(selected.provider||'local')!=='local';els.modelStop.disabled=apiModel || !agent?.online || (!agent?.model_ready && !agent?.model_loading) || ['pending','loading'].includes(String(control.status||''));els.modelStop.title=apiModel?'API models do not occupy local model memory.':'';}
   }
 
   async function requestModelLoad(modelId) {

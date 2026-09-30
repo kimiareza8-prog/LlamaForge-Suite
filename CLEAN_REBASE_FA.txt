@@ -1,0 +1,11 @@
+LlamaForge 0.35.5-clean-rebase
+
+این نسخه روی 0.35.1 که UI آن سالم بود دوباره بنا شده است.
+روی نسخه‌های 0.35.2/0.35.3/0.35.4 پچ UI جدیدی سوار نشده است.
+فقط قابلیت‌های لازم منتقل شده‌اند:
+- OpenAI/Gemini API providers + model list/selection/usage
+- external API traffic through Psiphon/System Proxy when detected
+- Continuous Agent backend and max tool steps up to 24
+- Telegram/session/proxy features inherited from the working baseline
+
+Local llama.cpp traffic remains direct.

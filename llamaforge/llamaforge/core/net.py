@@ -8,9 +8,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from .request_tracing import record
+from .network_policy import direct_opener
 from typing import Iterator
 
-UA = "LlamaForge/0.34.4-telegram-ui"
+UA = "LlamaForge/0.36.5-unified-context"
 
 
 @contextmanager
@@ -41,8 +42,9 @@ def _cancellable_response(response, cancel):
 
 
 def _opener():
-    # Honor normal OS proxy configuration without requiring requests/pip.
-    return urllib.request.build_opener()
+    # Core/model traffic must stay on the machine's direct route. Telegram has
+    # its own explicit Psiphon/System-Proxy adapter in telegram_skill.py.
+    return direct_opener()
 
 
 def request_json(url: str, *, method: str = "GET", data=None, headers=None, timeout: float = 30.0):
@@ -211,8 +213,8 @@ def stream_chat_events(
     explicit_reasoning = False
     tag_buffer = ""
     in_reasoning_tag = False
-    open_tags = ("<think>", "<analysis>")
-    close_tags = ("</think>", "</analysis>")
+    open_tags = ("<thought>", "<think>", "<analysis>", "<reasoning>")
+    close_tags = ("</thought>", "</think>", "</analysis>", "</reasoning>")
     max_tag = max(map(len, open_tags + close_tags))
 
     def split_tagged_content(chunk: str, final: bool = False):
@@ -281,6 +283,9 @@ def stream_chat_events(
                 usage = data.get("usage")
                 if usage:
                     yield {"type": "meta", "usage": usage}
+                reason = (data.get("choices") or [{}])[0].get("finish_reason")
+                if reason is not None:
+                    yield {"type": "meta", "finish_reason": str(reason), "output_limit": int(max_tokens)}
                 return
 
             complete = False
@@ -307,6 +312,7 @@ def stream_chat_events(
                 if choice.get("finish_reason") is not None:
                     complete = True
                     record('transport.final', finish_reason=choice['finish_reason'])
+                    yield {"type": "meta", "finish_reason": str(choice["finish_reason"]), "output_limit": int(max_tokens)}
                 delta = choice.get("delta") or {}
                 reasoning_text = delta.get("reasoning_content")
                 text = delta.get("content")

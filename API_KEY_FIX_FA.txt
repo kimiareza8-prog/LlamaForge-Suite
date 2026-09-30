@@ -1,0 +1,7 @@
+LlamaForge 0.35.8-ui-stability
+
+- جلوگیری از re-render صفحه Models هنگام فوکوس/تایپ/Paste کلید API
+- نگه داشتن draft کلید تا پایان عملیات
+- جدا کردن موفقیت ذخیره کلید از موفقیت تست شبکه/دریافت مدل‌ها
+- تأیید read-back کلید از secure storage در backend قبل از اعلام Saved
+- حفظ OpenAI/Gemini/Psiphon/Continuous Agent بدون تغییر سایر قابلیت‌ها

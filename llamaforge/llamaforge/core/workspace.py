@@ -9,6 +9,7 @@ import os
 import re
 import shutil
 import threading
+import tarfile
 import uuid
 import zipfile
 import xml.etree.ElementTree as ET
@@ -17,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import APP_DIR
-from .archive_reader import archive_name, inspect_archive, zip_read, MAX_ENTRIES, MAX_EXPANDED
+from .archive_reader import archive_name, inspect_archive, zip_read, zip_entry, safe_name, MAX_ENTRIES, MAX_MEMBER, MAX_EXPANDED
 
 WORKSPACE_DIR = Path(__file__).resolve().parents[2] / "workspace"
 CALENDAR_PATH = WORKSPACE_DIR / "calendar.json"
@@ -112,11 +113,10 @@ def _parse_iso(value: str) -> datetime:
     if raw.endswith("Z"):
         raw = raw[:-1] + "+00:00"
     dt = datetime.fromisoformat(raw)
-    # Normalize every timestamp to the machine local timezone so browser-sent UTC
-    # values and local Python-created values compare/group on the same calendar day.
+    # Preserve an explicit timezone/offset supplied by the caller.  Only naive
+    # values are interpreted in the machine-local timezone.  Converting aware
+    # values here changes the caller's calendar day/work-hour semantics.
     if dt.tzinfo is None:
-        dt = dt.astimezone()
-    else:
         dt = dt.astimezone()
     return dt
 
@@ -203,7 +203,7 @@ class CalendarStore:
             return {"gregorian": d.isoformat(), "jalali": f"{jy:04d}-{jm:02d}-{jd:02d}", "weekday": d.strftime("%A"), "weekday_fa": PERSIAN_WEEKDAYS[d.weekday()]}
         raise ValueError("jalali or gregorian is required")
 
-    def list_events(self, start: str = "", end: str = "", query: str = "", limit: int = 100, include_cancelled: bool = False) -> list[dict[str, Any]]:
+    def _matching_events(self, start: str = "", end: str = "", query: str = "", include_cancelled: bool = False) -> list[dict[str, Any]]:
         with self.lock:
             events = list(self._load().get("events") or [])
         sdt = _parse_iso(start) if start else None
@@ -230,7 +230,10 @@ class CalendarStore:
                     continue
             out.append(ev)
         out.sort(key=lambda x: _parse_iso(str(x["start"])))
-        return out[:max(1, min(int(limit or 100), 500))]
+        return out
+
+    def list_events(self, start: str = "", end: str = "", query: str = "", limit: int = 100, include_cancelled: bool = False) -> list[dict[str, Any]]:
+        return self._matching_events(start, end, query, include_cancelled)[:max(1, min(int(limit or 100), 500))]
 
     def write(self, operation: str, data: dict[str, Any]) -> dict[str, Any]:
         op = str(operation or "").lower()
@@ -346,7 +349,7 @@ class CalendarStore:
         end = datetime.combine(last_g, datetime.max.time()).astimezone().isoformat(timespec="minutes")
         events = [{**e, "start": _parse_iso(e["start"]).isoformat(timespec="minutes"),
                    "end": _parse_iso(e.get("end") or e["start"]).isoformat(timespec="minutes")}
-                  for e in self.list_events(start, end, limit=500)]
+                  for e in self._matching_events(start, end)]
         by_date: dict[str, list[dict[str, Any]]] = {}
         for ev in events:
             try:
@@ -392,13 +395,69 @@ class CalendarStore:
 
     def tool(self, args: dict[str, Any], allow_write: bool) -> dict[str, Any]:
         op = str(args.get("operation") or "").strip().lower()
+        if op == "find_free_time":
+            start = _parse_iso(str(args.get("start") or ""))
+            end = _parse_iso(str(args.get("end") or ""))
+            timezone = start.tzinfo or end.tzinfo or datetime.now().astimezone().tzinfo
+            def in_range_timezone(value: datetime) -> datetime:
+                return value.replace(tzinfo=timezone) if value.tzinfo is None else value.astimezone(timezone)
+            start, end = in_range_timezone(start), in_range_timezone(end)
+            if end <= start: raise ValueError("end must be after start")
+            if end - start > timedelta(days=31): raise ValueError("Free-time search is limited to 31 days")
+            duration_raw=args.get("duration_minutes")
+            start_raw=args.get("workday_start_hour")
+            end_raw=args.get("workday_end_hour")
+            duration = max(5, min(int(60 if duration_raw is None else duration_raw), 480))
+            day_start = max(0, min(int(9 if start_raw is None else start_raw), 23))
+            day_end = max(1, min(int(17 if end_raw is None else end_raw), 24))
+            if day_end <= day_start: raise ValueError("workday_end_hour must be after workday_start_hour")
+            include_weekends = bool(args.get("include_weekends", False))
+            busy = self._matching_events(start.isoformat(), end.isoformat())
+            spans=[]
+            for event in busy:
+                try:
+                    left=in_range_timezone(_parse_iso(event["start"])); right=in_range_timezone(_parse_iso(event.get("end") or event["start"]))
+                    if right>start and left<end: spans.append((max(left,start),min(right,end)))
+                except Exception: continue
+            spans.sort()
+            merged=[]
+            for left,right in spans:
+                if merged and left<=merged[-1][1]:
+                    merged[-1]=(merged[-1][0],max(merged[-1][1],right))
+                else: merged.append((left,right))
+            def quarter_up(value: datetime) -> datetime:
+                rounded=value.replace(second=0,microsecond=0)
+                if rounded<value: rounded+=timedelta(minutes=1)
+                return rounded+timedelta(minutes=(-rounded.minute)%15)
+            slots=[];cursor=start.date();interval_index=0
+            while cursor <= end.date() and len(slots)<20:
+                if include_weekends or cursor.weekday()!=4:
+                    local_day=datetime.combine(cursor,datetime.min.time(),tzinfo=timezone)
+                    day_left=max(start,local_day.replace(hour=day_start,minute=0,second=0,microsecond=0))
+                    closing=(local_day+timedelta(days=1)) if day_end==24 else local_day.replace(hour=day_end,minute=0,second=0,microsecond=0)
+                    day_right=min(end,closing)
+                    candidate=quarter_up(day_left)
+                    while candidate+timedelta(minutes=duration)<=day_right and len(slots)<20:
+                        candidate_end=candidate+timedelta(minutes=duration)
+                        while interval_index<len(merged) and merged[interval_index][1]<=candidate: interval_index+=1
+                        conflict=merged[interval_index] if interval_index<len(merged) and candidate_end>merged[interval_index][0] else None
+                        if conflict:candidate=quarter_up(max(candidate+timedelta(minutes=15),conflict[1]))
+                        else:
+                            slots.append({"start":candidate.isoformat(timespec="minutes"),"end":candidate_end.isoformat(timespec="minutes"),"duration_minutes":duration})
+                            candidate=quarter_up(candidate_end+timedelta(minutes=15))
+                cursor+=timedelta(days=1)
+            return {"slots":slots,"duration_minutes":duration,"range":{"start":start.isoformat(),"end":end.isoformat()},"checked_events":len(spans),"calendar_event_limit_reached":False,"workday":{"start_hour":day_start,"end_hour":day_end,"friday_included":include_weekends}}
         if op == "now":
             return self.now()
         if op == "convert":
             return self.convert(jalali=str(args.get("jalali") or ""), gregorian=str(args.get("gregorian") or ""))
         if op == "month":
             now = self.now()
-            return self.month(int(args.get("year") or now["jalali"][:4]), int(args.get("month") or now["jalali"][5:7]))
+            result = self.month(int(args.get("year") or now["jalali"][:4]), int(args.get("month") or now["jalali"][5:7]))
+            result["total_events"] = len(result["events"])
+            result["events_truncated"] = result["total_events"] > 500
+            result["events"] = result["events"][:500]
+            return result
         if op == "list":
             return {"events": self.list_events(str(args.get("start") or ""), str(args.get("end") or ""), str(args.get("query") or ""), int(args.get("limit") or 100), bool(args.get("include_cancelled")))}
         if op in {"create", "update", "cancel", "delete"}:
@@ -743,23 +802,59 @@ class FileWorkspace:
         for row in index["items"].values():
             if not isinstance(row, dict): raise ValueError("Invalid snapshot index entry")
             _safe_rel(str(row.get("path") or row.get("name") or ""))
-        # Validate the entire payload before replacing any existing data.
+        # Validate/build the entire snapshot in a staging tree first.  Only after
+        # every file and the index have been written successfully do we swap it
+        # into place.  This prevents a disk/full or antivirus error from deleting
+        # the user's current workspace halfway through an import.
         with self.lock:
-            shutil.rmtree(self.files_root)
-            shutil.rmtree(self.trash_root)
-            self.files_root.mkdir(parents=True, exist_ok=True)
-            self.trash_root.mkdir(parents=True, exist_ok=True)
-            for rel in folders:
-                _contained(self.files_root, self.files_root / rel).mkdir(parents=True, exist_ok=True)
-            for trash, rel, data in decoded:
-                root = self.trash_root if trash else self.files_root
-                target = _contained(root, root / rel)
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(data)
-            self._save_index(index)
+            nonce = uuid.uuid4().hex[:12]
+            stage = self.root / (".snapshot-stage-" + nonce)
+            stage_files = stage / "files"
+            stage_trash = stage / ".trash"
+            stage_index = stage / "files-index.json"
+            backup_files = self.root / (".files-backup-" + nonce)
+            backup_trash = self.root / (".trash-backup-" + nonce)
+            backup_index = self.root / (".index-backup-" + nonce + ".json")
+            shutil.rmtree(stage, ignore_errors=True)
+            stage_files.mkdir(parents=True, exist_ok=True)
+            stage_trash.mkdir(parents=True, exist_ok=True)
+            try:
+                for rel in folders:
+                    _contained(stage_files, stage_files / rel).mkdir(parents=True, exist_ok=True)
+                for trash, rel, data in decoded:
+                    target_root = stage_trash if trash else stage_files
+                    target = _contained(target_root, target_root / rel)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(data)
+                _atomic_json(stage_index, index)
+
+                # Move the live trees out of the way, then promote staging.
+                if self.files_root.exists(): os.replace(self.files_root, backup_files)
+                if self.trash_root.exists(): os.replace(self.trash_root, backup_trash)
+                if self.index_path.exists(): os.replace(self.index_path, backup_index)
+                try:
+                    os.replace(stage_files, self.files_root)
+                    os.replace(stage_trash, self.trash_root)
+                    os.replace(stage_index, self.index_path)
+                except Exception:
+                    # Roll back anything already promoted.
+                    shutil.rmtree(self.files_root, ignore_errors=True)
+                    shutil.rmtree(self.trash_root, ignore_errors=True)
+                    try: self.index_path.unlink(missing_ok=True)
+                    except Exception: pass
+                    if backup_files.exists(): os.replace(backup_files, self.files_root)
+                    if backup_trash.exists(): os.replace(backup_trash, self.trash_root)
+                    if backup_index.exists(): os.replace(backup_index, self.index_path)
+                    raise
+                shutil.rmtree(backup_files, ignore_errors=True)
+                shutil.rmtree(backup_trash, ignore_errors=True)
+                try: backup_index.unlink(missing_ok=True)
+                except Exception: pass
+            finally:
+                shutil.rmtree(stage, ignore_errors=True)
 
     def tool(self, args: dict[str, Any], allow_write: bool, vision_available: bool = False) -> dict[str, Any]:
-        if str(args.get("operation") or "").lower() in {"store_attachment", "mkdir", "move", "rename", "trash", "restore", "delete", "write_text", "replace_text"}:
+        if str(args.get("operation") or "").lower() in {"store_attachment", "mkdir", "move", "rename", "trash", "restore", "delete", "write_text", "append_text", "replace_text", "copy", "archive_extract"}:
             with self.lock:
                 return self._tool(args, allow_write, vision_available)
         return self._tool(args, allow_write, vision_available)
@@ -849,8 +944,73 @@ class FileWorkspace:
                 data = base64.b64encode(p.read_bytes()).decode("ascii")
                 return {"file": row, "content_type": "image", "vision_attachment": {"name": name, "data_url": f"data:{mime or 'image/jpeg'};base64,{data}"}}
             raise ValueError("This file type is stored safely but direct content reading is not implemented; use metadata or download it")
-        if op in {"store_attachment", "mkdir", "move", "rename", "trash", "restore", "delete", "write_text", "replace_text"} and not allow_write:
+        if op in {"store_attachment", "mkdir", "move", "rename", "trash", "restore", "delete", "write_text", "append_text", "replace_text", "copy", "archive_extract"} and not allow_write:
             raise PermissionError("Local File Manager changes are disabled in Agent settings")
+        if op == "archive_extract":
+            row,archive_path=self._resolve_id(str(args.get("id") or ""))
+            if not archive_name(str(row.get("name") or archive_path.name)):
+                raise ValueError("archive_extract requires a supported ZIP or TAR archive")
+            requested=args.get("members")
+            if requested is not None and (not isinstance(requested,list) or len(requested)>16):
+                raise ValueError("Select at most 16 archive members")
+            selected=set(str(x) for x in (requested or [])) if requested is not None else None
+            if selected and any(not safe_name(x) for x in selected):
+                raise ValueError("Unsafe archive member path")
+            if selected is not None:
+                inspect_archive(archive_path,members=list(selected),text_extensions=set(),max_chars=1000)
+            destination_folder=_safe_rel(str(args.get("folder") or Path(archive_path.stem).stem))
+            output_root=_contained(self.files_root,self.files_root/destination_folder)
+            output_root.mkdir(parents=True,exist_ok=True)
+            extracted=[];skipped=[];expanded=0;seen=set()
+            def write_member(name, data, is_dir=False):
+                normalized=name.replace("\\","/")
+                if not safe_name(normalized):
+                    skipped.append({"name":name,"reason":"unsafe path"});return
+                rel=Path(*[part for part in normalized.split("/") if part and part!="."])
+                target=_contained(self.files_root,output_root/rel)
+                if is_dir:
+                    target.mkdir(parents=True,exist_ok=True);return
+                target.parent.mkdir(parents=True,exist_ok=True)
+                if target.exists():
+                    stem,suffix=target.stem,target.suffix;n=2
+                    while target.exists():target=target.with_name(f"{stem} ({n}){suffix}");n+=1
+                target.write_bytes(data)
+                extracted.append(self._register(target,source="archive",description=f"Extracted from {archive_path.name}"))
+            if zipfile.is_zipfile(archive_path):
+                with zipfile.ZipFile(archive_path) as zf:
+                    infos=zf.infolist()
+                    if len(infos)>MAX_ENTRIES:raise ValueError("Archive entry count limit exceeded")
+                    for info in infos:
+                        entry=zip_entry(info);name=info.filename
+                        if selected is not None and name not in selected:continue
+                        if not entry["safe"]:
+                            skipped.append({"name":name,"reason":entry["blocked_reason"]});continue
+                        if info.is_dir():write_member(name,b"",True);seen.add(name);continue
+                        expanded+=int(info.file_size)
+                        if expanded>MAX_EXPANDED:raise ValueError("Archive expanded size limit exceeded")
+                        data=zip_read(zf,info,MAX_MEMBER)
+                        write_member(name,data)
+                        seen.add(name)
+            else:
+                with tarfile.open(archive_path,"r:*") as tf:
+                    for index,info in enumerate(tf):
+                        if index>=MAX_ENTRIES:raise ValueError("Archive entry count limit exceeded")
+                        name=str(info.name)
+                        if selected is not None and name not in selected:continue
+                        valid=safe_name(name) and (info.isfile() or info.isdir()) and int(info.size or 0)<=MAX_MEMBER
+                        if not valid:
+                            skipped.append({"name":name,"reason":"unsafe path, link, or member size"});continue
+                        if info.isdir():write_member(name,b"",True);seen.add(name);continue
+                        expanded+=int(info.size or 0)
+                        if expanded>MAX_EXPANDED:raise ValueError("Archive expanded size limit exceeded")
+                        stream=tf.extractfile(info)
+                        if stream is None:skipped.append({"name":name,"reason":"member could not be read"});continue
+                        with stream:data=stream.read(MAX_MEMBER+1)
+                        if len(data)>MAX_MEMBER:raise ValueError("Archive member size limit exceeded")
+                        write_member(name,data);seen.add(name)
+            if selected is not None and selected-seen:
+                raise ValueError("Selected members were not extracted: "+", ".join(sorted(selected-seen)))
+            return {"archive":row,"folder":output_root.relative_to(self.files_root).as_posix(),"files":extracted,"skipped":skipped,"expanded_bytes":expanded}
         if op == "write_text":
             text = str(args.get("text") if args.get("text") is not None else "")
             if len(text.encode("utf-8")) > 5 * 1024 * 1024:
@@ -899,6 +1059,27 @@ class FileWorkspace:
             p.write_text(updated, encoding="utf-8")
             fresh = self._register(p, source=str(row.get("source") or "local"), description=str(row.get("description") or ""), tags=row.get("tags") or [], item_id=str(row.get("id") or ""))
             return {"file": fresh, "replacements": count if replace_all else 1}
+        if op == "append_text":
+            row,p=self._resolve_id(str(args.get("id") or ""))
+            if p.suffix.lower() not in self.TEXT_EXTS:
+                raise ValueError("append_text only edits text/code files")
+            text=str(args.get("text") if args.get("text") is not None else "")
+            if p.stat().st_size+len(text.encode("utf-8"))>5*1024*1024:
+                raise ValueError("appended file would exceed 5 MB")
+            with p.open("a",encoding="utf-8",newline="") as stream:stream.write(text)
+            return self._register(p,source=str(row.get("source") or "local"),description=str(row.get("description") or ""),tags=row.get("tags") or [],item_id=str(row.get("id") or ""))
+        if op == "copy":
+            row,source=self._resolve_id(str(args.get("id") or ""))
+            folder=_safe_rel(str(args.get("folder") or ""))
+            target_dir=_contained(self.files_root,self.files_root/folder)
+            target_dir.mkdir(parents=True,exist_ok=True)
+            name=Path(str(args.get("name") or source.name)).name[:180] or source.name
+            target=_contained(self.files_root,target_dir/name)
+            stem,suffix=target.stem,target.suffix;n=2
+            while target.exists():
+                target=target_dir/f"{stem} ({n}){suffix}";n+=1
+            shutil.copy2(source,target)
+            return self._register(target,source="copy",description=str(args.get("description") or row.get("description") or ""),tags=row.get("tags") or [])
         if op == "store_attachment":
             meta, p = self._attachment_meta(str(args.get("attachment_id") or ""))
             if meta.get("stored_file_id"):

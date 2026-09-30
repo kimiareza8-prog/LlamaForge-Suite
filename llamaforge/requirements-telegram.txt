@@ -1,3 +1,4 @@
-# Optional personal-account adapter; no MCP daemon or extra model instance.
+# Optional personal-account adapter; installed into this extracted build only.
 Telethon==1.45.0
 keyring>=25.6,<26
+python-socks[asyncio]>=2.7,<3

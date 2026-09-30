@@ -58,6 +58,11 @@
   </div>
 
   <div id="toastStack" class="toast-stack" aria-live="polite"></div>
+  <section id="programMonitor" class="program-monitor" role="region" aria-label="Agent program monitor" hidden>
+    <header class="program-monitor-head"><span class="program-monitor-light" aria-hidden="true"></span><strong>Agent · Program window</strong><span id="programMonitorStatus">Preparing…</span><button id="programMonitorPopout" type="button" title="Open a separate window">↗</button><button id="programMonitorClose" type="button" title="Hide monitor">×</button></header>
+    <div class="program-monitor-body"><div id="programMonitorSteps" class="program-monitor-steps" aria-live="polite"></div><div class="program-monitor-label">Code / action</div><pre id="programMonitorCode" class="program-monitor-code"></pre><div class="program-monitor-label">Live output</div><pre id="programMonitorOutput" class="program-monitor-output" aria-live="polite"></pre></div>
+    <footer class="program-monitor-foot"><span id="programMonitorJob">Waiting for project…</span><input id="programMonitorInput" type="text" placeholder="Input for the running program" aria-label="Program input"><button id="programMonitorSend" type="button">Send</button><button id="programMonitorStop" type="button" disabled>Stop</button></footer>
+  </section>
   <div id="modalRoot"></div>
   <script src="/stream_protocol.js"></script>
   <script src="/workspace_ui.js"></script>

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from dataclasses import asdict
 from contextvars import copy_context
 from typing import Any, Callable, Iterator
-from .skill_contracts import operation_policy
+from .skill_contracts import OPERATION_INPUTS, operation_policy
 from .request_tracing import record, logged_model, logged_stream, current_trace
 
 
@@ -20,6 +20,7 @@ class AgentDecision:
     arguments: dict[str, Any] | None = None
     answer: str = ""
     actions: list[dict[str, Any]] | None = None
+    families: list[str] | None = None
 
 
 @dataclass
@@ -217,6 +218,8 @@ class AgentEngine:
             "جستجو کن", "سرچ کن", "تو اینترنت", "در اینترنت", "روی وب", "برو سایت", "برو تو سایت", "سایت را باز کن",
             "سایت رو باز کن", "این سایت رو", "این سایت را", "لینک رو باز کن", "لینک را باز کن", "از سایت دانلود", "دانلود کن",
             "بررسی آنلاین", "آنلاین بررسی",
+            "every minute", "every hour", "every day", "repeat this", "keep checking", "monitor this", "when a message arrives",
+            "هر دقیقه", "هر ساعت", "هر روز", "هر چند", "مدام چک", "پیوسته", "لوپ", "هر وقت", "وقتی پیام", "تایمر",
         )
         if any(x in low for x in phrases):
             return True
@@ -250,6 +253,32 @@ class AgentEngine:
         web_object = any(x in low for x in ("site", "website", "page", "browser", "سایت", "صفحه", "مرورگر"))
         return interaction and web_object
 
+    @staticmethod
+    def _obvious_direct_task(task: str) -> bool:
+        """Very narrow zero-tool fast path for requests that are self-contained.
+
+        It intentionally does not try to classify general requests. Novel/personal
+        requests still enter the continuous capability controller so the model can
+        decide what it needs.
+        """
+        text = " ".join(str(task or "").strip().lower().split())
+        if not text or re.search(r"https?://|\[workspace attachment:|attachment_id=", text):
+            return False
+        if any(x in text for x in ("تلگرام", "telegram", "تقویم", "calendar", "فایل من", "my file", "my schedule", "برنامه من", "automation", "loop", "every minute", "every hour", "هر دقیقه", "هر ساعت", "لوپ", "پیوسته")):
+            # Pure explanations of the nouns themselves remain direct.
+            if not (text.startswith("explain ") or " چیست" in text or "یعنی چه" in text):
+                return False
+        social = re.sub(r"[!?؟،,.\s]+$", "", text)
+        if social in {"سلام","درود","سلام خوبی","سلام چطوری","hi","hello","hey","thanks","thank you","ممنون","متشکرم"}:
+            return True
+        if re.match(r"^(?:write (?:a |an )?(?:short )?(?:story|poem)|translate\b|explain\b|what is\b)", text):
+            return True
+        if any(text.startswith(x) for x in ("ترجمه کن", "ترجمه بکن", "یه داستان", "یک داستان", "یه شعر", "یک شعر")):
+            return True
+        if ("چیست" in text or "یعنی چه" in text) and not any(x in text for x in ("امروز", "الان", "قیمت روز", "آخرین")):
+            return True
+        return False
+
     @classmethod
     def requires_agent(cls, task: str) -> bool:
         """Compatibility fallback used only when a routing-model response is invalid.
@@ -267,7 +296,7 @@ class AgentEngine:
         return f"""You are stage 0 of a local AI agent router.
 Does the latest request need a real tool? Do not answer or execute the task.
 Use direct for greetings, writing, explanations, translation and text already in the conversation.
-Use skills for current clock/date, personal state, reading URLs/files, search, actual calendar/file changes, Telegram messages or website actions.
+Use skills for current clock/date, personal state, reading URLs/files, search, actual calendar/file changes, Telegram messages, website actions, and any future/recurring/event-triggered work. Recurring work must use the automation family instead of keeping one model response alive.
 Mentioning a tool is not an instruction to use it. Attachments are metadata first; do not read content unless needed.
 Choose only needed families by title. Tool schemas are supplied AFTER this decision, never here.
 RETURN EXACTLY ONE JSON OBJECT AND NOTHING ELSE:
@@ -381,11 +410,23 @@ CONVERSATION / LATEST USER TASK:
         if not isinstance(obj, dict):
             return None
         action = str(obj.get("action") or obj.get("type") or "").strip().lower()
+        # Backward/weak-model compatibility: older controllers sometimes emit a
+        # route+families object instead of an action. Treat that as a request to
+        # reveal those capability branches, not as a separate routing stage.
+        if not action:
+            legacy_route = str(obj.get("route") or obj.get("mode") or "").strip().lower()
+            legacy_families = obj.get("families") if isinstance(obj.get("families"), list) else []
+            if legacy_route in {"skills", "agent", "tool", "tools"} and legacy_families:
+                action = "discover"
+            elif legacy_route in {"direct", "chat", "answer"} and (obj.get("answer") or obj.get("response") or obj.get("final")):
+                action = "final"
         if action in {"use_tool", "tool", "skill", "execute"}:
             action = "tool"
         elif action in {"parallel", "parallel_tools", "batch"}:
             action = "parallel"
-        elif action in {"answer", "done", "finish", "final"}:
+        elif action in {"discover", "expand", "open_branch", "capability", "capabilities"}:
+            action = "discover"
+        elif action in {"answer", "done", "finish", "final", "respond"}:
             action = "final"
         summary = str(obj.get("summary") or obj.get("plan") or obj.get("next_step") or "").strip()
         skill = str(obj.get("skill") or obj.get("tool") or obj.get("name") or "").strip()
@@ -405,6 +446,13 @@ CONVERSATION / LATEST USER TASK:
                     actions.append({"skill": name, "arguments": args})
             if len(actions) >= 2:
                 return AgentDecision(action="parallel", summary=summary, actions=actions)
+        if action == "discover":
+            fam = obj.get("families") if isinstance(obj.get("families"), list) else obj.get("family")
+            if isinstance(fam, str):
+                fam = [fam]
+            families = [str(x).strip() for x in (fam or []) if str(x).strip()]
+            if families:
+                return AgentDecision(action="discover", summary=summary, families=families[:4])
         if action == "final" and answer:
             return AgentDecision(action="final", summary=summary, answer=answer)
         return None
@@ -466,59 +514,75 @@ CONVERSATION / LATEST USER TASK:
         row = next((x for x in catalog if x.get("name") == skill), {})
         return operation_policy(skill, arguments, row).parallel_safe
 
-    def _planner_prompt(self, conversation: str, manifest: str, observations: list[dict[str, str]], step: int, max_steps: int, *, observation_keep: int = 3, response_language: str = "the user's language") -> str:
+    def _planner_prompt(self, conversation: str, manifest: str, observations: list[dict[str, str]], step: int, max_steps: int, *, observation_keep: int = 3, response_language: str = "the user's language", capability_map: str = "", task_ledger: list[dict[str, Any]] | None = None) -> str:
         recent = observations[-max(1, int(observation_keep or 3)):]
         obs = "\n\n".join(
             f"OBSERVATION {i+1} from {o['skill']}:\n{o['result']}"
             for i, o in enumerate(recent)
         ) or "No tool has been used yet."
-        return f"""You are the control brain of a local autonomous agent.
-Your job is NOT to pretend you used the internet. Decide the next real action, one step at a time.
+        ledger_rows = []
+        for row in (task_ledger or [])[-10:]:
+            ledger_rows.append({
+                "step": row.get("step"), "skill": row.get("skill"), "ok": row.get("ok"),
+                "summary": str(row.get("summary") or "")[:520],
+            })
+        ledger = json.dumps(ledger_rows, ensure_ascii=False, separators=(",", ":")) if ledger_rows else "[]"
+        active = manifest.strip() or "No detailed branch is expanded yet. Use action=discover for a family, unless a tool schema is already visible below."
+        return f"""LLAMAFORGE_AGENT_CONTROL_V3
+You are one continuous Agent brain. Keep the user's goal across all steps. Do not restart the task after each tool result.
+The runtime is your deterministic helper: you decide what information/action is needed; the program executes it and injects the real result back into this SAME task loop.
 
-WORKFLOW YOU MUST FOLLOW:
-1. Understand what the user is asking.
-2. Look at AVAILABLE SKILLS and choose the single best skill if external data/action is needed. If 2-3 READ-ONLY skills are independent and do not depend on each other's results, you may request them as one parallel batch.
-3. After skill results arrive, inspect the OBSERVATIONs and decide the next skill or finish.
-4. Never invent a tool result. Never say a site was opened/read/changed unless an observation proves it.
-5. For a supplied URL that only needs reading/checking, choose web_read FIRST. Browser automation is escalation only after web_read proves JavaScript/browser interaction is required or the user explicitly asks you to click/type/log in/interact.
-6. For APIs or explicit GET/POST/endpoints, choose http_request instead of browser automation.
-7. NEVER repeat the exact same failed skill call with the same arguments. Read the failure observation and choose a different skill or different arguments.
-8. If an observation contains a next URL, API endpoint, form action, message id, or reply instructions needed to finish the task, use them in the next skill call.
-9. Do not expose secrets/tokens in the final answer.
-10. Prefer the lowest-cost skill that can complete the step: check/read before browser automation.
-11. After a state-changing action (POST/PUT/PATCH/DELETE/click/type/select/calendar or file mutation), verify the resulting state with a safe read when practical before declaring success.
-12. Calendar and File Manager are GENERAL DOMAIN CAPABILITIES, not one-skill-per-question systems. Solve novel requests by chaining their primitive operations. Example: for a free-time question, call calendar now/list and reason over busy intervals yourself; there is intentionally no find_free_time skill.
-13. Local calendar/File Manager writes are separate from dangerous remote site writes. If calendar/files are listed as available, USE them instead of claiming you lack read/write access.
-14. For an attached workspace file, use read_content with its attachment_id when the user needs its contents; use store_attachment when they only want it saved. Do not list the normal workspace and pretend the attachment is missing.
-15. For workspace files, default to metadata/list/search when content is unnecessary. Storing/moving/renaming a file must not read it unnecessarily.
-16. For archive contents, probe the member listing first, then read_content with only relevant members. If a failure observation includes suggested_fallbacks, choose one of them unless you have a concrete reason not to.
-17. Parallel batches are ONLY for independent read-only work. Never parallelize writes, browser mutations, POST/PUT/PATCH/DELETE, calendar mutations, file mutations, or a step that needs another step's output.
-18. Keep control/planning concise and in English. The user-facing final answer must be in {response_language}.
+CORE RULES:
+1. Think about the whole user goal, then choose only the NEXT useful action.
+2. You may need many read/think/action cycles. Continue until enough real data exists; do not stop just because one tool ran.
+3. CAPABILITY MAP is always available so you do not forget what you can access. Detailed schemas are lazy-loaded.
+4. If you need a family whose detailed schema is not currently visible, return action=discover with that family. The runtime will reveal it and you continue.
+5. If a detailed tool is visible, call it directly. Independent READ-ONLY calls may be parallel; dependent calls must be sequential.
+6. Tool observations are authoritative. Never invent a result, ID, message, file, calendar event, web page, or successful mutation.
+7. Never repeat the exact same failed call. Change arguments/capability or explain the blocker.
+8. After writes, verify state with a safe read when practical before claiming success.
+9. Prefer low-cost deterministic reads before browser automation. Exact API endpoints use http_request.
+10. For Telegram/person resolution, let the model choose among bounded candidates; if ambiguity remains, request more context or ask the user instead of guessing.
+11. TASK LEDGER preserves older steps even when full observations are compacted. Use it to remember what was already done.
+12. Keep internal control concise. The final user-facing answer must be in {response_language}.
+13. Use the exact skill name shown below. For generic tools such as automation, telegram, calendar, and workspace_files, put the requested action in arguments.operation; never return an operation name as the skill.
+14. If the user asks for future, recurring, continuous, timer/cron or event-triggered work, create/manage an automation. Never simulate a background loop by continuing one generation. Prefer event triggers (for example telegram.message.received) over polling when a live event source exists.
+15. Generic tool calls require arguments.operation. If it is missing, add it when the summary and arguments make the operation unambiguous; otherwise re-plan with the complete schema.
 
 RETURN EXACTLY ONE JSON OBJECT AND NOTHING ELSE.
-To run one skill:
-{{"action":"tool","summary":"short next-step description, no hidden chain-of-thought","skill":"SKILL_NAME","arguments":{{...}}}}
-To run 2-3 independent READ-ONLY skills in parallel:
-{{"action":"parallel","summary":"short batch description","actions":[{{"skill":"SKILL_A","arguments":{{...}}}},{{"skill":"SKILL_B","arguments":{{...}}}}]}}
-To finish:
-{{"action":"final","summary":"short completion note","answer":"final answer to the user"}}
+Open a capability branch:
+{{"action":"discover","summary":"why this capability is needed","families":["telegram"]}}
+Run one tool:
+{{"action":"tool","summary":"short next step","skill":"SKILL_NAME","arguments":{{...}}}}
+Run 2-3 independent read-only tools:
+{{"action":"parallel","summary":"short batch","actions":[{{"skill":"A","arguments":{{...}}}},{{"skill":"B","arguments":{{...}}}}]}}
+Finish only when the user's request is actually answered/completed:
+{{"action":"final","summary":"done","answer":"final answer to the user"}}
 
-AVAILABLE SKILLS:
-{manifest}
+CAPABILITY MAP (always visible):
+{capability_map or 'No capability is currently available.'}
+
+ACTIVE DETAILED SKILLS (lazy-loaded schemas):
+{active}
+
+TASK LEDGER (compact persistent state):
+{ledger}
 
 CONVERSATION / USER TASK:
 {conversation}
 
-OBSERVATIONS SO FAR:
+RECENT REAL OBSERVATIONS:
 {obs}
 
-STEP {step} OF {max_steps}. Choose exactly one next action."""
+STEP {step} OF {max_steps} · CONTROL CYCLE {step} OF {max_steps}. Return exactly one next action."""
 
     @staticmethod
     def _repair_prompt(raw: str, manifest: str) -> str:
         return f"""Your previous agent-control output was not valid JSON for the required schema.
 Return ONE JSON object only. Do not add markdown or explanations.
 Valid forms:
+{{"action":"discover","summary":"why","families":["telegram"]}}
+OR
 {{"action":"tool","summary":"short action summary","skill":"one available skill","arguments":{{}}}}
 OR
 {{"action":"parallel","summary":"independent read batch","actions":[{{"skill":"read skill","arguments":{{}}}},{{"skill":"another read skill","arguments":{{}}}}]}}
@@ -620,12 +684,102 @@ Return only the final user-facing answer."""
         return decision
 
     @staticmethod
+    def _normalize_tool_selection(
+        skill: str,
+        arguments: dict[str, Any] | None,
+        summary: str,
+        available: set[str],
+        catalog: list[dict[str, Any]],
+        *,
+        infer_operation: bool = True,
+    ) -> tuple[str, dict[str, Any], dict[str, str] | None]:
+        """Repair unambiguous generic-tool aliases and missing operation fields.
+
+        Small planners sometimes return an operation name (for example
+        ``messages``) as the skill, or omit the required operation while the
+        arguments and action summary make one operation explicit. Keep ambiguous
+        calls untouched so normal schema validation can ask the model to replan.
+        """
+        name = str(skill or "").strip()
+        args = dict(arguments or {})
+        repair: dict[str, str] | None = None
+
+        if name not in available:
+            matches: list[str] = []
+            for row in catalog:
+                candidate = str(row.get("name") or "")
+                if candidate not in available:
+                    continue
+                schema = (row.get("contract") or {}).get("input_schema") or {}
+                properties = schema.get("properties") if isinstance(schema, dict) else {}
+                operation = properties.get("operation") if isinstance(properties, dict) else {}
+                enum = operation.get("enum") if isinstance(operation, dict) else []
+                if name and name in (enum or []):
+                    matches.append(candidate)
+            if len(matches) == 1 and (not args.get("operation") or str(args.get("operation")) == name):
+                old_name = name
+                name = matches[0]
+                args.setdefault("operation", old_name)
+                repair = {"from": old_name, "to": name, "operation": old_name}
+
+        if infer_operation and name in OPERATION_INPUTS and not str(args.get("operation") or "").strip():
+            low = str(summary or "").casefold()
+            operation = ""
+            if name == "code_job":
+                # A code write is structurally unambiguous once the existing job,
+                # target path and content are all present. Repair it locally instead
+                # of spending another model call on a schema-only correction.
+                if all(key in args and args[key] is not None for key in ("job_id", "path", "content")):
+                    operation = "write"
+                elif all(key in args and args[key] is not None for key in ("job_id", "path", "old_text", "new_text")):
+                    operation = "replace"
+            elif name == "workspace_files":
+                move_intent = bool(re.search(r"\b(move|moving|relocate|transfer)\b|انتقال|جابجا|جابه.?جا|منتقل|ببر", low))
+                rename_intent = bool(re.search(r"\b(rename|renaming)\b|تغییر\s*نام|اسمش\s*را\s*عوض", low))
+                if args.get("id") and args.get("folder") and move_intent:
+                    operation = "move"
+                elif args.get("id") and args.get("name") and rename_intent:
+                    operation = "rename"
+                elif all(args.get(key) is not None for key in ("id", "old_text", "new_text")):
+                    operation = "replace_text"
+            elif name == "automation":
+                if args.get("task") and args.get("trigger_type"):
+                    operation = "create"
+                elif args.get("id") and args.get("state") is not None:
+                    operation = "set_state"
+                elif args.get("id") and re.search(r"\b(pause|stop)\b|توقف|مکث", low):
+                    operation = "pause"
+                elif args.get("id") and re.search(r"\b(resume|continue)\b|ادامه", low):
+                    operation = "resume"
+            elif name == "telegram":
+                if args.get("chat_ref") and args.get("query"):
+                    operation = "search"
+                elif args.get("candidate_ref") and re.search(r"\b(select|choose|confirm)\b|انتخاب|گزین", low):
+                    operation = "select_person"
+                elif args.get("query") and not args.get("chat_ref") and re.search(r"\b(resolve|find|identify)\b.*\b(person|contact|recipient)\b|مخاطب|شخص|فرد", low):
+                    operation = "resolve_person"
+                elif args.get("chat_ref") and args.get("text") and args.get("message_id"):
+                    operation = "reply"
+                elif args.get("chat_ref") and args.get("text"):
+                    operation = "send"
+
+            if operation:
+                args["operation"] = operation
+                repair = {"from": name, "to": name, "operation": operation}
+        return name, args, repair
+
+    @staticmethod
     def _heuristic_first_action(task: str, available: set[str]) -> AgentDecision | None:
         """Last-resort router only when a small model twice fails to emit JSON."""
         urls = re.findall(r"https?://[^\s<>'\"]+", task or "")
         if urls and "web_read" in available:
             return AgentDecision("tool", "Read the URL supplied by the user.", "web_read", {"url": urls[0].rstrip(".,);]}")})
         low = str(task or "").lower()
+        if "automation" in available:
+            m = re.search(r"(?:every|هر)\s*(\d+)\s*(minute|minutes|دقیقه)", low)
+            if m:
+                seconds=max(30,int(m.group(1))*60)
+                return AgentDecision("tool", "Create a persistent interval automation instead of an in-generation loop.", "automation", {"operation":"create","name":"Recurring task","task":str(task or "")[:4000],"trigger_type":"interval","interval_seconds":seconds,"schedule_mode":"fixed_delay","overlap_policy":"coalesce"})
         if "calendar" in available and any(x in low for x in ("ساعت چنده", "الان ساعت", "امروز چندمه", "فردا", "پس فردا", "وقت خالی", "تقویم", "جلسه", "قرار", "یادآوری", "meeting", "calendar", "current time", "what time is it", "what's the time", "today's date", "free time", "tomorrow")):
             # now is the safest first primitive: it grounds timezone/date and lets the
             # next planning step resolve relative phrases such as tomorrow correctly.
@@ -693,6 +847,22 @@ Return only the final user-facing answer."""
             # returns a failure status. Treat that as a recoverable observation
             # for content/API skills; web_check intentionally reports status as data.
             if ok and skill != "web_check":
+                # code_job uses a string process lifecycle status rather than an
+                # HTTP status. A tool invocation can itself succeed while the
+                # spawned program exits with an error. Treat terminal process
+                # failures as real Agent failures so the model debugs instead
+                # of incorrectly claiming that the program ran successfully.
+                if skill == "code_job":
+                    process_status = str(nested.get("status") or "").lower()
+                    if process_status in {"failed", "timed_out", "interrupted"}:
+                        exit_code = nested.get("exit_code")
+                        tail = str(nested.get("output") or "").strip()
+                        summary = f"Program {process_status.replace('_', ' ')}"
+                        if exit_code is not None:
+                            summary += f" (exit {exit_code})"
+                        if tail:
+                            summary += ": " + tail[-1200:]
+                        return False, summary
                 try:
                     status = int(nested.get("status")) if nested.get("status") is not None else None
                 except Exception:
@@ -754,10 +924,19 @@ Return only the final user-facing answer."""
         stream_final: Callable[[list[dict]], Iterator[dict[str, Any]]] | None = None,
         cancel: Any = None,
     ) -> Iterator[dict[str, Any]]:
-        from .skill_system import SkillRegistry
+        """Run one continuous Agent task.
+
+        v3 intentionally removes the old route-model -> capability-model -> planner
+        chain. One controller sees the permanent capability map, the active lazy
+        schemas, a compact task ledger and fresh observations. It can answer,
+        request another capability branch, or execute a tool. After a real tool
+        result the same task loop resumes, so dependent workflows can take as many
+        read/think/action cycles as the configured step budget permits.
+        """
+        from .skill_system import SkillRegistry, FAMILY_LABELS
         policy = self._context_policy(context_limit)
         conversation, latest_user = self._conversation_text(messages, max_chars=policy["conversation_chars"])
-        max_steps = max(1, min(16, int(max_steps or 8)))
+        max_steps = max(1, min(24, int(max_steps or 8)))
         target_language = self._response_language(latest_user)
 
         def check_cancel():
@@ -765,184 +944,227 @@ Return only the final user-facing answer."""
                 raise RuntimeError("Agent cancelled")
 
         original_model = call_model
-        def guarded_model(messages, tools):
+        def guarded_model(model_messages, tools):
             check_cancel()
-            response = logged_model(lambda: original_model(messages, tools), messages, tools=tools)
+            response = logged_model(lambda: original_model(model_messages, tools), model_messages, tools=tools)
             check_cancel()
             return response
         call_model = guarded_model
+
         if stream_final is not None:
             original_stream = stream_final
-            def guarded_stream(messages):
+            def guarded_stream(model_messages):
                 check_cancel()
-                iterator = logged_stream(original_stream(messages), messages)
+                iterator = logged_stream(original_stream(model_messages), model_messages)
                 try:
                     for event in iterator:
                         check_cancel()
                         yield event
                 finally:
-                    if hasattr(iterator, "close"): iterator.close()
+                    if hasattr(iterator, "close"):
+                        iterator.close()
             stream_final = guarded_stream
 
-        registry = SkillRegistry(self.runtime, permissions)
-        enabled_families = ["telegram"] if getattr(permissions, "skill_profile", "all") == "telegram_only" else None
-        capability_hints = [f for f in registry.hinted_families(latest_user) if enabled_families is None or f in enabled_families]
-        record('agent.context', messages=messages, conversation=conversation, latest_user=latest_user,
-               policy=policy, permissions=vars(permissions), capability_hints=capability_hints)
-
-        # Stage 0: the model decides Direct vs Skills, with domain-level guard rails.
-        # Guard rails are intentionally broad (calendar/files/web/api/browser), not
-        # one hard-coded skill per phrase. They prevent small models from claiming
-        # "no access" for capabilities the runtime actually has.
-        yield {"type": "agent", "event": "phase", "phase": "route", "label": "Deciding whether this request needs Skills"}
-        route_started = time.monotonic()
-        route_decision, route_raw = self._route_decision(call_model, conversation, latest_user, enabled_families)
-        record('router.decision', decision=asdict(route_decision), raw=route_raw, hints=capability_hints)
-        route_seconds = max(0.0, time.monotonic() - route_started)
-        external_required = route_decision.route == "skills" or bool(capability_hints)
-        if capability_hints and route_decision.route != "skills":
-            record('router.guard', before=asdict(route_decision), reason='clear capability hint', families=capability_hints)
-            route_decision = AgentRouteDecision(
-                route="skills",
-                summary="Runtime capability guard: " + ", ".join(capability_hints),
-                confidence=max(90, route_decision.confidence),
-                families=capability_hints, goal=latest_user[:500],
-            )
-        yield {
-            "type": "agent", "event": "route_decision", "route": route_decision.route,
-            "summary": route_decision.summary, "confidence": route_decision.confidence,
-            "model_seconds": round(route_seconds, 2),
-            "label": "Local model selected Skill route" if external_required else "Local model selected direct-chat route",
-        }
-
-        if not external_required:
-            yield {"type": "agent", "event": "route", "route": "direct", "label": "Direct model response — no external skill needed", "response_language": target_language}
-            started = time.monotonic()
+        if self._obvious_direct_task(latest_user):
+            yield {"type":"agent","event":"route_decision","route":"direct","summary":"Self-contained request","confidence":100,"model_seconds":0.0,"label":"Direct fast path — no Skill catalog needed"}
+            yield {"type":"agent","event":"route","route":"direct","label":"Direct model response — no external skill needed","response_language":target_language}
             if stream_final is not None:
-                emitted = False
+                emitted=False
                 for streamed in stream_final(messages):
-                    if not isinstance(streamed, dict):
-                        continue
-                    if streamed.get("type") == "text" and streamed.get("delta"):
-                        emitted = True
+                    if isinstance(streamed,dict) and streamed.get("type")=="text" and streamed.get("delta"):
+                        emitted=True
                     yield streamed
-                elapsed = max(0.0, time.monotonic() - started)
-                yield {
-                    "type": "agent", "event": "direct_complete",
-                    "model_seconds": round(elapsed, 2), "language_corrected": False,
-                    "streamed": True, "label": "Answered directly with live token streaming",
-                }
                 if emitted:
+                    yield {"type":"agent","event":"direct_complete","model_seconds":0.0,"language_corrected":False,
+                           "streamed":True,"label":"Answered directly with live token streaming"}
                     return
-            msg = call_model(messages, [])
-            elapsed = max(0.0, time.monotonic() - started)
-            answer = str(msg.get("content") or "").strip() if isinstance(msg, dict) else ""
-            if not answer:
-                answer = str(msg.get("reasoning_content") or "").strip() if isinstance(msg, dict) else ""
-            if not answer:
-                answer = "The local model returned an empty response."
-            draft_answer = answer
-            answer = self._finalize_language(
-                call_model, latest_user=latest_user, observations=[], draft=answer,
-                target_language=target_language, observation_keep=1,
-            )
-            yield {
-                "type": "agent", "event": "direct_complete", "model_seconds": round(elapsed, 2),
-                "language_corrected": answer != draft_answer, "streamed": False,
-                "label": "Answered directly without tools",
-            }
+            msg=call_model(messages,[])
+            answer=str(msg.get("content") or "").strip() if isinstance(msg,dict) else ""
+            if not answer: answer=str(msg.get("reasoning_content") or "").strip() if isinstance(msg,dict) else ""
+            answer = answer or "The model returned an empty response."
+            draft_answer=answer
+            answer = self._finalize_language(call_model, latest_user=latest_user, observations=[], draft=answer,
+                                             target_language=target_language, observation_keep=1)
+            yield {"type":"agent","event":"direct_complete","model_seconds":0.0,"language_corrected":answer!=draft_answer,
+                   "streamed":False,"label":"Answered directly without Skills"}
             yield from self._stream_text(answer)
             return
 
+        registry = SkillRegistry(self.runtime, permissions)
+        enabled_families = ["telegram"] if getattr(permissions, "skill_profile", "all") == "telegram_only" else None
         tool_defs = self.runtime.tool_definitions(permissions)
+        catalog_rows = registry.catalog(tool_defs)
         if current_trace() is not None:
-            record('skills.catalog', catalog=registry.catalog(tool_defs), definitions=tool_defs)
-        observations: list[dict[str, str]] = []
-        yield {"type": "agent", "event": "route", "route": "agent", "label": "Local model requested external Skills", "response_language": target_language}
-        yield {
-            "type": "agent", "event": "context_policy", "context_limit": int(context_limit or 8192),
-            "conversation_chars": policy["conversation_chars"], "observation_chars": policy["observation_chars"],
-            "observation_keep": policy["observation_keep"], "skill_limit": policy["skill_limit"],
-            "label": "Adaptive context budget enabled",
-        }
+            record('skills.catalog', catalog=catalog_rows, definitions=tool_defs)
+
+        capability_hints = [f for f in registry.hinted_families(latest_user) if enabled_families is None or f in enabled_families]
+        capability_map = registry.capability_map(tool_defs, enabled_families)
+        required_live = bool(capability_hints) or self._needs_external_action(latest_user)
+        active_families: list[str] = list(dict.fromkeys(capability_hints))
+        categories = registry.categories_for_families(active_families)
+        shortlist = registry.shortlist(latest_user, categories, limit=policy["skill_limit"]) if categories else []
+        manifest, available = registry.manifest(shortlist, tool_defs) if shortlist else ("", set())
+
+        observations: list[dict[str, Any]] = []
+        task_ledger: list[dict[str, Any]] = []
+        attempts: dict[str, dict[str, Any]] = {}
         explicit_browser = self._explicit_browser_interaction(latest_user)
         check_only = self._is_check_only(latest_user)
-        attempts: dict[str, dict[str, Any]] = {}
+        first_decision = True
 
-        yield {"type": "agent", "event": "phase", "phase": "understand", "label": "Understanding the request"}
-        cap_started = time.monotonic()
-        categories = registry.categories_for_families(route_decision.families)
-        if categories:
-            goal, needs_write, cap_raw = route_decision.goal, route_decision.needs_write, route_raw
-            categories = list(dict.fromkeys(categories + registry.categories_for_families(capability_hints)))
-        else:
-            goal, categories, needs_write, cap_raw = self._discover_capabilities(call_model, conversation, latest_user, registry)
-        cap_seconds = max(0.0, time.monotonic() - cap_started)
-        families = registry.families_for_categories(categories)
-        shortlist = registry.shortlist(latest_user, categories, limit=policy["skill_limit"])
-        manifest, available = registry.manifest(shortlist, tool_defs)
-        record('skills.shortlist', goal=goal, families=families, categories=categories, rows=shortlist,
-               available=sorted(available), manifest=manifest, model_output=cap_raw)
-        yield {
-            "type": "agent", "event": "capabilities", "goal": goal or latest_user[:220],
-            "families": families, "categories": categories, "needs_write": bool(needs_write),
-            "skills": [x.get("name") for x in shortlist if x.get("name") in available],
-            "model_seconds": round(cap_seconds, 2),
-            "label": "Selected relevant skill set",
-        }
+        record('agent.context', messages=messages, conversation=conversation, latest_user=latest_user,
+               policy=policy, permissions=vars(permissions), capability_hints=capability_hints,
+               capability_map=capability_map, active_families=active_families)
+        record('skills.shortlist', reason='initial_lazy_branch', families=active_families,
+               categories=categories, rows=shortlist, available=sorted(available), manifest=manifest)
+
+        yield {"type":"agent", "event":"phase", "phase":"continuous", "label":"Continuous Agent thinking"}
+        yield {"type":"agent", "event":"context_policy", "context_limit":int(context_limit or 8192),
+               "conversation_chars":policy["conversation_chars"], "observation_chars":policy["observation_chars"],
+               "observation_keep":policy["observation_keep"], "skill_limit":policy["skill_limit"],
+               "max_control_cycles":max_steps, "label":"Continuous task context enabled"}
+        yield {"type":"agent", "event":"capability_map", "families":active_families,
+               "available_families":[f for f in FAMILY_LABELS if enabled_families is None or f in enabled_families],
+               "skills":sorted(available), "label":"Capabilities stay visible; schemas load on demand"}
+
+        def expand_families(families: list[str], *, reason: str) -> bool:
+            nonlocal categories, shortlist, manifest, available
+            changed = False
+            for family in families:
+                family = str(family or "").strip()
+                if family not in FAMILY_LABELS:
+                    continue
+                if enabled_families is not None and family not in enabled_families:
+                    continue
+                if family not in active_families:
+                    active_families.append(family)
+                    changed = True
+            categories = registry.categories_for_families(active_families)
+            if categories:
+                # Keep a slightly wider schema window once multiple families are
+                # active, while still avoiding a full catalog dump.
+                limit = min(12, max(policy["skill_limit"], policy["skill_limit"] + len(active_families) - 1))
+                shortlist = registry.shortlist(latest_user, categories, limit=limit)
+                manifest, available = registry.manifest(shortlist, tool_defs)
+            record('skills.shortlist', reason=reason, families=active_families, categories=categories,
+                   rows=shortlist, available=sorted(available), manifest=manifest)
+            return changed
 
         for step in range(1, max_steps + 1):
             check_cancel()
-            yield {"type": "agent", "event": "thinking", "step": step, "max_steps": max_steps, "label": "Planning next action"}
+            yield {"type":"agent", "event":"thinking", "step":step, "max_steps":max_steps,
+                   "label":"Thinking with current task state"}
             prompt = self._planner_prompt(
                 conversation, manifest, observations, step, max_steps,
                 observation_keep=policy["observation_keep"], response_language=target_language,
+                capability_map=capability_map, task_ledger=task_ledger,
             )
-            started = time.monotonic()
             recent_vision: list[str] = []
             for o in observations[-max(1, policy["observation_keep"]):]:
                 recent_vision.extend([str(x) for x in (o.get("vision") or []) if str(x).startswith("data:image/")])
-            decision, raw = self._model_decision(call_model, prompt, manifest, vision=recent_vision[-2:])
-            record('planner.decision', step=step, raw=raw, parsed=asdict(decision) if decision else None)
+            started = time.monotonic()
+            decision, raw = self._model_decision(call_model, prompt, manifest or capability_map, vision=recent_vision[-2:])
             model_seconds = max(0.0, time.monotonic() - started)
+            record('planner.decision', step=step, raw=raw, parsed=asdict(decision) if decision else None,
+                   active_families=active_families, ledger=task_ledger[-10:])
 
             if decision is None:
                 decision = self._heuristic_first_action(latest_user, available) if not observations else None
                 if decision is None:
-                    # We still call the model for a final answer rather than silently stopping.
                     final_prompt = (
-                        "Answer the user's request using only the real observations below. "
-                        "If the requested external action could not be completed, state the concrete failure.\n\n"
+                        f"Answer the user's request in {target_language} using only the real observations below. "
+                        "If a requested operation could not be completed, state the concrete blocker.\n\n"
                         + conversation + "\n\nOBSERVATIONS:\n"
-                        + "\n".join(o["result"] for o in observations[-4:])
+                        + "\n".join(o["result"] for o in observations[-max(1, policy["observation_keep"]):])
                     )
+                    yield {"type":"agent", "event":"decision_error", "raw_preview":raw[:240],
+                           "label":"Controller output invalid; finalizing from real observations"}
                     if stream_final is not None:
-                        yield {"type":"agent", "event":"decision_error", "label":"Planner output invalid; answering from observations"}
-                        yield from stream_final(self._answer_messages(final_prompt, observations))
-                        return
-                    final_msg = call_model([{"role": "user", "content": final_prompt}], [])
-                    answer = str(final_msg.get("content") or "").strip() if isinstance(final_msg, dict) else ""
+                        emitted=False
+                        for streamed in stream_final(self._answer_messages(final_prompt, observations)):
+                            if isinstance(streamed,dict) and streamed.get("type")=="text" and streamed.get("delta"):
+                                emitted=True
+                            yield streamed
+                        if emitted:
+                            return
+                    msg = call_model(self._answer_messages(final_prompt, observations), [])
+                    answer = str(msg.get("content") or "").strip() if isinstance(msg, dict) else ""
                     if not answer:
-                        answer = "The agent could not produce a valid next action from the local model."
-                    yield {"type": "agent", "event": "decision_error", "raw_preview": raw[:240]}
+                        answer = "The agent could not produce a valid next action."
                     yield from self._stream_text(answer)
                     return
 
+            if first_decision:
+                direct = decision.action == "final" and not required_live and not observations
+                yield {"type":"agent", "event":"route_decision", "route":"direct" if direct else "skills",
+                       "summary":decision.summary, "confidence":0, "model_seconds":round(model_seconds,2),
+                       "label":"Unified Agent chose direct answer" if direct else "Unified Agent entered capability loop"}
+                yield {"type":"agent", "event":"route", "route":"direct" if direct else "agent",
+                       "label":"One-pass direct answer" if direct else "Continuous multi-step Agent", "response_language":target_language}
+                first_decision = False
+
+            if decision.action == "discover":
+                requested = [f for f in (decision.families or []) if f in FAMILY_LABELS]
+                changed = expand_families(requested, reason='model_discovery')
+                summary = "Expanded: " + ", ".join(requested) if requested else "No valid family requested"
+                task_ledger.append({"step":step, "skill":"discovery", "ok":bool(requested), "summary":summary})
+                yield {"type":"agent", "event":"replan", "families":active_families, "skills":sorted(available),
+                       "label":"Loaded requested capability branch" if changed else "Capability branch already loaded"}
+                continue
+
             if decision.action == "parallel":
                 filled_actions: list[dict[str, Any]] = []
+                repairs: list[dict[str, str]] = []
                 for row in decision.actions or []:
                     d = AgentDecision(action="tool", skill=str(row.get("skill") or ""), arguments=dict(row.get("arguments") or {}))
                     d = self._fill_common_args(d, latest_user)
-                    filled_actions.append({"skill": d.skill, "arguments": d.arguments or {}})
+                    name, args, repair = self._normalize_tool_selection(
+                        d.skill, d.arguments, decision.summary, available, catalog_rows, infer_operation=False,
+                    )
+                    if repair: repairs.append(repair)
+                    filled_actions.append({"skill":name, "arguments":args})
                 decision.actions = filled_actions
             else:
                 decision = self._fill_common_args(decision, latest_user)
+                repairs = []
+                if decision.action == "tool":
+                    decision.skill, decision.arguments, repair = self._normalize_tool_selection(
+                        decision.skill, decision.arguments, decision.summary, available, catalog_rows,
+                    )
+                    if repair: repairs.append(repair)
             record('planner.arguments', step=step, decision=asdict(decision))
+            for repair in repairs:
+                record('planner.argument_repair', step=step, repair=repair)
+                yield {"type":"agent", "event":"decision_repair", "repair":repair,
+                       "label":"Corrected an unambiguous generic-tool call"}
+
+            # For a request that clearly needs live state, do not accept a first
+            # ungrounded final answer from a small model. Make one safe primitive
+            # available/execute it, then let the same task loop continue.
+            if decision.action == "final" and required_live and not observations:
+                forced = self._heuristic_first_action(latest_user, available)
+                if forced is None and capability_hints:
+                    expand_families(capability_hints, reason='live_state_guard')
+                    forced = self._heuristic_first_action(latest_user, available)
+                if forced is not None:
+                    decision = forced
+
+            if decision.action == "final":
+                yield {"type":"agent", "event":"decision", "action":"final", "summary":decision.summary or "Task complete",
+                       "model_seconds":round(model_seconds,2), "response_language":target_language,
+                       "streaming_final":False, "label":"Answering from the same continuous Agent turn"}
+                answer = str(decision.answer or "").strip()
+                if not answer:
+                    answer = "The task is complete."
+                answer = self._finalize_language(call_model, latest_user=latest_user, observations=observations,
+                                                 draft=answer, target_language=target_language,
+                                                 observation_keep=policy["observation_keep"])
+                yield from self._stream_text(answer)
+                return
 
             if decision.action == "parallel":
-                catalog_rows = registry.catalog(tool_defs)
                 batch = [x for x in (decision.actions or []) if x.get("skill") in available][:3]
-                invalid = []
+                invalid: list[str] = []
                 for row in batch:
                     sig = self._call_signature(str(row.get("skill")), row.get("arguments"))
                     if sig in attempts and attempts[sig].get("ok") is False:
@@ -953,257 +1175,223 @@ Return only the final user-facing answer."""
                     elif not self._parallel_read_safe(str(row.get("skill") or ""), dict(row.get("arguments") or {}), catalog_rows):
                         invalid.append(f"{row.get('skill')} is not read-only and cannot run in parallel")
                 if len(batch) < 2 or invalid:
-                    observations.append({
-                        "skill": "parallel",
-                        "result": _safe_json({"ok": False, "error": "; ".join(invalid) or "Parallel batch needs at least two valid read-only skills", "instruction": "Choose one skill at a time for dependent or mutating work."}),
-                    })
-                    yield {"type": "agent", "event": "parallel_rejected", "errors": invalid, "label": "Unsafe/dependent parallel batch rejected"}
+                    compact = _safe_json({"ok":False,"error":"; ".join(invalid) or "Parallel batch needs at least two independent read-only skills",
+                                          "instruction":"Use dependent/mutating operations sequentially."})
+                    observations.append({"skill":"parallel","result":compact})
+                    task_ledger.append({"step":step,"skill":"parallel","ok":False,"summary":compact[:520]})
+                    yield {"type":"agent", "event":"parallel_rejected", "errors":invalid, "label":"Unsafe/dependent batch rejected"}
                     continue
-                yield {"type": "agent", "event": "decision", "action": "parallel", "summary": decision.summary or "Run independent reads in parallel", "actions": batch, "model_seconds": round(model_seconds, 2)}
-                yield {"type": "agent", "event": "parallel_start", "count": len(batch), "skills": [x["skill"] for x in batch]}
+                yield {"type":"agent", "event":"decision", "action":"parallel", "summary":decision.summary or "Run independent reads",
+                       "actions":batch, "model_seconds":round(model_seconds,2)}
+                yield {"type":"agent", "event":"parallel_start", "count":len(batch), "skills":[x["skill"] for x in batch]}
                 started_parallel = time.monotonic()
                 results: list[tuple[int, dict[str, Any], Any, float]] = []
-                pool = ThreadPoolExecutor(max_workers=min(3, len(batch)), thread_name_prefix="lf-agent-read")
+                pool = ThreadPoolExecutor(max_workers=min(3,len(batch)), thread_name_prefix="lf-agent-read")
                 try:
                     futures = {}
                     owner = self.runtime.workspace_scope() if hasattr(self.runtime, "workspace_scope") else None
                     def execute_scoped(name, args):
                         previous = self.runtime.workspace_scope() if owner is not None else None
                         try:
-                            if owner is not None: self.runtime.set_workspace_scope(owner)
+                            if owner is not None:
+                                self.runtime.set_workspace_scope(owner)
                             check_cancel()
                             return self.runtime.execute(name, args, permissions)
                         finally:
-                            if previous is not None: self.runtime.set_workspace_scope(previous)
-                    for idx, row in enumerate(batch):
-                        t0 = time.monotonic()
-                        fut = pool.submit(copy_context().run, execute_scoped, str(row["skill"]), dict(row.get("arguments") or {}))
-                        futures[fut] = (idx, row, t0)
-                    pending = set(futures)
+                            if previous is not None:
+                                self.runtime.set_workspace_scope(previous)
+                    for idx,row in enumerate(batch):
+                        t0=time.monotonic()
+                        fut=pool.submit(copy_context().run, execute_scoped, str(row["skill"]), dict(row.get("arguments") or {}))
+                        futures[fut]=(idx,row,t0)
+                    pending=set(futures)
                     while pending:
                         check_cancel()
-                        done, pending = wait(pending, timeout=0.05, return_when=FIRST_COMPLETED)
+                        done,pending=wait(pending,timeout=.05,return_when=FIRST_COMPLETED)
                         for fut in list(pending):
-                            idx, row, t0 = futures[fut]
-                            metadata = next((x for x in catalog_rows if x["name"] == row["skill"]), {})
-                            deadline = operation_policy(row["skill"], row.get("arguments"), metadata).timeout_seconds
-                            if time.monotonic() - t0 >= deadline:
-                                pending.remove(fut)
-                                fut.cancel()
-                                results.append((idx, row, '{"ok":false,"error":"Read operation timed out"}', time.monotonic() - t0))
+                            idx,row,t0=futures[fut]
+                            metadata=next((x for x in catalog_rows if x["name"]==row["skill"]),{})
+                            deadline=operation_policy(row["skill"],row.get("arguments"),metadata).timeout_seconds
+                            if time.monotonic()-t0>=deadline:
+                                pending.remove(fut);fut.cancel()
+                                results.append((idx,row,'{"ok":false,"error":"Read operation timed out"}',time.monotonic()-t0))
                         for fut in done:
-                            idx, row, t0 = futures[fut]
-                            try:
-                                result = fut.result()
-                            except Exception as exc:
-                                result = json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False)
-                            results.append((idx, row, result, max(0.0, time.monotonic() - t0)))
+                            idx,row,t0=futures[fut]
+                            try: result=fut.result()
+                            except Exception as exc: result=json.dumps({"ok":False,"error":str(exc)},ensure_ascii=False)
+                            results.append((idx,row,result,max(0.0,time.monotonic()-t0)))
                 finally:
-                    # Running read-only I/O has its own transport deadline. Do
-                    # not block UI cancellation waiting for the executor join.
-                    pool.shutdown(wait=False, cancel_futures=True)
-                results.sort(key=lambda x: x[0])
-                for _idx, row, result, tool_seconds in results:
-                    skill = str(row["skill"])
-                    ok, error_text = self._parse_tool_result(result, skill)
-                    attempts[self._call_signature(skill, row.get("arguments"))] = {"ok":ok, "error":error_text, "result":result}
-                    compact = _safe_json(result, max_chars=policy["observation_chars"]) if ok else _safe_json({"tool_result": result, "error": error_text}, max_chars=policy["observation_chars"])
-                    observations.append({"skill": skill, "result": compact})
-                    record('observation', step=step, skill=skill, parallel=True, raw=result, presented_to_model=compact)
-                    yield {"type": "agent", "event": "tool_result", "tool": skill, "ok": ok, "step": step, "parallel": True, "tool_seconds": round(tool_seconds, 2), "error_preview": error_text[:300] if error_text else ""}
-                yield {"type": "agent", "event": "parallel_done", "count": len(results), "wall_seconds": round(max(0.0, time.monotonic() - started_parallel), 2), "label": "Independent reads completed in parallel"}
+                    pool.shutdown(wait=False,cancel_futures=True)
+                results.sort(key=lambda x:x[0])
+                for _idx,row,result,tool_seconds in results:
+                    skill=str(row["skill"]); ok,error_text=self._parse_tool_result(result,skill)
+                    attempts[self._call_signature(skill,row.get("arguments"))]={"ok":ok,"error":error_text,"result":result}
+                    compact=_safe_json(result,max_chars=policy["observation_chars"]) if ok else _safe_json({"tool_result":result,"error":error_text},max_chars=policy["observation_chars"])
+                    observations.append({"skill":skill,"result":compact})
+                    task_ledger.append({"step":step,"skill":skill,"ok":ok,"summary":compact[:520]})
+                    record('observation',step=step,skill=skill,parallel=True,raw=result,presented_to_model=compact)
+                    yield {"type":"agent", "event":"tool_result", "tool":skill, "ok":ok, "step":step, "parallel":True,
+                           "tool_seconds":round(tool_seconds,2), "error_preview":error_text[:300] if error_text else ""}
+                yield {"type":"agent", "event":"parallel_done", "count":len(results),
+                       "wall_seconds":round(max(0.0,time.monotonic()-started_parallel),2),
+                       "label":"Independent reads completed; thinking resumes with both results"}
                 continue
 
-            # Deterministic execution policy: the model remains the planner, but
-            # the runtime prevents obviously wasteful browser use for simple URL
-            # reads. This is especially important for 4B-class local models.
-            if decision.action == "tool" and not observations and not explicit_browser:
+            if decision.action != "tool":
+                observations.append({"skill":"control", "result":_safe_json({"ok":False,"error":"Unknown control action","action":decision.action})})
+                continue
+
+            # If the model remembers a capability from the permanent map but its
+            # schema is not currently expanded, load that branch and let it re-plan
+            # against the real schema rather than guessing arguments.
+            if decision.skill not in available:
+                requested = next((x for x in catalog_rows if x["name"] == decision.skill and x.get("available")), None)
+                if requested:
+                    family = registry.families_for_categories([requested["category"]])
+                    expand_families(family, reason='lazy_tool_expansion')
+                    if decision.skill not in available:
+                        shortlist = [requested] + [row for row in shortlist if row.get("name") != decision.skill]
+                        shortlist = shortlist[:12]
+                        manifest, available = registry.manifest(shortlist, tool_defs)
+                        record('skills.shortlist', reason='force_requested_tool', families=active_families, categories=categories,
+                               rows=shortlist, available=sorted(available), manifest=manifest)
+                    # If the model already supplied arguments that pass the real
+                    # newly-loaded schema, execute immediately. This avoids a
+                    # redundant "now choose the same tool again" model round.
+                    valid_after_expand, _err_after_expand = registry.validate_call(decision.skill, decision.arguments or {})
+                    if decision.skill in available and valid_after_expand:
+                        task_ledger.append({"step":step,"skill":"discovery","ok":True,
+                                            "summary":f"Loaded schema for {decision.skill}; existing arguments validated, executing now."})
+                        yield {"type":"agent", "event":"replan", "families":active_families, "skills":sorted(available),
+                               "label":"Loaded schema and reused the model's valid tool call"}
+                    else:
+                        task_ledger.append({"step":step,"skill":"discovery","ok":True,
+                                            "summary":f"Loaded schema for {decision.skill}; re-plan with validated arguments."})
+                        observations.append({"skill":"discovery","result":f"Detailed schema for {decision.skill} is now loaded. Re-plan this same task; do not restart."})
+                        yield {"type":"agent", "event":"replan", "families":active_families, "skills":sorted(available),
+                               "label":"Loaded the tool schema without losing task state"}
+                        continue
+                if decision.skill not in available:
+                    compact=_safe_json({"ok":False,"error":f"Unknown or disabled skill {decision.skill!r}","available_families":active_families})
+                    observations.append({"skill":decision.skill or "unknown","result":compact})
+                    task_ledger.append({"step":step,"skill":decision.skill or "unknown","ok":False,"summary":compact[:520]})
+                    yield {"type":"agent", "event":"tool_result", "tool":decision.skill, "ok":False, "error":"unknown_skill"}
+                    continue
+
+            # Cheap deterministic web policy retained from v2.
+            if not observations and not explicit_browser:
                 preferred = "web_check" if check_only and "web_check" in available else "web_read" if "web_read" in available else ""
                 if decision.skill == "browser_open" and preferred:
-                    original = decision.skill
-                    decision.skill = preferred
-                    decision.summary = (decision.summary or "Inspect the supplied URL") + " [runtime policy: lowest-cost web skill first]"
-                    yield {
-                        "type": "agent", "event": "policy", "policy": "lightweight_web_before_browser",
-                        "from_skill": original, "to_skill": preferred,
-                        "label": f"Using {preferred} before browser automation",
-                    }
+                    original=decision.skill;decision.skill=preferred
+                    yield {"type":"agent","event":"policy","policy":"lightweight_web_before_browser","from_skill":original,"to_skill":preferred}
                 elif decision.skill == "web_read" and check_only and "web_check" in available:
-                    decision.skill = "web_check"
-                    decision.summary = (decision.summary or "Check the supplied URL") + " [runtime policy: reachability check]"
-                    yield {
-                        "type": "agent", "event": "policy", "policy": "web_check_for_reachability",
-                        "from_skill": "web_read", "to_skill": "web_check",
-                        "label": "Using quick URL health check",
-                    }
+                    decision.skill="web_check"
+                    yield {"type":"agent","event":"policy","policy":"web_check_for_reachability","from_skill":"web_read","to_skill":"web_check"}
 
-            # A web/API task cannot be declared complete before any real external observation.
-            if decision.action == "final" and external_required and not observations:
-                forced = self._heuristic_first_action(latest_user, available)
-                if forced is not None:
-                    decision = forced
-
-            if decision.action == "final":
-                yield {
-                    "type": "agent", "event": "decision", "action": "final",
-                    "summary": decision.summary or "Task complete", "model_seconds": round(model_seconds, 2),
-                    "response_language": target_language, "streaming_final": bool(stream_final),
-                }
-                if stream_final is not None:
-                    final_prompt = self._streaming_final_prompt(
-                        latest_user=latest_user, observations=observations, draft=decision.answer,
-                        target_language=target_language, observation_keep=policy["observation_keep"],
-                    )
-                    emitted = False
-                    for streamed in stream_final(self._answer_messages(final_prompt, observations)):
-                        if not isinstance(streamed, dict):
-                            continue
-                        if streamed.get("type") == "text" and streamed.get("delta"):
-                            emitted = True
-                        yield streamed
-                    if emitted:
-                        return
-                final_answer = self._finalize_language(
-                    call_model, latest_user=latest_user, observations=observations, draft=decision.answer,
-                    target_language=target_language, observation_keep=policy["observation_keep"],
-                )
-                yield from self._stream_text(final_answer)
-                return
-
-            if decision.skill not in available:
-                # A model may request a relevant capability not initially shown.
-                # Reveal its branch and re-plan with the real schema before execution.
-                requested = next((x for x in registry.catalog(tool_defs) if x["name"] == decision.skill and x.get("available")), None)
-                if requested:
-                    if requested["category"] not in categories: categories.append(requested["category"])
-                    shortlist = registry.shortlist(latest_user, categories, limit=policy["skill_limit"])
-                    if not any(x["name"] == decision.skill for x in shortlist):
-                        shortlist = [requested] + shortlist[:policy["skill_limit"]-1]
-                    manifest, available = registry.manifest(shortlist, tool_defs)
-                    record('skills.shortlist', reason='replan', rows=shortlist, available=sorted(available), manifest=manifest)
-                    observations.append({"skill":"discovery", "result":"Expanded capability branch. Review the newly supplied input schema and plan again."})
-                    yield {"type":"agent", "event":"replan", "skills":sorted(available), "label":"Expanded relevant capability branch"}
-                    continue
-                observations.append({
-                    "skill": decision.skill or "unknown",
-                    "result": _safe_json({"ok": False, "error": f"Unknown skill {decision.skill!r}. Choose one of: {sorted(available)}"}),
-                })
-                yield {
-                    "type": "agent", "event": "decision", "action": "tool", "skill": decision.skill,
-                    "summary": decision.summary or "Selected an unavailable skill", "model_seconds": round(model_seconds, 2),
-                }
-                yield {"type": "agent", "event": "tool_result", "tool": decision.skill, "ok": False, "error": "unknown_skill"}
-                continue
-
-            signature = self._call_signature(decision.skill, decision.arguments)
-            previous = attempts.get(signature)
-            op_policy = operation_policy(decision.skill, decision.arguments, next((x for x in registry.catalog(tool_defs) if x["name"] == decision.skill), {}))
-            if previous and previous.get("ok") and op_policy.effect in {"local_write", "external_write"}:
-                observations.append({"skill":decision.skill, "result":_safe_json(previous.get("result"), max_chars=policy["observation_chars"])})
-                yield {"type":"agent", "event":"policy", "policy":"reuse_write_receipt", "skill":decision.skill}
+            signature=self._call_signature(decision.skill,decision.arguments)
+            previous=attempts.get(signature)
+            meta=next((x for x in catalog_rows if x.get("name")==decision.skill),{})
+            op_policy=operation_policy(decision.skill,decision.arguments,meta)
+            if previous and previous.get("ok") and op_policy.effect in {"local_write","external_write"}:
+                compact=_safe_json(previous.get("result"),max_chars=policy["observation_chars"])
+                observations.append({"skill":decision.skill,"result":compact})
+                task_ledger.append({"step":step,"skill":decision.skill,"ok":True,"summary":"Reused verified write receipt: "+compact[:420]})
+                yield {"type":"agent","event":"policy","policy":"reuse_write_receipt","skill":decision.skill}
                 continue
             if previous and previous.get("ok") is False:
-                error_text = str(previous.get("error") or "previous call failed")
-                compact = _safe_json({
-                    "ok": False,
-                    "error": "Repeated failed call blocked by Agent runtime",
-                    "previous_error": error_text,
-                    "instruction": "Choose a different skill or different arguments. Do not repeat this exact call.",
-                })
-                observations.append({"skill": decision.skill, "result": compact})
-                yield {
-                    "type": "agent", "event": "policy", "policy": "block_repeated_failed_call",
-                    "skill": decision.skill, "label": "Blocked repeated failed tool call",
-                    "error_preview": error_text[:240],
-                }
+                error_text=str(previous.get("error") or "previous call failed")
+                compact=_safe_json({"ok":False,"error":"Repeated failed call blocked by Agent runtime","previous_error":error_text,
+                                    "instruction":"Choose different arguments/capability; keep working on the same goal."})
+                observations.append({"skill":decision.skill,"result":compact})
+                task_ledger.append({"step":step,"skill":decision.skill,"ok":False,"summary":compact[:520]})
+                yield {"type":"agent","event":"policy","policy":"block_repeated_failed_call","skill":decision.skill,
+                       "error_preview":error_text[:240]}
                 continue
 
-            valid, validation_error = registry.validate_call(decision.skill, decision.arguments or {})
-            record("preflight", step=step, skill=decision.skill, arguments=decision.arguments, valid=valid, error=validation_error)
+            valid,validation_error=registry.validate_call(decision.skill,decision.arguments or {})
+            record("preflight",step=step,skill=decision.skill,arguments=decision.arguments,valid=valid,error=validation_error)
             if not valid:
-                attempts[self._call_signature(decision.skill, decision.arguments)] = {"ok":False, "error":validation_error}
-                meta = next((x for x in registry.catalog(tool_defs) if x.get("name") == decision.skill), {})
-                compact = _safe_json({
-                    "ok": False, "error": validation_error, "failure": {"kind": "preflight", "retryable": False},
-                    "suggested_fallbacks": meta.get("fallbacks") or [],
-                    "instruction": "Fix arguments, permissions, requirements, or choose a fallback skill.",
-                })
-                observations.append({"skill": decision.skill, "result": compact})
-                yield {"type": "agent", "event": "preflight_failed", "tool": decision.skill, "error": validation_error, "fallbacks": meta.get("fallbacks") or []}
+                attempts[signature]={"ok":False,"error":validation_error}
+                compact=_safe_json({"ok":False,"error":validation_error,"failure":{"kind":"preflight","retryable":False},
+                                    "suggested_fallbacks":meta.get("fallbacks") or [],
+                                    "instruction":"Fix arguments or choose another capability; task state is preserved."})
+                observations.append({"skill":decision.skill,"result":compact})
+                task_ledger.append({"step":step,"skill":decision.skill,"ok":False,"summary":compact[:520]})
+                yield {"type":"agent","event":"preflight_failed","tool":decision.skill,"error":validation_error,
+                       "fallbacks":meta.get("fallbacks") or []}
                 continue
 
-            yield {
-                "type": "agent", "event": "decision", "action": "tool", "skill": decision.skill,
-                "summary": decision.summary or f"Use {decision.skill}", "arguments": decision.arguments or {},
-                "model_seconds": round(model_seconds, 2),
-            }
-            yield {"type": "agent", "event": "tool_start", "tool": decision.skill, "arguments": decision.arguments or {}, "step": step}
-            tool_started = time.monotonic()
-            result = self.runtime.execute(decision.skill, decision.arguments or {}, permissions)
-            tool_seconds = max(0.0, time.monotonic() - tool_started)
-            ok, error_text = self._parse_tool_result(result, decision.skill)
-            attempts[signature] = {"ok": ok, "error": error_text, "step": step, "result":result}
-            failure = None
-            meta = next((x for x in registry.catalog(tool_defs) if x.get("name") == decision.skill), {})
-            vision_items: list[str] = []
+            yield {"type":"agent","event":"decision","action":"tool","skill":decision.skill,
+                   "summary":decision.summary or f"Use {decision.skill}","arguments":decision.arguments or {},
+                   "model_seconds":round(model_seconds,2)}
+            display_args = dict(decision.arguments or {})
+            if decision.skill == "code_job" and isinstance(display_args.get("content"), str):
+                content = display_args["content"]
+                display_args["content"] = content[:12000]
+                if len(content)>12000: display_args["content_truncated"] = True
+            yield {"type":"agent","event":"tool_start","tool":decision.skill,"arguments":display_args,"step":step}
+            tool_started=time.monotonic()
+            result=self.runtime.execute(decision.skill,decision.arguments or {},permissions)
+            tool_seconds=max(0.0,time.monotonic()-tool_started)
+            ok,error_text=self._parse_tool_result(result,decision.skill)
+            attempts[signature]={"ok":ok,"error":error_text,"step":step,"result":result}
+            failure=None;vision_items:list[str]=[]
             if ok:
-                raw_ok: Any = result
-                try:
-                    raw_ok = json.loads(result) if isinstance(result, str) else result
-                except Exception:
-                    raw_ok = result
-                if isinstance(raw_ok, dict) and isinstance(raw_ok.get("result"), dict):
-                    nested = dict(raw_ok.get("result") or {})
-                    vision_obj = nested.pop("vision_attachment", None)
-                    if isinstance(vision_obj, dict):
-                        data_url = str(vision_obj.get("data_url") or "")
+                raw_ok:Any=result
+                try: raw_ok=json.loads(result) if isinstance(result,str) else result
+                except Exception: raw_ok=result
+                if isinstance(raw_ok,dict) and isinstance(raw_ok.get("result"),dict):
+                    nested=dict(raw_ok.get("result") or {})
+                    vision_obj=nested.pop("vision_attachment",None)
+                    if isinstance(vision_obj,dict):
+                        data_url=str(vision_obj.get("data_url") or "")
                         if data_url.startswith("data:image/"):
                             vision_items.append(data_url)
-                            nested["vision_attachment"] = {"name": str(vision_obj.get("name") or "image"), "available_to_model": True}
-                    raw_ok = dict(raw_ok)
-                    raw_ok["result"] = nested
-                compact = _safe_json(raw_ok, max_chars=policy["observation_chars"])
+                            nested["vision_attachment"]={"name":str(vision_obj.get("name") or "image"),"available_to_model":True}
+                    raw_ok=dict(raw_ok);raw_ok["result"]=nested
+                compact=_safe_json(raw_ok,max_chars=policy["observation_chars"])
             else:
-                failure = registry.classify_failure(error_text, result)
+                failure=registry.classify_failure(error_text,result)
+                try: raw_result=json.loads(result) if isinstance(result,str) else result
+                except Exception: raw_result={"raw":str(result)}
+                compact=_safe_json({"tool_result":raw_result,"failure":failure,"suggested_fallbacks":meta.get("fallbacks") or [],
+                                    "instruction":"Do not repeat the same failed call. Continue the same task using a fallback/different arguments."},
+                                   max_chars=policy["observation_chars"])
+            row:dict[str,Any]={"skill":decision.skill,"result":compact}
+            if vision_items: row["vision"]=vision_items
+            observations.append(row)
+            task_ledger.append({"step":step,"skill":decision.skill,"ok":ok,"summary":compact[:520]})
+            record('observation',step=step,skill=decision.skill,raw=result,presented_to_model=compact,ok=ok,failure=failure)
+            code_job = None
+            if decision.skill == "code_job":
                 try:
-                    raw_result = json.loads(result) if isinstance(result, str) else result
-                except Exception:
-                    raw_result = {"raw": str(result)}
-                compact = _safe_json({
-                    "tool_result": raw_result,
-                    "failure": failure,
-                    "suggested_fallbacks": meta.get("fallbacks") or [],
-                    "instruction": "Do not repeat the same failed call. Choose a fallback, change arguments, or explain the concrete blocker.",
-                }, max_chars=policy["observation_chars"])
-            observation_row: dict[str, Any] = {"skill": decision.skill, "result": compact}
-            if vision_items:
-                observation_row["vision"] = vision_items
-            observations.append(observation_row)
-            record('observation', step=step, skill=decision.skill, raw=result, presented_to_model=compact,
-                   ok=ok, failure=failure)
-            yield {
-                "type": "agent", "event": "tool_result", "tool": decision.skill, "ok": ok,
-                "step": step, "tool_seconds": round(tool_seconds, 2), "observation_chars": len(compact),
-                "error_preview": error_text[:300] if error_text else "",
-                "failure_kind": failure.get("kind") if failure else "",
-                "retryable": bool(failure.get("retryable")) if failure else False,
-                "fallbacks": meta.get("fallbacks") or [],
-            }
+                    receipt = json.loads(result) if isinstance(result, str) else result
+                    detail = receipt.get("result", {}) if isinstance(receipt, dict) else {}
+                    code_job = {"operation":str((decision.arguments or {}).get("operation") or ""),
+                                "job_id":str(detail.get("job_id") or (decision.arguments or {}).get("job_id") or ""),
+                                "status":str(detail.get("status") or ""),
+                                "output":str(detail.get("output") or "")[-4000:]}
+                except (TypeError, ValueError, AttributeError):
+                    code_job = None
+            yield {"type":"agent","event":"tool_result","tool":decision.skill,"ok":ok,"step":step,
+                   **({"code_job":code_job} if code_job is not None else {}),
+                   "tool_seconds":round(tool_seconds,2),"observation_chars":len(compact),
+                   "error_preview":error_text[:300] if error_text else "",
+                   "failure_kind":failure.get("kind") if failure else "",
+                   "retryable":bool(failure.get("retryable")) if failure else False,
+                   "fallbacks":meta.get("fallbacks") or [],
+                   "label":"Result injected; Agent continues thinking"}
 
-        # Step budget exhausted: ask the local model to synthesize from what was actually observed.
-        synthesis = (
-            f"The agent has reached its tool-step budget. Give the best final answer in {target_language} using ONLY the observations below. "
-            "Internal planning may be English, but the user-facing response must match the user's language. "
-            "Do not claim an action succeeded unless its observation says ok=true.\n\n"
-            + conversation + "\n\nOBSERVATIONS:\n"
-            + "\n\n".join(f"{o['skill']}: {o['result']}" for o in observations[-policy["observation_keep"]:])
+        synthesis=(
+            f"The continuous Agent reached its configured control-cycle budget. Give the best final answer in {target_language} "
+            "using only the real task ledger and observations. Do not claim unverified success.\n\n"
+            + conversation + "\n\nTASK LEDGER:\n" + json.dumps(task_ledger[-12:],ensure_ascii=False)
+            + "\n\nOBSERVATIONS:\n" + "\n\n".join(f"{o['skill']}: {o['result']}" for o in observations[-max(1,policy['observation_keep']):])
         )
-        yield {"type": "agent", "event": "phase", "phase": "finalize", "label": "Synthesizing final answer"}
+        yield {"type":"agent","event":"phase","phase":"finalize","label":"Control-cycle budget reached; synthesizing"}
         if stream_final is not None:
-            yield from stream_final(self._answer_messages(synthesis, observations))
-            return
-        msg = call_model(self._answer_messages(synthesis, observations), [])
-        answer = str(msg.get("content") or "").strip() if isinstance(msg, dict) else ""
-        if not answer:
-            answer = "The agent reached its step limit before the local model produced a final answer."
+            yield from stream_final(self._answer_messages(synthesis,observations));return
+        msg=call_model(self._answer_messages(synthesis,observations),[])
+        answer=str(msg.get("content") or "").strip() if isinstance(msg,dict) else ""
+        if not answer: answer="The agent reached its step limit before it could finish the task."
         yield from self._stream_text(answer)

@@ -8,27 +8,55 @@ from dataclasses import asdict, dataclass
 from typing import Any, Literal
 import re
 
-TELEGRAM_READS = {"status", "recent_chats", "resolve_person", "messages", "my_messages", "search"}
-TELEGRAM_WRITES = {"send", "reply"}
+TELEGRAM_READS = {"status", "account_info", "recent_chats", "list_channels", "list_bots", "channel_info", "bot_info", "chat_info", "participants", "resolve_person", "select_person", "messages", "my_messages", "search", "global_search", "download_media"}
+TELEGRAM_WRITES = {"send", "reply", "forward", "edit", "delete_message", "pin", "unpin", "mark_read", "react", "send_file"}
 
 LOCAL_WRITES = {
+    "automation": {"create", "update", "pause", "resume", "delete", "run_now", "set_state"},
+    "code_job": {"new", "write", "replace", "check_packages", "install", "run", "input", "stop"},
     "calendar": {"create", "update", "cancel", "delete"},
-    "workspace_files": {"store_attachment", "write_text", "replace_text", "mkdir", "move", "rename", "trash", "restore", "delete"},
+    "workspace_files": {"store_attachment", "write_text", "append_text", "replace_text", "copy", "archive_extract", "mkdir", "move", "rename", "trash", "restore", "delete"},
 }
 LOCAL_READS = {
-    "calendar": {"now", "convert", "month", "list"},
+    "automation": {"list", "status", "history", "get_state"},
+    "code_job": {"list", "read", "files", "status", "wait", "logs"},
+    "calendar": {"now", "convert", "month", "list", "find_free_time"},
     "workspace_files": {"list", "search", "metadata", "probe", "read_content"},
 }
 
 # Required alternatives are explicit metadata, also surfaced in the compact
 # planner manifest. Domain stores remain the final authority for valid dates/IDs.
 OPERATION_INPUTS = {
+    "automation": {
+        "create": {"required":["task","trigger_type"]},
+        **{op:{"required":["id"]} for op in ("update","pause","resume","delete","run_now","get_state","set_state","history")},
+    },
+    "code_job": {
+        **{op:{"required":["job_id"]} for op in ("files", "check_packages", "install", "run", "status", "wait", "logs", "stop")},
+        **{op:{"required":["job_id", "path"]} for op in ("read",)},
+        "write":{"required":["job_id", "path", "content"]},
+        "replace":{"required":["job_id", "path", "old_text", "new_text"]},
+        "input":{"required":["job_id", "content"]},
+    },
     "telegram": {"resolve_person":{"required":["query"]},
+        **{op:{"required":["query"]} for op in ("channel_info","bot_info","global_search")},
+        **{op:{"required":["chat_ref"]} for op in ("chat_info","participants")},
+        "select_person":{"required":["candidate_ref"]},
         **{op:{"required":["chat_ref"]} for op in ("messages", "my_messages")},
         "search":{"required":["chat_ref", "query"]},
         "send":{"required":["chat_ref","text"]},
-        "reply":{"required":["chat_ref","text","message_id"]}},
+        "reply":{"required":["chat_ref","text","message_id"]},
+        "edit":{"required":["chat_ref","text","message_id"]},
+        "delete_message":{"required":["chat_ref","message_id"]},
+        "pin":{"required":["chat_ref","message_id"]},
+        "unpin":{"required":["chat_ref","message_id"]},
+        "mark_read":{"required":["chat_ref","message_id"]},
+        "react":{"required":["chat_ref","message_id","reaction"]},
+        "download_media":{"required":["chat_ref","message_id"]},
+        "send_file":{"required":["chat_ref","file_id"]},
+        "forward":{"required":["source_chat_ref","to_chat_ref","message_id"]}},
     "calendar": {
+        "find_free_time":{"required":["start","end"]},
         "create": {"required": ["title"], "one_of": [["start"], ["gregorian", "time"], ["jalali", "time"], ["relative_date", "time"]]},
         "update": {"required": ["id"]}, "cancel": {"required": ["id"]}, "delete": {"required": ["id"]},
         "convert": {"one_of": [["gregorian"], ["jalali"]]},
@@ -37,6 +65,9 @@ OPERATION_INPUTS = {
         **{op: {"one_of": [["id"], ["attachment_id"]]} for op in ("metadata", "probe", "read_content")},
         "store_attachment": {"required": ["attachment_id"]},
         "write_text": {"required": ["text"], "one_of": [["id"], ["name"]]},
+        "append_text": {"required":["id","text"]},
+        "copy": {"required":["id"]},
+        "archive_extract":{"required":["id"]},
         "replace_text": {"required": ["id", "old_text", "new_text"]},
         "mkdir": {"one_of": [["folder"], ["name"]]},
         **{op: {"required": ["id"]} for op in ("move", "rename", "trash", "restore", "delete")},
@@ -47,7 +78,7 @@ OPERATION_INPUTS = {
 def validate_operation(name: str, args: dict) -> str:
     spec = OPERATION_INPUTS.get(name, {}).get(args.get("operation"), {})
     # Empty new_text/text is intentional for deleting text or creating empty files.
-    present = lambda k: k in args and args[k] is not None and (k in {"text", "new_text"} or str(args[k]).strip())
+    present = lambda k: k in args and args[k] is not None and (k in {"text", "content", "new_text"} or str(args[k]).strip())
     for key in spec.get("required", []):
         if not present(key): return f"{key} is required for {args.get('operation')}"
     if spec.get("one_of") and not any(all(present(k) for k in keys) for keys in spec["one_of"]):
@@ -81,10 +112,22 @@ class OperationPolicy:
 def operation_policy(name: str, args: dict | None = None, metadata: dict | None = None) -> OperationPolicy:
     args = args or {}; metadata = metadata or {}
     op = str(args.get("operation") or "").lower()
+    if name.startswith("skill_") and bool(metadata.get("local_command")):
+        return OperationPolicy("local_write", "none", False, False, False, 120, 0, "local command; bounded output, no shell, no automatic retry")
+    if name == "create_tool":
+        return OperationPolicy("local_write", "none", False, False, False, 30, 0, "declarative tool file; verify it was persisted")
+    if name == "run_command":
+        return OperationPolicy("local_write", "none", False, False, False, 120, 0, "local command; bounded output, no shell, no automatic retry")
+    if name == "code_job":
+        if op in LOCAL_READS["code_job"]:
+            return OperationPolicy("read", "none", False, op not in {"wait"}, False, 25, 0, "job state, file or bounded output")
+        return OperationPolicy("local_write", "none", False, False, op == "install", 30, 0, "managed job state and process receipt; no automatic retry")
     if name == "telegram":
+        if op == "download_media":
+            return OperationPolicy("local_write", "telegram_read", False, False, True, 120, 0, "bounded Telegram media saved and indexed in the local File Manager")
         if op in TELEGRAM_READS:
-            return OperationPolicy("read", "telegram_read", False, True, op!="status", 35, 0, "bounded structured result")
-        return OperationPolicy("external_write", "telegram_write", False, False, True, 35, 0, "message ID and readback; never retry unknown delivery")
+            return OperationPolicy("read", "telegram_read", False, True, op!="status", 120 if op=="download_media" else 35, 0, "bounded structured result")
+        return OperationPolicy("external_write", "telegram_write", False, False, True, 120 if op=="send_file" else 35, 0, "message ID and readback; never retry unknown delivery")
     if name in LOCAL_READS:
         if op in LOCAL_READS[name]:
             return OperationPolicy("read", "none", True, True, False, 30, 0, "structured result")

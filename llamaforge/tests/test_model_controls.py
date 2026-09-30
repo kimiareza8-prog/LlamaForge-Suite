@@ -90,3 +90,29 @@ def test_settings_accept_exact_8000_context_and_gpu_mode():
     assert state.cfg.cpu_only_default is False
     assert state.cfg.gpu_layer_percent == 55
     state.cfg.save.assert_called_once()
+
+
+def test_server_ready_falls_back_to_stable_health_when_llama_log_wording_changes(monkeypatch):
+    import llamaforge.web.server as server_mod
+    state = object.__new__(LlamaForgeState)
+    state._server_generation = 7
+    state.shutting_down = False
+    state.cfg = SimpleNamespace(host='127.0.0.1', port=8080)
+    state.server_proc = SimpleNamespace(running=True, tail_text=lambda n: 'new llama.cpp wording without legacy terminal marker')
+    state.server_ready = False
+    state.server_error = ''
+    state.template_health = {'state':'loading','message':'Waiting'}
+    state.events = SimpleNamespace(publish=Mock())
+    state.log = Mock()
+    state._check_template_health = Mock(return_value={'state':'ok','message':'ok'})
+    clock = [0.0]
+    def now():
+        clock[0] += 1.0
+        return clock[0]
+    monkeypatch.setattr(server_mod.time, 'time', now)
+    monkeypatch.setattr(server_mod.time, 'sleep', lambda _: None)
+    monkeypatch.setattr(server_mod, 'get_status', lambda *a, **k: 200)
+    state._watch_server_ready(7)
+    assert state.server_ready is True
+    assert state.server_error == ''
+    assert any('Health endpoint stayed ready' in str(call.args[0]) for call in state.log.call_args_list)

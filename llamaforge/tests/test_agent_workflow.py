@@ -82,3 +82,93 @@ def test_stage_zero_exposes_titles_without_tool_schemas():
     prompt=AgentEngine._route_prompt('به علی در تلگرام پیام بده',['telegram'])
     assert '- telegram:' in prompt and '- files:' not in prompt
     assert 'input_schema' not in prompt and 'workspace_files' not in prompt
+
+
+def test_generic_operation_name_is_normalized_to_its_available_skill():
+    catalog=[{"name":"telegram","contract":{"input_schema":{"properties":{"operation":{"enum":["messages","search"]}}}}}]
+    skill,args,repair=AgentEngine._normalize_tool_selection(
+        "messages",{"chat_ref":"tg:1","limit":5},"Read the selected chat messages.",{"telegram"},catalog,
+    )
+    assert skill=="telegram"
+    assert args["operation"]=="messages"
+    assert repair=={"from":"messages","to":"telegram","operation":"messages"}
+
+
+def test_missing_move_operation_is_recovered_only_when_call_is_unambiguous():
+    catalog=[{"name":"workspace_files","contract":{"input_schema":{"properties":{"operation":{"enum":["move","rename","delete"]}}}}}]
+    skill,args,repair=AgentEngine._normalize_tool_selection(
+        "workspace_files",{"id":"file_1","folder":"archive"},
+        "Moving file1.txt to archive_folder.",{"workspace_files"},catalog,
+    )
+    assert skill=="workspace_files" and args["operation"]=="move"
+    assert repair=={"from":"workspace_files","to":"workspace_files","operation":"move"}
+
+    _,ambiguous,no_repair=AgentEngine._normalize_tool_selection(
+        "workspace_files",{"id":"file_1"},"Work with this file.",{"workspace_files"},catalog,
+    )
+    assert "operation" not in ambiguous and no_repair is None
+
+
+
+
+def test_missing_code_job_write_operation_is_recovered_locally():
+    catalog=[{"name":"code_job","contract":{"input_schema":{"properties":{"operation":{"enum":["new","write","replace","read","run"]}}}}}]
+    skill,args,repair=AgentEngine._normalize_tool_selection(
+        "code_job",
+        {"job_id":"job_123","path":"calculator.py","content":"print(1)"},
+        "Writing the calculator Python code to the existing job.",
+        {"code_job"},catalog,
+    )
+    assert skill=="code_job"
+    assert args["operation"]=="write"
+    assert repair=={"from":"code_job","to":"code_job","operation":"write"}
+
+    _,ambiguous,no_repair=AgentEngine._normalize_tool_selection(
+        "code_job",{"job_id":"job_123","path":"calculator.py"},
+        "Work with this file.",{"code_job"},catalog,
+    )
+    assert "operation" not in ambiguous and no_repair is None
+
+def test_continuous_agent_can_read_think_expand_and_act_across_many_cycles(runtime, monkeypatch):
+    executed=[]; prompts=[]
+    def execute(name,args,permissions):
+        executed.append((name,dict(args)))
+        op=args.get('operation')
+        if name=='telegram' and op=='resolve_person':
+            return json.dumps({'ok':True,'result':{'candidates':[{'candidate_ref':'cand_1','name':'⭐ Ali','username':'ali'}]}},ensure_ascii=False)
+        if name=='telegram' and op=='select_person':
+            return json.dumps({'ok':True,'result':{'chat_ref':'tg:42','name':'⭐ Ali'}},ensure_ascii=False)
+        if name=='telegram' and op=='messages':
+            return json.dumps({'ok':True,'result':{'messages':[{'message_id':11,'from_me':False,'text':'فردا کی میای؟'}]}},ensure_ascii=False)
+        if name=='calendar' and op=='list':
+            return json.dumps({'ok':True,'result':{'events':[{'title':'جلسه','start':'2026-09-28T15:00:00','end':'2026-09-28T16:30:00'}]}},ensure_ascii=False)
+        if name=='telegram' and op=='send':
+            return json.dumps({'ok':True,'result':{'message_id':12,'readback':{'text':args.get('text')}}},ensure_ascii=False)
+        raise AssertionError((name,args))
+    monkeypatch.setattr(runtime,'execute',execute)
+    replies=[
+        {'action':'tool','skill':'telegram','arguments':{'operation':'resolve_person','query':'علی'}},
+        {'action':'tool','skill':'telegram','arguments':{'operation':'select_person','candidate_ref':'cand_1'}},
+        {'action':'tool','skill':'telegram','arguments':{'operation':'messages','chat_ref':'tg:42','limit':5}},
+        {'action':'discover','families':['calendar'],'summary':'Need the real meeting time before replying'},
+        {'action':'tool','skill':'calendar','arguments':{'operation':'list'}},
+        {'action':'tool','skill':'telegram','arguments':{'operation':'send','chat_ref':'tg:42','text':'فردا بعد از جلسه، حدود ساعت ۱۶:۳۰ میام.'}},
+        {'action':'final','answer':'پیام علی را خواندم، زمان جلسه را از تقویم بررسی کردم و پاسخ را فرستادم.'},
+    ]
+    def model(messages,tools):
+        assert tools==[]
+        p=messages[0]['content'];prompts.append(p)
+        assert 'LLAMAFORGE_AGENT_CONTROL_V3' in p
+        assert 'CAPABILITY MAP (always visible)' in p
+        i=len(prompts)-1
+        if i>=1: assert 'TASK LEDGER' in p
+        return {'content':json.dumps(replies[i],ensure_ascii=False)}
+    events=list(runtime.run([{'role':'user','content':'تو تلگرام پیام علی رو بخون، تقویمم رو هم ببین و بعد جواب مناسب بده.'}],model,AgentPermissions(),max_steps=10))
+    assert [x[0] for x in executed]==['telegram','telegram','telegram','calendar','telegram']
+    assert [x[1].get('operation') for x in executed]==['resolve_person','select_person','messages','list','send']
+    assert 'فردا کی میای؟' in prompts[3]
+    assert 'جلسه' in prompts[5]
+    assert 'message_id' in prompts[6]
+    assert not any('stage 0 of a local AI agent router' in p or 'stage 1 of a local agent' in p for p in prompts)
+    answer=''.join(e.get('delta','') for e in events if e.get('type')=='text')
+    assert 'پاسخ را فرستادم' in answer

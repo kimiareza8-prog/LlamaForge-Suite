@@ -280,12 +280,16 @@ def test_router_families_avoid_second_inference(runtime):
     calls = []
     def model(messages, tools):
         p = messages[0]["content"]; calls.append(p)
-        if "stage 0" in p: return {"content":'{"route":"skills","families":["calendar"],"goal":"clock"}'}
-        if "STEP 1 OF" in p: return {"content":'{"action":"tool","skill":"calendar","arguments":{"operation":"now"}}'}
+        assert "LLAMAFORGE_AGENT_CONTROL_V3" in p
+        if len(calls) == 1:
+            # High-confidence task hints may pre-expand the calendar branch, but there is
+            # no separate router/capability inference before the concrete tool choice.
+            assert "calendar" in p.lower()
+            return {"content":'{"action":"tool","skill":"calendar","arguments":{"operation":"now"}}'}
         return {"content":'{"action":"final","answer":"Time checked."}'}
     list(runtime.run([{"role":"user","content":"What time is it?"}], model, AgentPermissions()))
-    assert len(calls) == 3 and not any("stage 1" in p for p in calls)
-
+    assert len(calls) == 2
+    assert not any("stage 0" in p or "stage 1" in p for p in calls)
 
 def test_write_receipt_prevents_duplicate_events(runtime):
     def model(messages, tools):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -20,6 +21,24 @@ def _isolated_runtime(tmp_path, monkeypatch):
     monkeypatch.setattr(agent_tools, "_keyring_get", lambda _id: None)
     monkeypatch.setattr(agent_tools, "_keyring_set", lambda _id, _token: False)
     return AgentRuntime()
+
+
+def test_telegram_installer_ignores_broken_user_pip_mirror(monkeypatch):
+    monkeypatch.setenv("PIP_INDEX_URL", "https://mirror.arbrha.net/repository/pypi/simple/")
+    monkeypatch.setenv("PIP_EXTRA_INDEX_URL", "https://bad.example/simple")
+    monkeypatch.setenv("PIP_TRUSTED_HOST", "mirror.arbrha.net")
+    env = agent_tools._telegram_pip_env()
+    assert "PIP_INDEX_URL" not in env
+    assert "PIP_EXTRA_INDEX_URL" not in env
+    assert "PIP_TRUSTED_HOST" not in env
+    assert env["PIP_CONFIG_FILE"] == os.devnull
+
+    cmd = agent_tools._telegram_pip_command()
+    assert "--isolated" in cmd
+    assert cmd[cmd.index("--index-url") + 1] == "https://pypi.org/simple"
+    assert "Telethon==1.45.0" in cmd
+    assert "keyring>=25.6,<26" in cmd
+    assert "mirror.arbrha.net" not in " ".join(cmd)
 
 
 def test_parse_html_extracts_text_links_and_forms():
@@ -108,27 +127,21 @@ def test_agent_loop_model_plans_skill_then_observes_then_finishes(tmp_path, monk
     calls = []
 
     def model(messages, tools):
-        # Agent v3 performs one model-based capability discovery pass before planning.
         assert tools == []
         prompt = messages[0]["content"]
-        if "stage 0 of a local AI agent router" in prompt:
-            order.append(("model", "route"))
-            return {"content": '{"route":"skills","summary":"external operation","confidence":99}'}
-        if "stage 1 of a local agent" in prompt:
-            order.append(("model", "capability"))
-            return {"content": '{"goal":"read the site","categories":["web.read"],"needs_write":false}'}
         calls.append(prompt)
         order.append(("model", len(calls)))
+        assert "LLAMAFORGE_AGENT_CONTROL_V3" in prompt
         if len(calls) == 1:
-            assert "No tool has been used yet" in calls[-1]
+            assert "No tool has been used yet" in prompt
             return {"content": json.dumps({
                 "action": "tool",
                 "summary": "Read the site first",
                 "skill": "web_read",
                 "arguments": {"url": "https://example.com"},
             })}
-        assert "OBSERVATION 1 from web_read" in calls[-1]
-        assert "demo page" in calls[-1]
+        assert "OBSERVATION 1 from web_read" in prompt
+        assert "demo page" in prompt
         return {"content": json.dumps({
             "action": "final",
             "summary": "I have the page data",
@@ -136,14 +149,12 @@ def test_agent_loop_model_plans_skill_then_observes_then_finishes(tmp_path, monk
         })}
 
     events = list(rt.run([{"role": "user", "content": "Open the site"}], model, AgentPermissions(), max_steps=4))
-    assert order[0] == ("model", "route")  # model decides direct vs Skills first
-    assert order[1] == ("model", "capability")  # then model narrows the Skill family
-    assert order[2][0] == "model"  # then local-model planning chooses the concrete Skill
-    assert order[3][0] == "tool"
+    assert order[0] == ("model", 1)
+    assert order[1][0] == "tool"
+    assert not any("stage 0 of a local AI agent router" in p or "stage 1 of a local agent" in p for p in calls)
     assert any(e.get("event") == "decision" and e.get("skill") == "web_read" for e in events)
     assert any(e.get("event") == "tool_result" and e.get("tool") == "web_read" and e.get("ok") for e in events)
     assert "Finished after reading the website." == "".join(e.get("delta", "") for e in events if e.get("type") == "text")
-
 
 def test_agent_url_is_not_prefetched_before_local_model_decides(tmp_path, monkeypatch):
     rt = _isolated_runtime(tmp_path, monkeypatch)
@@ -160,13 +171,8 @@ def test_agent_url_is_not_prefetched_before_local_model_decides(tmp_path, monkey
         assert tools == []
         order.append("model")
         prompt = messages[0]["content"]
-        if "stage 0 of a local AI agent router" in prompt:
-            assert "https://example.com" in prompt
-            return {"content": '{"route":"skills","summary":"supplied URL must be fetched","confidence":99}'}
-        if "stage 1 of a local agent" in prompt:
-            assert "https://example.com" in prompt
-            return {"content": '{"goal":"read and summarize URL","categories":["web.read"],"needs_write":false}'}
         calls.append(prompt)
+        assert "LLAMAFORGE_AGENT_CONTROL_V3" in prompt
         if len(calls) == 1:
             assert "https://example.com" in prompt
             assert "No tool has been used yet" in prompt
@@ -180,10 +186,8 @@ def test_agent_url_is_not_prefetched_before_local_model_decides(tmp_path, monkey
         AgentPermissions(),
         max_steps=3,
     ))
-    assert order[:2] == ["model", "model"]
-    assert "tool" in order
+    assert order[:2] == ["model", "tool"]  # no fetch before the model decides; no redundant router call
     assert "The page says: real observation" == "".join(e.get("delta", "") for e in events if e.get("type") == "text")
-
 
 def test_agent_repairs_invalid_control_json_then_executes(tmp_path, monkeypatch):
     rt = _isolated_runtime(tmp_path, monkeypatch)
@@ -420,8 +424,8 @@ def test_agent_does_not_use_skills_for_explanatory_api_question(tmp_path, monkey
             return {"content": '{"route":"direct","summary":"explanatory question only","confidence":97}'}
         return {"content":"API یک رابط برای ارتباط نرم‌افزارهاست."}
     events = list(rt.run([{"role":"user","content":"API چیست؟"}], model, AgentPermissions(), max_steps=3))
-    assert called == 2
-    assert any(e.get("event") == "route" and e.get("route") == "direct" for e in events)
+    assert called == 1
+    assert any(e.get("event") == "direct_complete" for e in events)
     assert not any(e.get("event") == "tool_start" for e in events)
 
 
@@ -448,27 +452,28 @@ def test_model_router_sends_operational_web_request_to_skills_even_when_old_rege
 def test_router_repair_keeps_decision_model_driven(tmp_path, monkeypatch):
     rt = _isolated_runtime(tmp_path, monkeypatch)
     calls = 0
-    monkeypatch.setattr(rt, "execute", lambda name, args, permissions: json.dumps({"ok": True, "result": {"status": 200}}))
+    executed = []
+    monkeypatch.setattr(rt, "execute", lambda name, args, permissions: executed.append((name, dict(args))) or json.dumps({"ok": True, "result": {"status": 200}}))
 
     def model(messages, tools):
         nonlocal calls
         prompt = messages[0]["content"]
-        if "stage 0 of a local AI agent router" in prompt:
+        if "LLAMAFORGE_AGENT_CONTROL_V3" in prompt and "previous agent-control output" not in prompt:
             calls += 1
-            return {"content": "I think tools are needed"}
-        if "previous router output was invalid" in prompt:
+            if calls == 1:
+                return {"content": "I think tools are needed"}
+            return {"content": '{"action":"final","summary":"Done","answer":"ok"}'}
+        if "previous agent-control output" in prompt:
             calls += 1
-            return {"content": '{"route":"skills","summary":"needs external access","confidence":90}'}
-        if "stage 1 of a local agent" in prompt:
-            return {"content": '{"goal":"check URL","categories":["web.read"],"needs_write":false}'}
-        if "STEP 1 OF" in prompt:
             return {"content": '{"action":"tool","summary":"Check","skill":"web_check","arguments":{"url":"https://example.com"}}'}
-        return {"content": '{"action":"final","summary":"Done","answer":"ok"}'}
+        if "Write the final answer for the end user in Persian" in prompt:
+            return {"content": "بررسی شد."}
+        raise AssertionError(prompt[:400])
 
     events = list(rt.run([{"role":"user","content":"https://example.com رو چک کن"}], model, AgentPermissions(), max_steps=3))
-    assert calls == 2
-    assert any(e.get("event") == "route_decision" and e.get("route") == "skills" for e in events)
-
+    assert calls == 3  # invalid control + model repair + next continuous control cycle
+    assert executed and executed[0][0] == "web_check"
+    assert any(e.get("event") == "tool_result" and e.get("tool") == "web_check" for e in events)
 
 def test_agent_runtime_direct_route_forwards_true_streaming_final(tmp_path, monkeypatch):
     rt = _isolated_runtime(tmp_path, monkeypatch)

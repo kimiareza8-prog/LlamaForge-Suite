@@ -1,0 +1,2 @@
+# Optional offline speech-to-text. FFmpeg and the Vosk language model are supplied separately.
+vosk>=0.3.45,<0.4

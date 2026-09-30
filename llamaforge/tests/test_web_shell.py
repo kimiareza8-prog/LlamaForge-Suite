@@ -33,7 +33,7 @@ def test_local_api_ping_and_index(tmp_path):
         with urllib.request.urlopen(url + "api/ping", timeout=3) as r:
             data = json.loads(r.read().decode())
         assert data["ok"] is True
-        assert data["version"] == "0.34.4-telegram-ui"
+        assert data["version"] == "0.36.5-unified-context"
         with urllib.request.urlopen(url, timeout=3) as r:
             html = r.read().decode("utf-8")
             assert "no-store" in (r.headers.get("Cache-Control") or "")
@@ -252,3 +252,50 @@ def test_cluster_dashboard_and_worker_controls_are_present():
     assert "Selected Pool" in js and "Force Selected Nodes" in js
     assert "worker-autostart" in js
     assert ".cluster-node" in css
+
+
+def test_telegram_primary_tab_and_read_only_viewer_are_present():
+    js = (STATIC_ROOT / "app.js").read_text(encoding="utf-8")
+    css = (STATIC_ROOT / "styles.css").read_text(encoding="utf-8")
+    src = (STATIC_ROOT.parent / "server.py").read_text(encoding="utf-8")
+    assert "['telegram','Telegram','telegram']" in js
+    assert "/api/agent/telegram/dashboard" in js
+    assert "/api/agent/telegram/messages" in js
+    assert "no hidden timer or automatic message polling" in js
+    assert ".telegram-browser-grid" in css
+    assert 'if path == "/api/agent/telegram/dashboard"' in src
+    assert 'if path == "/api/agent/telegram/messages"' in src
+
+
+def test_models_api_key_editor_survives_background_state_refresh():
+    app_js = (Path(__file__).resolve().parents[1] / 'llamaforge' / 'web' / 'static' / 'app.js').read_text(encoding='utf-8')
+    assert 'apiProviderDraft' in app_js
+    assert 'apiProviderEditing()' in app_js
+    assert "App.route==='models'&&apiProviderEditing()" in app_js
+    assert 'Key saved, connection test failed' in app_js
+
+
+def test_all_interactive_forms_are_protected_from_live_rerender_churn():
+    app_js = (Path(__file__).resolve().parents[1] / 'llamaforge' / 'web' / 'static' / 'app.js').read_text(encoding='utf-8')
+    assert 'function uiInteractionActive()' in app_js
+    assert 'function holdUIInteraction' in app_js
+    assert 'function flushDeferredUIRender()' in app_js
+    assert "document.addEventListener('pointerdown'" in app_js
+    assert "document.addEventListener('focusin'" in app_js
+    assert "document.addEventListener('focusout'" in app_js
+    assert 'const transientInteraction=uiInteractionActive();' in app_js
+    assert 'App.uiDeferredRender=true' in app_js
+
+
+def test_async_route_renderers_drop_stale_results():
+    app_js = (Path(__file__).resolve().parents[1] / 'llamaforge' / 'web' / 'static' / 'app.js').read_text(encoding='utf-8')
+    assert 'const request=++App.clusterRequest,routeEpoch=App.routeEpoch;' in app_js
+    assert "App.route!=='cluster'||routeEpoch!==App.routeEpoch||request!==App.clusterRequest" in app_js
+    assert 'const request=++App.filesRequest,routeEpoch=App.routeEpoch;' in app_js
+    assert "App.route!=='files'||routeEpoch!==App.routeEpoch||request!==App.filesRequest" in app_js
+
+
+def test_telegram_forward_handler_runs_only_on_click():
+    js = (STATIC_ROOT / "app.js").read_text(encoding="utf-8")
+    assert "$$('[data-tg-forward]').forEach(b=>b.onclick=()=>telegramForwardMessage(Number(b.dataset.tgForward)));" in js
+    assert "b.onclick=telegramForwardMessage(Number(b.dataset.tgForward))" not in js

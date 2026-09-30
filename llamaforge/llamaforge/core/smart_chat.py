@@ -197,15 +197,10 @@ def choose_profile(
     if reasoning == "auto":
         notes.append(f"Thinking auto-selected: {effective_reasoning}")
 
-    # Smart token budget: keep the user's explicit cap, but avoid absurdly large
-    # generations for simple turns. Long coding/reasoning tasks retain the cap.
+    # The saved output limit is shared by every mode and provider. Smart Chat
+    # chooses sampling, but must not silently replace this user-owned limit.
     explicit_cap = max(16, min(32768, int(max_tokens)))
-    if effective in {"general", "translation", "precise"}:
-        smart_cap = min(explicit_cap, 2048)
-    elif effective == "creative":
-        smart_cap = min(explicit_cap, 3072)
-    else:
-        smart_cap = explicit_cap
+    smart_cap = explicit_cap
 
     temp = round(max(0.0, min(2.0, temp)), 3)
     top_p = round(max(0.0, min(1.0, top_p)), 3)

@@ -30,7 +30,7 @@ class SkillMeta:
 
 
 BUILTIN_SKILLS: dict[str, SkillMeta] = {
-    "telegram": SkillMeta("telegram", "telegram", "Telegram account", "Resolve people, read limited selected-chat context, search and send/reply via the personal Telegram account.", risk="mixed", cost="medium", keywords=("telegram", "تلگرام", "پیام", "message")),
+    "telegram": SkillMeta("telegram", "telegram", "Telegram account", "Inspect account, recent private/group/channel/bot dialogs, list channels and bots, search global history or a selected chat, read bounded messages and media metadata, download/send bounded files, and manage messages through the connected personal account.", risk="mixed", cost="medium", keywords=("telegram", "تلگرام", "کانال", "ربات", "پیام", "message", "reaction", "media", "فایل تلگرام")),
     "web_check": SkillMeta(
         "web_check", "web.read", "Check URL", "Quickly check whether a URL is reachable, its HTTP status, redirect target, content type and response time without reading the full page.",
         when_to_use=("User asks whether a site/URL opens or is reachable.", "Need a cheap HTTP health check before a full read."),
@@ -174,6 +174,13 @@ BUILTIN_SKILLS: dict[str, SkillMeta] = {
         when_to_use=("Task is finished and closing the browser is useful."),
         keywords=("close", "ببند"),
     ),
+    "automation": SkillMeta(
+        "automation", "automation", "Automation engine", "Persistent timers, interval/cron loops and event-triggered Agent runs. Each iteration is independent and compact; use this instead of keeping one model generation alive for recurring or future work.",
+        risk="mixed", cost="low", requires_write=False,
+        when_to_use=("User asks to do something later, repeatedly, continuously, on a timer, or when an event happens.", "Need a durable background loop that survives chat/context boundaries."),
+        when_not_to_use=("One immediate action only; run the capability directly."),
+        keywords=("automation", "automate", "every minute", "every hour", "repeat", "loop", "monitor", "when", "timer", "cron", "خودکار", "هر دقیقه", "هر ساعت", "تکرار", "لوپ", "پایش", "وقتی", "تایمر"),
+    ),
     "calendar": SkillMeta(
         "calendar", "calendar", "Calendar agent", "One general calendar capability with composable primitives: real local time/Jalali date, date conversion, month/list reads, and event create/update/cancel/delete. The model should derive novel calendar answers from these primitives instead of expecting one skill per question.",
         risk="mixed", cost="low", requires_write=False,
@@ -194,9 +201,19 @@ BUILTIN_SKILLS: dict[str, SkillMeta] = {
         when_to_use=("A configured connector directly represents the target app/service."),
         keywords=("connector", "openapi", "bridge", "اتصال", "کانکتور", "بریج"),
     ),
+    "create_tool": SkillMeta(
+        "create_tool", "custom", "Create reusable tool", "Create a declarative HTTPS API tool or a reusable local command wrapper when its independent permissions are enabled.",
+        risk="write", cost="high", keywords=("create tool", "build a tool", "ساخت ابزار", "ابزار بساز", "ابزار جدید"),
+    ),
+    "run_command": SkillMeta(
+        "run_command", "custom", "Run local command", "Run a local program with explicit arguments. This has broad computer access and is available only in local chats when enabled.",
+        risk="write", cost="high", keywords=("cmd", "command", "terminal", "powershell", "shell", "دستور", "ترمینال", "کامند"),
+    ),
+    "code_job": SkillMeta("code_job", "code", "Build & run programs", "Create/edit Python files, check/install packages in a per-job virtual environment, run Python or command arrays, inspect live logs, send input, debug, rerun and stop owned processes. Local chat only, separate permission.", risk="mixed", cost="high", keywords=("python", "program", "script", "code", "debug", "install", "پایتون", "برنامه", "کد", "اجرا", "نصب", "عیب یابی")),
 }
 
 CATEGORY_LABELS = {
+    "code": "build, run and debug programs locally",
     "telegram":"personal Telegram account messages",
     "web.read": "read/check a known URL",
     "web.search": "discover information or URLs on the public web",
@@ -205,6 +222,7 @@ CATEGORY_LABELS = {
     "browser.read": "inspect a JavaScript-heavy page with a real browser",
     "browser.interact": "click/type/select in a browser",
     "browser.session": "manage browser navigation/session",
+    "automation": "schedule persistent timers, loops and event-triggered Agent work",
     "calendar": "use the personal calendar/time workspace",
     "files": "use the personal File Manager workspace",
     "connector": "use a configured OpenAPI connector",
@@ -212,10 +230,12 @@ CATEGORY_LABELS = {
 }
 
 SKILL_FAMILIES = {
+    "code": ("code",),
     "telegram":("telegram",),
     "web": ("web.read", "web.search", "web.download"),
     "api": ("api",),
     "browser": ("browser.read", "browser.interact", "browser.session"),
+    "automation": ("automation",),
     "calendar": ("calendar",),
     "files": ("files",),
     "connector": ("connector",),
@@ -223,14 +243,16 @@ SKILL_FAMILIES = {
 }
 
 FAMILY_LABELS = {
-    "telegram":"Telegram account: find people, read selected chats, send or reply",
+    "code": "create/edit and run local programs, manage packages, logs, input and process lifecycle",
+    "telegram":"Telegram account: find people, list channels/bots, search, read/manage messages and bounded media",
     "web": "read/check/search/download public web content",
     "api": "call explicit HTTP/API endpoints",
     "browser": "use a real browser for JavaScript or UI interaction",
+    "automation": "create and manage durable background timers, loops and event-triggered tasks",
     "calendar": "reason over and operate the user's calendar using general primitives",
     "files": "reason over and operate the user's workspace files using general primitives",
     "connector": "operate configured OpenAPI connectors",
-    "custom": "use installed custom skills",
+    "custom": "use installed custom skills or enabled local command tools",
 }
 
 
@@ -243,8 +265,16 @@ class SkillRegistry:
         self._definitions = None
 
     def _availability(self, meta: SkillMeta) -> tuple[bool, str]:
-        if getattr(self.permissions, "skill_profile", "all") == "telegram_only" and meta.category != "telegram":
+        if getattr(self.permissions, "skill_profile", "all") == "telegram_only" and meta.category not in {"telegram", "automation"}:
             return False, "Disabled by Telegram-only profile"
+        if meta.name == "create_tool" and not bool(getattr(self.permissions, "allow_tool_creation", False)):
+            return False, "Tool creation is disabled in Agent settings"
+        if meta.name == "run_command" and not bool(getattr(self.permissions, "allow_system_commands", False)):
+            return False, "System commands are disabled in Agent settings"
+        if meta.name == "code_job" and not bool(getattr(self.permissions, "allow_code_execution", False)):
+            return False, "Program execution is disabled in Agent settings"
+        if meta.name in {"create_tool", "run_command", "code_job"} and self.runtime.workspace_scope() != "local":
+            return False, "Available only in local chats"
         if meta.requires_browser and not self.runtime.browser_available():
             return False, "Browser skill (Selenium) is not installed"
         if meta.requires_write and not bool(getattr(self.permissions, "allow_write", False)):
@@ -295,9 +325,10 @@ class SkillRegistry:
                 skill = loaded_custom.get(skill_name)
                 if skill:
                     request = skill.get("request") if isinstance(skill.get("request"), dict) else skill
+                    local_command = skill.get("kind") == "local_command"
                     method = str(request.get("method") or skill.get("method") or "GET").upper()
-                    risk = "write" if method not in {"GET", "HEAD"} else "read"
-                    requires_write = risk == "write"
+                    risk = "write" if local_command or method not in {"GET", "HEAD"} else "read"
+                    requires_write = risk == "write" and not local_command
                     title = str(skill.get("title") or skill_name.replace("_", " ").title())
                     description = str(skill.get("description") or description)
                     when_to_use = [str(x) for x in (skill.get("when_to_use") or []) if str(x).strip()]
@@ -320,10 +351,40 @@ class SkillRegistry:
         for row in rows:
             fn = self._definitions.get(row["name"], {})
             metadata = fn.get("x-llamaforge", {})
+            if metadata.get("local_command"):
+                row["local_command"] = True
             row["contract"] = contract(row["name"], row["category"], fn.get("parameters", {}), metadata)
             row["http_method"] = metadata.get("http_method", "")
         self._catalog_cache = rows
         return rows
+
+    def capability_map(self, tool_defs: Iterable[dict[str, Any]] | None = None, enabled_families: list[str] | None = None) -> str:
+        """Compact always-visible map of what the Agent can access.
+
+        This deliberately exposes capability names and broad operations without
+        dumping every JSON schema into the model context. Detailed schemas are
+        revealed lazily only when a family is active.
+        """
+        rows = [r for r in self.catalog(tool_defs) if r.get("available")]
+        allowed = set(enabled_families or FAMILY_LABELS.keys())
+        lines: list[str] = []
+        for family, label in FAMILY_LABELS.items():
+            if family not in allowed:
+                continue
+            cats = set(SKILL_FAMILIES.get(family, ()))
+            family_rows = [r for r in rows if r.get("category") in cats]
+            if not family_rows:
+                continue
+            bits: list[str] = []
+            for row in family_rows[:10]:
+                name = str(row.get("name") or "")
+                ops = sorted((row.get("contract") or {}).get("operations", {}).keys())
+                if ops:
+                    bits.append(f"{name}[{','.join(ops[:12])}]")
+                else:
+                    bits.append(name)
+            lines.append(f"- {family}: {label}. tools=" + ", ".join(bits))
+        return "\n".join(lines)
 
     @staticmethod
     def capability_prompt() -> str:
@@ -333,7 +394,8 @@ class SkillRegistry:
             "Infer what REAL capability is needed from the user's goal, even when they did not name a tool. "
             "Choose the minimum family set. RETURN EXACTLY ONE JSON OBJECT: {\"goal\":\"short goal\",\"families\":[\"web\"],\"needs_write\":false}.\n"
             "Rules: current/live public facts -> web unless a dedicated local capability is more authoritative; current clock/date or personal schedule -> calendar; "
-            "ANY attached file (ZIP, code, PDF, Office, audio/video, unknown binary, image, etc.) -> files; explicit API endpoint -> api; browser only for JS UI/click/type/login. "
+            "ANY attached file (ZIP, code, PDF, Office, audio/video, unknown binary, image, etc.) -> files; explicit API endpoint -> api; browser only for JS UI/click/type/login; "
+            "programming, editing or running code, installing dependencies and debugging a local process -> code when enabled; reusable API-tool building or one-off local terminal/CMD/Powershell work -> custom. "
             "For attachments, route to files because the runtime can stage every file type. Do not assume content must be opened: preserve metadata-first behavior, probe when useful, and read content only if the user's goal needs it. "
             "A request may need multiple families (for example web+files or calendar+web). Do not claim lack of access when a matching family exists.\nFamilies:\n" + families
         )
@@ -396,7 +458,7 @@ class SkillRegistry:
             discussion = discussion or any(x in text for x in ("چیست", "یعنی چه", "عبارت", "معنی کلمه"))
             if discussion or re.search(r"^(?:don't|do not|never)\s+(?:create|open|browse|search|save)", text): return []
 
-        if ("telegram" in text or "تلگرام" in text) and (re.search(r"\b(read|send|reply|search|show|list|check|find)\b", text) or any(x in text for x in ("بخون", "بخوان", "بفرست", "ارسال", "پیام", "جواب", "نشون", "نشان", "پیدا"))):
+        if ("telegram" in text or "تلگرام" in text) and (re.search(r"\b(read|send|reply|search|show|list|check|find|download|upload|pin|unpin|edit|delete|forward|react|reaction|media|file)\b", text) or any(x in text for x in ("بخون", "بخوان", "بفرست", "ارسال", "پیام", "جواب", "نشون", "نشان", "پیدا", "دانلود", "فایل", "کانال", "ربات", "سنجاق", "واکنش", "ویرایش", "حذف"))):
             add("telegram")
 
         if re.search(r"https?://", text) or any(x in text for x in (
@@ -404,6 +466,11 @@ class SkillRegistry:
             "جستجو کن", "سرچ کن", "تو اینترنت", "در اینترنت", "روی وب", "تحقیق کن", "آخرین خبر", "جدیدترین", "قیمت روز",
         )):
             add("web")
+
+        recurring = bool(re.search(r"\b(every|each|repeat|recurring|continuously|monitor|watch|timer|cron|whenever|when .* arrives?)\b", text)) or any(x in text for x in ("هر دقیقه","هر ساعت","هر روز","هر چند","تکرار","لوپ","پیوسته","مدام","مانیتور","پایش","وقتی پیام","هر وقت","تایمر"))
+        future_once = bool(re.search(r"\b(in \d+ (?:minute|minutes|hour|hours)|later|at \d{1,2}:\d{2})\b", text)) or any(x in text for x in ("دقیقه دیگه","ساعت دیگه","بعداً","بعدا"))
+        if recurring or future_once:
+            add("automation")
 
         time_phrases = (
             "what time is it", "what's the time", "current time", "what date is it", "today's date", "my schedule",
@@ -428,6 +495,13 @@ class SkillRegistry:
         api_action = bool(re.search(r"\b(get|post|put|patch|delete)\b", text)) and any(x in text for x in ("api", "endpoint", "http", "request", "url"))
         if api_action or any(x in text for x in ("call the api", "send a request", "درخواست http", "api رو صدا", "api را صدا")):
             add("api")
+
+        command_task=bool(re.search(r"\b(?:cmd|powershell|terminal|command line|run a command|execute (?:a )?command|system command)\b",text)) or any(x in text for x in ("ترمینال", "دستور سیستم", "اجرای دستور", "فرمان سیستم", "کامند سیستم"))
+        tool_task=any(x in text for x in ("create a tool", "build a tool", "make a tool", "ابزار بساز", "ابزار ایجاد", "ابزار درست کن", "ساخت ابزار"))
+        if command_task or tool_task:
+            add("custom")
+        if any(x in text for x in ("python", "script", "program", "debug", "write code", "run code", "install package", "virtualenv", "پایتون", "اسکریپت", "برنامه بنویس", "کد بنویس", "کد رو اجرا", "کد را اجرا", "عیب یاب", "پیش نیاز", "کتابخانه نصب")):
+            add("code")
 
         interaction = any(x in text for x in (
             "click", "type into", "fill the form", "submit", "log in", "sign in",
@@ -492,9 +566,11 @@ class SkillRegistry:
         # route an attachment or date request correctly and then lose the one
         # tool that can actually execute it due to scoring noise.
         mandatory = []
+        if "automation" in categories: mandatory.append("automation")
         if "telegram" in categories: mandatory.append("telegram")
         if "files" in categories: mandatory.append("workspace_files")
         if "calendar" in categories: mandatory.append("calendar")
+        if "code" in categories: mandatory.append("code_job")
         for core in mandatory:
             if core in by_name and all(x.get("name") != core for x in chosen):
                 if len(chosen) >= cap:

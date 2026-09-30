@@ -25,14 +25,16 @@ def test_calendar_is_general_capability_and_can_compose_free_time(tmp_path: Path
         allow_write=False,
     )["events"]
     assert len(rows) == 1
-    # Availability is intentionally derived by the model from now/list; there is
-    # no brittle one-question skill to maintain.
-    try:
-        cal.tool({"operation": "find_free_time"}, allow_write=False)
-    except ValueError as exc:
-        assert "calendar operation" in str(exc)
-    else:
-        raise AssertionError("find_free_time must not become a dedicated operation")
+    available = cal.tool(
+        {"operation": "find_free_time", "start": "2026-09-26T09:00:00+03:30",
+         "end": "2026-09-26T12:00:00+03:30", "duration_minutes": 60, "include_weekends": True},
+        allow_write=False,
+    )
+    assert available["slots"]
+    from llamaforge.core.workspace import _parse_iso
+    assert all(not (_parse_iso(slot["start"]) < _parse_iso(created["end"]) and
+                    _parse_iso(slot["end"]) > _parse_iso(created["start"]))
+               for slot in available["slots"])
 
 
 def test_file_attachment_is_staged_without_reading_content(tmp_path: Path):

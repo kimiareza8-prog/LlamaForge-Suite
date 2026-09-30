@@ -19,6 +19,7 @@ import zipfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable, Any
+from .network_policy import direct_urlopen
 from collections import deque
 
 from .config import APP_DIR
@@ -309,7 +310,7 @@ class PersonalBrain:
         if not py.is_file(): return False
         try:
             proc = subprocess.run(
-                [str(py), "-c", "import torch,transformers,peft,safetensors; print('ok')"],
+                [str(py), "-c", "import torch,transformers,peft,safetensors,sentencepiece; print('ok')"],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=45,
             )
             ok=proc.returncode == 0 and "ok" in proc.stdout
@@ -532,8 +533,8 @@ class PersonalBrain:
         try:
             for _ in range(3):
                 url = "https://huggingface.co/api/models/" + urllib.parse.quote(current, safe="/")
-                req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.34.4-telegram-ui", "Accept": "application/json"})
-                with urllib.request.urlopen(req, timeout=25) as r:
+                req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.35.1-telegram-isolated-proxy", "Accept": "application/json"})
+                with direct_urlopen(req, timeout=25) as r:
                     data = json.loads(r.read().decode("utf-8", errors="replace"))
                 card = data.get("cardData") or {}
                 base = card.get("base_model") or data.get("baseModels") or data.get("base_model")
@@ -632,7 +633,7 @@ class PersonalBrain:
         cmd=[py, "-m", "pip", "install", "--index-url", "https://pypi.org/simple", "--upgrade", "pip", "wheel"]
         self._run_logged(cmd,"setup-pip",timeout=1800,cancel=cancel)
         # Explicit pypi.org bypasses machine-wide mirrors that previously blocked LlamaForge startup.
-        packages = ["torch", "transformers>=4.55", "peft>=0.17", "accelerate>=1.8", "safetensors", "sentencepiece", "bitsandbytes>=0.48"]
+        packages = ["torch", "transformers>=4.55", "peft>=0.17", "accelerate>=1.8", "safetensors", "sentencepiece", "tiktoken", "bitsandbytes>=0.48"]
         emit("Installing PyTorch + PEFT/QLoRA dependencies…", 0.25)
         cmd=[py, "-m", "pip", "install", "--index-url", "https://pypi.org/simple", *packages]
         self._run_logged(cmd,"setup-packages",timeout=7200,cancel=cancel)
@@ -650,8 +651,8 @@ class PersonalBrain:
         BRAIN_ROOT.mkdir(parents=True, exist_ok=True)
         archive = BRAIN_ROOT / "llama-toolchain.zip"
         url = "https://github.com/ggml-org/llama.cpp/archive/refs/heads/master.zip"
-        req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.34.4-telegram-ui"})
-        with urllib.request.urlopen(req, timeout=180) as r, archive.open("wb") as f:
+        req = urllib.request.Request(url, headers={"User-Agent": "LlamaForge-Brain/0.35.1-telegram-isolated-proxy"})
+        with direct_urlopen(req, timeout=180) as r, archive.open("wb") as f:
             shutil.copyfileobj(r, f)
         tmp = BRAIN_ROOT / "toolchain-extract"
         shutil.rmtree(tmp, ignore_errors=True); tmp.mkdir(parents=True, exist_ok=True)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import platform
 import re
@@ -554,6 +555,7 @@ class RuntimeManager:
                     if not chunk: break
                     f.write(chunk); done += len(chunk)
                     if progress_cb: progress_cb(done, total, f"Downloading {asset['name']}")
+            archive_sha256 = hashlib.sha256(archive.read_bytes()).hexdigest()
 
             # Immutable install directories keep running Windows DLLs and the
             # previous usable build untouched, including if promotion fails.
@@ -576,7 +578,7 @@ class RuntimeManager:
                     raise RuntimeError("Downloaded archive did not contain llama-server")
                 if cancel and cancel.is_set(): raise RuntimeError("Installation cancelled")
                 stage.replace(final)
-                pointer_tmp.write_text(json.dumps({"tag":rel["tag"], "asset":asset["name"], "path":str(final)}, indent=2), encoding="utf-8")
+                pointer_tmp.write_text(json.dumps({"tag":rel["tag"], "asset":asset["name"], "path":str(final), "archive_sha256":archive_sha256}, indent=2), encoding="utf-8")
                 pointer_tmp.replace(self.runtime_dir / "installed.json")
             finally:
                 shutil.rmtree(stage, ignore_errors=True)
@@ -659,8 +661,12 @@ class RuntimeManager:
         # Activate the RPC-capable source build as one atomic runtime set.  This
         # prevents llama-server from coming from an older prebuilt release while
         # ggml-rpc-server comes from a different build/protocol revision.
+        try:
+            source_commit = subprocess.check_output(["git", "-C", str(src), "rev-parse", "HEAD"], text=True, encoding="utf-8", errors="replace", timeout=10).strip()
+        except Exception:
+            source_commit = ""
         (self.runtime_dir / "installed.json").write_text(
-            json.dumps({"tag": "source-rpc", "asset": "local source build", "path": str(dest)}, indent=2), encoding="utf-8"
+            json.dumps({"tag": "source-rpc", "asset": "local source build", "path": str(dest), "source_commit": source_commit}, indent=2), encoding="utf-8"
         )
         self.custom_server_path = ""
         try:

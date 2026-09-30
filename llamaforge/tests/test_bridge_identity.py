@@ -7,6 +7,13 @@ from pathlib import Path
 import pytest
 
 
+def test_bundled_bridge_updater_matches_the_installable_source():
+    root = Path(__file__).resolve().parents[2]
+    installable = root / "web-bridge" / "bridge-update.php"
+    bundled = root / "llamaforge" / "bridge_payload" / "web-bridge" / "bridge-update.php"
+    assert bundled.read_bytes() == installable.read_bytes()
+
+
 def test_bridge_update_preserves_identity_config_and_live_code_on_copy_failure(tmp_path):
     php = shutil.which("php")
     if not php:
