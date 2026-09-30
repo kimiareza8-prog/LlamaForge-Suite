@@ -1,0 +1,904 @@
+....F......FF.F.......FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF               [100%]
+=================================== FAILURES ===================================
+_________________ test_intent_guard[What's the time?-calendar] _________________
+
+task = "What's the time?", family = 'calendar'
+
+    @pytest.mark.parametrize("task,family", [
+        ("امروز چندمه؟","calendar"), ("ساعت چنده؟","calendar"), ("برای فردا یک قرار بساز","calendar"),
+        ("What time is it?","calendar"), ("What's the time?","calendar"), ("What is today's date?","calendar"),
+        ("Create a meeting tomorrow at 10","calendar"), ("فردا یک meeting بساز","calendar"),
+        ("این ZIP چیه؟","files"), ("کدهای داخل ZIP را بررسی کن","files"), ("این فایل را ذخیره کن","files"),
+        ("PDF را خلاصه کن","files"), ("Summarize this PDF","files"), ("Save this attachment","files"),
+        ("این PDF را summarize کن","files"), ("https://example.com","web"),
+        ("این https://example.com را بخوان","web"), ("برو داخل سایت، کلیک کن و فرم را پر کن","browser"),
+        ("Go to the website and fill the form","browser"), ("داخل website کلیک کن","browser"),
+    ])
+    def test_intent_guard(task, family):
+>       assert family in SkillRegistry.hinted_families(task)
+E       assert 'calendar' in []
+E        +  where [] = <function SkillRegistry.hinted_families at 0x7fdabf6be480>("What's the time?")
+E        +    where <function SkillRegistry.hinted_families at 0x7fdabf6be480> = SkillRegistry.hinted_families
+
+tests/test_skill_audit.py:38: AssertionError
+_ test_intent_guard[PDF \u0631\u0627 \u062e\u0644\u0627\u0635\u0647 \u06a9\u0646-files] _
+
+task = 'PDF را خلاصه کن', family = 'files'
+
+    @pytest.mark.parametrize("task,family", [
+        ("امروز چندمه؟","calendar"), ("ساعت چنده؟","calendar"), ("برای فردا یک قرار بساز","calendar"),
+        ("What time is it?","calendar"), ("What's the time?","calendar"), ("What is today's date?","calendar"),
+        ("Create a meeting tomorrow at 10","calendar"), ("فردا یک meeting بساز","calendar"),
+        ("این ZIP چیه؟","files"), ("کدهای داخل ZIP را بررسی کن","files"), ("این فایل را ذخیره کن","files"),
+        ("PDF را خلاصه کن","files"), ("Summarize this PDF","files"), ("Save this attachment","files"),
+        ("این PDF را summarize کن","files"), ("https://example.com","web"),
+        ("این https://example.com را بخوان","web"), ("برو داخل سایت، کلیک کن و فرم را پر کن","browser"),
+        ("Go to the website and fill the form","browser"), ("داخل website کلیک کن","browser"),
+    ])
+    def test_intent_guard(task, family):
+>       assert family in SkillRegistry.hinted_families(task)
+E       AssertionError: assert 'files' in []
+E        +  where [] = <function SkillRegistry.hinted_families at 0x7fdabf6be480>('PDF را خلاصه کن')
+E        +    where <function SkillRegistry.hinted_families at 0x7fdabf6be480> = SkillRegistry.hinted_families
+
+tests/test_skill_audit.py:38: AssertionError
+_________________ test_intent_guard[Summarize this PDF-files] __________________
+
+task = 'Summarize this PDF', family = 'files'
+
+    @pytest.mark.parametrize("task,family", [
+        ("امروز چندمه؟","calendar"), ("ساعت چنده؟","calendar"), ("برای فردا یک قرار بساز","calendar"),
+        ("What time is it?","calendar"), ("What's the time?","calendar"), ("What is today's date?","calendar"),
+        ("Create a meeting tomorrow at 10","calendar"), ("فردا یک meeting بساز","calendar"),
+        ("این ZIP چیه؟","files"), ("کدهای داخل ZIP را بررسی کن","files"), ("این فایل را ذخیره کن","files"),
+        ("PDF را خلاصه کن","files"), ("Summarize this PDF","files"), ("Save this attachment","files"),
+        ("این PDF را summarize کن","files"), ("https://example.com","web"),
+        ("این https://example.com را بخوان","web"), ("برو داخل سایت، کلیک کن و فرم را پر کن","browser"),
+        ("Go to the website and fill the form","browser"), ("داخل website کلیک کن","browser"),
+    ])
+    def test_intent_guard(task, family):
+>       assert family in SkillRegistry.hinted_families(task)
+E       AssertionError: assert 'files' in []
+E        +  where [] = <function SkillRegistry.hinted_families at 0x7fdabf6be480>('Summarize this PDF')
+E        +    where <function SkillRegistry.hinted_families at 0x7fdabf6be480> = SkillRegistry.hinted_families
+
+tests/test_skill_audit.py:38: AssertionError
+_ test_intent_guard[\u0627\u06cc\u0646 PDF \u0631\u0627 summarize \u06a9\u0646-files] _
+
+task = 'این PDF را summarize کن', family = 'files'
+
+    @pytest.mark.parametrize("task,family", [
+        ("امروز چندمه؟","calendar"), ("ساعت چنده؟","calendar"), ("برای فردا یک قرار بساز","calendar"),
+        ("What time is it?","calendar"), ("What's the time?","calendar"), ("What is today's date?","calendar"),
+        ("Create a meeting tomorrow at 10","calendar"), ("فردا یک meeting بساز","calendar"),
+        ("این ZIP چیه؟","files"), ("کدهای داخل ZIP را بررسی کن","files"), ("این فایل را ذخیره کن","files"),
+        ("PDF را خلاصه کن","files"), ("Summarize this PDF","files"), ("Save this attachment","files"),
+        ("این PDF را summarize کن","files"), ("https://example.com","web"),
+        ("این https://example.com را بخوان","web"), ("برو داخل سایت، کلیک کن و فرم را پر کن","browser"),
+        ("Go to the website and fill the form","browser"), ("داخل website کلیک کن","browser"),
+    ])
+    def test_intent_guard(task, family):
+>       assert family in SkillRegistry.hinted_families(task)
+E       AssertionError: assert 'files' in []
+E        +  where [] = <function SkillRegistry.hinted_families at 0x7fdabf6be480>('این PDF را summarize کن')
+E        +    where <function SkillRegistry.hinted_families at 0x7fdabf6be480> = SkillRegistry.hinted_families
+
+tests/test_skill_audit.py:38: AssertionError
+________ test_guard_does_not_override_conversation[What is a calendar?] ________
+
+task = 'What is a calendar?'
+
+    @pytest.mark.parametrize("task", ["سلام", "Hello!", "What is a calendar?", "Explain ZIP archives",
+        'Translate "meeting tomorrow" into Persian', "تقویم چیست؟", "عبارت ساعت چنده را به انگلیسی ترجمه کن",
+        "Write a poem about tomorrow", "Explain how a browser works", "What is HTTP GET?"])
+    def test_guard_does_not_override_conversation(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['calendar'] == []
+E         
+E         Left contains one more item: 'calendar'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:45: AssertionError
+_______ test_guard_does_not_override_conversation[Explain ZIP archives] ________
+
+task = 'Explain ZIP archives'
+
+    @pytest.mark.parametrize("task", ["سلام", "Hello!", "What is a calendar?", "Explain ZIP archives",
+        'Translate "meeting tomorrow" into Persian', "تقویم چیست؟", "عبارت ساعت چنده را به انگلیسی ترجمه کن",
+        "Write a poem about tomorrow", "Explain how a browser works", "What is HTTP GET?"])
+    def test_guard_does_not_override_conversation(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['files'] == []
+E         
+E         Left contains one more item: 'files'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:45: AssertionError
+_ test_guard_does_not_override_conversation[Translate "meeting tomorrow" into Persian] _
+
+task = 'Translate "meeting tomorrow" into Persian'
+
+    @pytest.mark.parametrize("task", ["سلام", "Hello!", "What is a calendar?", "Explain ZIP archives",
+        'Translate "meeting tomorrow" into Persian', "تقویم چیست؟", "عبارت ساعت چنده را به انگلیسی ترجمه کن",
+        "Write a poem about tomorrow", "Explain how a browser works", "What is HTTP GET?"])
+    def test_guard_does_not_override_conversation(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['calendar'] == []
+E         
+E         Left contains one more item: 'calendar'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:45: AssertionError
+_ test_guard_does_not_override_conversation[\u062a\u0642\u0648\u06cc\u0645 \u0686\u06cc\u0633\u062a\u061f] _
+
+task = 'تقویم چیست؟'
+
+    @pytest.mark.parametrize("task", ["سلام", "Hello!", "What is a calendar?", "Explain ZIP archives",
+        'Translate "meeting tomorrow" into Persian', "تقویم چیست؟", "عبارت ساعت چنده را به انگلیسی ترجمه کن",
+        "Write a poem about tomorrow", "Explain how a browser works", "What is HTTP GET?"])
+    def test_guard_does_not_override_conversation(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['calendar'] == []
+E         
+E         Left contains one more item: 'calendar'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:45: AssertionError
+_ test_guard_does_not_override_conversation[\u0639\u0628\u0627\u0631\u062a \u0633\u0627\u0639\u062a \u0686\u0646\u062f\u0647 \u0631\u0627 \u0628\u0647 \u0627\u0646\u06af\u0644\u06cc\u0633\u06cc \u062a\u0631\u062c\u0645\u0647 \u06a9\u0646] _
+
+task = 'عبارت ساعت چنده را به انگلیسی ترجمه کن'
+
+    @pytest.mark.parametrize("task", ["سلام", "Hello!", "What is a calendar?", "Explain ZIP archives",
+        'Translate "meeting tomorrow" into Persian', "تقویم چیست؟", "عبارت ساعت چنده را به انگلیسی ترجمه کن",
+        "Write a poem about tomorrow", "Explain how a browser works", "What is HTTP GET?"])
+    def test_guard_does_not_override_conversation(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['calendar'] == []
+E         
+E         Left contains one more item: 'calendar'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:45: AssertionError
+____ test_guard_does_not_override_conversation[Write a poem about tomorrow] ____
+
+task = 'Write a poem about tomorrow'
+
+    @pytest.mark.parametrize("task", ["سلام", "Hello!", "What is a calendar?", "Explain ZIP archives",
+        'Translate "meeting tomorrow" into Persian', "تقویم چیست؟", "عبارت ساعت چنده را به انگلیسی ترجمه کن",
+        "Write a poem about tomorrow", "Explain how a browser works", "What is HTTP GET?"])
+    def test_guard_does_not_override_conversation(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['calendar'] == []
+E         
+E         Left contains one more item: 'calendar'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:45: AssertionError
+____ test_guard_does_not_override_conversation[Explain how a browser works] ____
+
+task = 'Explain how a browser works'
+
+    @pytest.mark.parametrize("task", ["سلام", "Hello!", "What is a calendar?", "Explain ZIP archives",
+        'Translate "meeting tomorrow" into Persian', "تقویم چیست؟", "عبارت ساعت چنده را به انگلیسی ترجمه کن",
+        "Write a poem about tomorrow", "Explain how a browser works", "What is HTTP GET?"])
+    def test_guard_does_not_override_conversation(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['browser'] == []
+E         
+E         Left contains one more item: 'browser'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:45: AssertionError
+_________ test_guard_does_not_override_conversation[What is HTTP GET?] _________
+
+task = 'What is HTTP GET?'
+
+    @pytest.mark.parametrize("task", ["سلام", "Hello!", "What is a calendar?", "Explain ZIP archives",
+        'Translate "meeting tomorrow" into Persian', "تقویم چیست؟", "عبارت ساعت چنده را به انگلیسی ترجمه کن",
+        "Write a poem about tomorrow", "Explain how a browser works", "What is HTTP GET?"])
+    def test_guard_does_not_override_conversation(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['api'] == []
+E         
+E         Left contains one more item: 'api'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:45: AssertionError
+___________________ test_manifest_contract_and_family_budget ___________________
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7fdabf88fa40>
+
+    def test_manifest_contract_and_family_budget(runtime):
+        reg = SkillRegistry(runtime, AgentPermissions())
+        rows = reg.shortlist("برای فردا قرار بساز", ["calendar"], limit=2)
+>       assert [r["name"] for r in rows] == ["calendar"]
+E       AssertionError: assert ['calendar', ..., 'web_check'] == ['calendar']
+E         
+E         Left contains 3 more items, first extra item: 'download_file'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:51: AssertionError
+__________________ test_validation_rejects_operation_and_type __________________
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7fdabf715400>
+
+    def test_validation_rejects_operation_and_type(runtime):
+        reg = SkillRegistry(runtime, AgentPermissions())
+>       assert not reg.validate_call("calendar", {"operation":"make_event"})[0]
+E       assert not True
+
+tests/test_skill_audit.py:59: AssertionError
+___________________________ test_download_permission ___________________________
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7fdabf715b50>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fdabf7166c0>
+
+    def test_download_permission(runtime, monkeypatch):
+        monkeypatch.setattr(runtime, "_http", lambda *_a, **_k: pytest.fail("network must not run"))
+>       out = json.loads(runtime.execute("download_file", {"url":"https://example.com/file"}, AgentPermissions(allow_workspace_write=False)))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:65: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/agent_tools.py:1298: in execute
+    elif name == "download_file": result = self.download_file(args, permissions)
+                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+llamaforge/core/agent_tools.py:550: in download_file
+    status, headers, data, final_url = self._http(url, permissions, method="GET", timeout=120.0, max_bytes=max_bytes)
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+_a = ('https://example.com/file', AgentPermissions(allow_write=False, allow_workspace_write=False, allow_private_network=False, browser_headless=False))
+_k = {'method': 'GET', 'timeout': 120.0, 'max_bytes': 104857600}
+
+>   monkeypatch.setattr(runtime, "_http", lambda *_a, **_k: pytest.fail("network must not run"))
+                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: network must not run
+
+tests/test_skill_audit.py:64: Failed
+_________ test_session_and_writes_are_not_parallel_reads[browser_open] _________
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7fdabf714ec0>
+skill = 'browser_open'
+
+    @pytest.mark.parametrize("skill", ["browser_open", "browser_snapshot", "download_file"])
+    def test_session_and_writes_are_not_parallel_reads(runtime, skill):
+>       assert not AgentEngine._parallel_read_safe(skill, {}, SkillRegistry(runtime, AgentPermissions()).catalog())
+E       AssertionError: assert not True
+E        +  where True = <function AgentEngine._parallel_read_safe at 0x7fdabf6bce00>('browser_open', {}, [{'name': 'web_check', 'category': 'web.read', 'title': 'Check URL', 'description': 'Quickly check whether a URL is re...rom a public HTTP(S) URL into the Agent downloads folder and report its local path, size and content type.', ...}, ...])
+E        +    where <function AgentEngine._parallel_read_safe at 0x7fdabf6bce00> = AgentEngine._parallel_read_safe
+E        +    and   [{'name': 'web_check', 'category': 'web.read', 'title': 'Check URL', 'description': 'Quickly check whether a URL is re...rom a public HTTP(S) URL into the Agent downloads folder and report its local path, size and content type.', ...}, ...] = catalog()
+E        +      where catalog = <llamaforge.core.skill_system.SkillRegistry object at 0x7fdabf714620>.catalog
+E        +        where <llamaforge.core.skill_system.SkillRegistry object at 0x7fdabf714620> = SkillRegistry(<llamaforge.core.agent_tools.AgentRuntime object at 0x7fdabf714ec0>, AgentPermissions(allow_write=False, allow_workspace_write=True, allow_private_network=False, browser_headless=False))
+E        +          where AgentPermissions(allow_write=False, allow_workspace_write=True, allow_private_network=False, browser_headless=False) = AgentPermissions()
+
+tests/test_skill_audit.py:71: AssertionError
+_______ test_session_and_writes_are_not_parallel_reads[browser_snapshot] _______
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7fdabf71c0b0>
+skill = 'browser_snapshot'
+
+    @pytest.mark.parametrize("skill", ["browser_open", "browser_snapshot", "download_file"])
+    def test_session_and_writes_are_not_parallel_reads(runtime, skill):
+>       assert not AgentEngine._parallel_read_safe(skill, {}, SkillRegistry(runtime, AgentPermissions()).catalog())
+E       AssertionError: assert not True
+E        +  where True = <function AgentEngine._parallel_read_safe at 0x7fdabf6bce00>('browser_snapshot', {}, [{'name': 'web_check', 'category': 'web.read', 'title': 'Check URL', 'description': 'Quickly check whether a URL is re...rom a public HTTP(S) URL into the Agent downloads folder and report its local path, size and content type.', ...}, ...])
+E        +    where <function AgentEngine._parallel_read_safe at 0x7fdabf6bce00> = AgentEngine._parallel_read_safe
+E        +    and   [{'name': 'web_check', 'category': 'web.read', 'title': 'Check URL', 'description': 'Quickly check whether a URL is re...rom a public HTTP(S) URL into the Agent downloads folder and report its local path, size and content type.', ...}, ...] = catalog()
+E        +      where catalog = <llamaforge.core.skill_system.SkillRegistry object at 0x7fdabf71c7d0>.catalog
+E        +        where <llamaforge.core.skill_system.SkillRegistry object at 0x7fdabf71c7d0> = SkillRegistry(<llamaforge.core.agent_tools.AgentRuntime object at 0x7fdabf71c0b0>, AgentPermissions(allow_write=False, allow_workspace_write=True, allow_private_network=False, browser_headless=False))
+E        +          where AgentPermissions(allow_write=False, allow_workspace_write=True, allow_private_network=False, browser_headless=False) = AgentPermissions()
+
+tests/test_skill_audit.py:71: AssertionError
+________ test_session_and_writes_are_not_parallel_reads[download_file] _________
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7fdabf715880>
+skill = 'download_file'
+
+    @pytest.mark.parametrize("skill", ["browser_open", "browser_snapshot", "download_file"])
+    def test_session_and_writes_are_not_parallel_reads(runtime, skill):
+>       assert not AgentEngine._parallel_read_safe(skill, {}, SkillRegistry(runtime, AgentPermissions()).catalog())
+E       AssertionError: assert not True
+E        +  where True = <function AgentEngine._parallel_read_safe at 0x7fdabf6bce00>('download_file', {}, [{'name': 'web_check', 'category': 'web.read', 'title': 'Check URL', 'description': 'Quickly check whether a URL is re...rom a public HTTP(S) URL into the Agent downloads folder and report its local path, size and content type.', ...}, ...])
+E        +    where <function AgentEngine._parallel_read_safe at 0x7fdabf6bce00> = AgentEngine._parallel_read_safe
+E        +    and   [{'name': 'web_check', 'category': 'web.read', 'title': 'Check URL', 'description': 'Quickly check whether a URL is re...rom a public HTTP(S) URL into the Agent downloads folder and report its local path, size and content type.', ...}, ...] = catalog()
+E        +      where catalog = <llamaforge.core.skill_system.SkillRegistry object at 0x7fdabf717ce0>.catalog
+E        +        where <llamaforge.core.skill_system.SkillRegistry object at 0x7fdabf717ce0> = SkillRegistry(<llamaforge.core.agent_tools.AgentRuntime object at 0x7fdabf715880>, AgentPermissions(allow_write=False, allow_workspace_write=True, allow_private_network=False, browser_headless=False))
+E        +          where AgentPermissions(allow_write=False, allow_workspace_write=True, allow_private_network=False, browser_headless=False) = AgentPermissions()
+
+tests/test_skill_audit.py:71: AssertionError
+_________________________ test_greeting_one_inference __________________________
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7fdabf716780>
+
+    def test_greeting_one_inference(runtime):
+        calls = []
+        def model(messages, tools):
+            calls.append(messages)
+            return {"content":"سلام!"}
+        events = list(runtime.run([{"role":"user", "content":"سلام"}], model, AgentPermissions()))
+>       assert len(calls) == 1
+E       AssertionError: assert 3 == 1
+E        +  where 3 = len([[{'role': 'user', 'content': 'You are stage 0 of a local AI agent router.\nDecide ONLY whether the user\'s request sh...skills, plus summary and confidence.\nUSER TASK: سلام\nINVALID OUTPUT: سلام!'}], [{'role': 'user', 'content': 'سلام'}]])
+
+tests/test_skill_audit.py:80: AssertionError
+__________________ test_parallel_owner_isolation_and_overlap ___________________
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7fdabf88fc20>
+
+    def test_parallel_owner_isolation_and_overlap(runtime):
+        runtime.set_workspace_scope("owner-a")
+        barrier = threading.Barrier(2, timeout=3)
+        original = runtime.execute
+        seen = []
+        def execute(name, args, perms):
+            seen.append(runtime.workspace_scope()); barrier.wait()
+            return original(name, args, perms)
+        runtime.execute = execute
+        def model(messages, tools):
+            p = messages[0]["content"]
+            if "stage 0" in p: return {"content":'{"route":"skills"}'}
+            if "stage 1" in p: return {"content":'{"families":["files","calendar"]}'}
+            if "STEP 1 OF" in p: return {"content":json.dumps({"action":"parallel", "actions":[
+                {"skill":"workspace_files", "arguments":{"operation":"list"}},
+                {"skill":"calendar", "arguments":{"operation":"now"}}]})}
+            return {"content":'{"action":"final","answer":"Done."}'}
+        events = list(runtime.run([{"role":"user","content":"List my files and the current time"}], model, AgentPermissions()))
+>       assert seen == ["owner-a", "owner-a"]
+E       AssertionError: assert ['local', 'local'] == ['owner-a', 'owner-a']
+E         
+E         At index 0 diff: 'local' != 'owner-a'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:102: AssertionError
+________________________ test_budget_final_is_streamed _________________________
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7fdabf8840e0>
+
+    def test_budget_final_is_streamed(runtime):
+        def model(messages, tools):
+            p = messages[0]["content"]
+            if "stage 0" in p: return {"content":'{"route":"skills"}'}
+            if "stage 1" in p: return {"content":'{"families":["calendar"]}'}
+            if "STEP 1 OF" in p: return {"content":'{"action":"tool","skill":"calendar","arguments":{"operation":"now"}}'}
+            pytest.fail("Final must use streaming callback")
+        def stream(messages):
+            yield {"type":"text","delta":"Today "}
+            yield {"type":"text","delta":"is…"}
+>       events = list(runtime.run([{"role":"user","content":"What time is it?"}], model,
+                                 AgentPermissions(), max_steps=1, stream_final=stream))
+
+tests/test_skill_audit.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/agent_tools.py:1351: in run
+    yield from engine.run(
+llamaforge/core/agent_engine.py:1092: in run
+    msg = call_model([{"role": "user", "content": synthesis}], [])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+messages = [{'role': 'user', 'content': 'The agent has reached its tool-step budget. Give the best final answer in English (en) u...24","jalali":"1405-07-02","jalali_text":"2 مهر 1405","weekday":"Thursday","weekday_fa":"پنجشنبه","time":"07:55:28"}}'}]
+tools = []
+
+    def model(messages, tools):
+        p = messages[0]["content"]
+        if "stage 0" in p: return {"content":'{"route":"skills"}'}
+        if "stage 1" in p: return {"content":'{"families":["calendar"]}'}
+        if "STEP 1 OF" in p: return {"content":'{"action":"tool","skill":"calendar","arguments":{"operation":"now"}}'}
+>       pytest.fail("Final must use streaming callback")
+E       Failed: Final must use streaming callback
+
+tests/test_skill_audit.py:112: Failed
+______________________ test_attachment_receipt_and_dedup _______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_attachment_receipt_and_de0')
+
+    def test_attachment_receipt_and_dedup(tmp_path):
+        ws = FileWorkspace(tmp_path)
+        raw = {"name":"records.bin", "data_url":encoded(b"\x00\xff\x01")}
+        meta = ws.stage_attachment(raw)
+>       assert ws.stage_attachment(raw)["attachment_id"] == meta["attachment_id"]
+E       AssertionError: assert 'att_1ddbbc8083554c7a' == 'att_de3903f0cba847d3'
+E         
+E         - att_de3903f0cba847d3
+E         + att_1ddbbc8083554c7a
+
+tests/test_skill_audit.py:129: AssertionError
+____________________ test_any_attachment_metadata[data.tar] ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_any_attachment_metadata_d0')
+name = 'data.tar'
+
+    @pytest.mark.parametrize("name", ["data.tar", "code.rs", "unknown.blob", "voice.mp3", "movie.mp4", "image.png", "notes.yaml", "doc.pdf", "report.xlsx", "slides.pptx"])
+    def test_any_attachment_metadata(tmp_path, name):
+        ws = FileWorkspace(tmp_path)
+        meta = ws.stage_attachment({"name":name, "data_url":encoded(b"opaque bytes")})
+>       result = ws.tool({"operation":"metadata", "attachment_id":meta["attachment_id"]}, False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/workspace.py:672: in tool
+    row, _ = self._resolve_id(str(args.get("id") or ""))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <llamaforge.core.workspace.FileWorkspace object at 0x7fdabf73e6f0>
+file_id = ''
+
+    def _resolve_id(self, file_id: str) -> tuple[dict[str, Any], Path]:
+        idx = self._index()
+        row = idx.get("items", {}).get(str(file_id or ""))
+        if not isinstance(row, dict):
+>           raise ValueError("file not found")
+E           ValueError: file not found
+
+llamaforge/core/workspace.py:468: ValueError
+____________________ test_any_attachment_metadata[code.rs] _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_any_attachment_metadata_c0')
+name = 'code.rs'
+
+    @pytest.mark.parametrize("name", ["data.tar", "code.rs", "unknown.blob", "voice.mp3", "movie.mp4", "image.png", "notes.yaml", "doc.pdf", "report.xlsx", "slides.pptx"])
+    def test_any_attachment_metadata(tmp_path, name):
+        ws = FileWorkspace(tmp_path)
+        meta = ws.stage_attachment({"name":name, "data_url":encoded(b"opaque bytes")})
+>       result = ws.tool({"operation":"metadata", "attachment_id":meta["attachment_id"]}, False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/workspace.py:672: in tool
+    row, _ = self._resolve_id(str(args.get("id") or ""))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <llamaforge.core.workspace.FileWorkspace object at 0x7fdabf882ae0>
+file_id = ''
+
+    def _resolve_id(self, file_id: str) -> tuple[dict[str, Any], Path]:
+        idx = self._index()
+        row = idx.get("items", {}).get(str(file_id or ""))
+        if not isinstance(row, dict):
+>           raise ValueError("file not found")
+E           ValueError: file not found
+
+llamaforge/core/workspace.py:468: ValueError
+__________________ test_any_attachment_metadata[unknown.blob] __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_any_attachment_metadata_u0')
+name = 'unknown.blob'
+
+    @pytest.mark.parametrize("name", ["data.tar", "code.rs", "unknown.blob", "voice.mp3", "movie.mp4", "image.png", "notes.yaml", "doc.pdf", "report.xlsx", "slides.pptx"])
+    def test_any_attachment_metadata(tmp_path, name):
+        ws = FileWorkspace(tmp_path)
+        meta = ws.stage_attachment({"name":name, "data_url":encoded(b"opaque bytes")})
+>       result = ws.tool({"operation":"metadata", "attachment_id":meta["attachment_id"]}, False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/workspace.py:672: in tool
+    row, _ = self._resolve_id(str(args.get("id") or ""))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <llamaforge.core.workspace.FileWorkspace object at 0x7fdabf8868d0>
+file_id = ''
+
+    def _resolve_id(self, file_id: str) -> tuple[dict[str, Any], Path]:
+        idx = self._index()
+        row = idx.get("items", {}).get(str(file_id or ""))
+        if not isinstance(row, dict):
+>           raise ValueError("file not found")
+E           ValueError: file not found
+
+llamaforge/core/workspace.py:468: ValueError
+___________________ test_any_attachment_metadata[voice.mp3] ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_any_attachment_metadata_v0')
+name = 'voice.mp3'
+
+    @pytest.mark.parametrize("name", ["data.tar", "code.rs", "unknown.blob", "voice.mp3", "movie.mp4", "image.png", "notes.yaml", "doc.pdf", "report.xlsx", "slides.pptx"])
+    def test_any_attachment_metadata(tmp_path, name):
+        ws = FileWorkspace(tmp_path)
+        meta = ws.stage_attachment({"name":name, "data_url":encoded(b"opaque bytes")})
+>       result = ws.tool({"operation":"metadata", "attachment_id":meta["attachment_id"]}, False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/workspace.py:672: in tool
+    row, _ = self._resolve_id(str(args.get("id") or ""))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <llamaforge.core.workspace.FileWorkspace object at 0x7fdabf887b00>
+file_id = ''
+
+    def _resolve_id(self, file_id: str) -> tuple[dict[str, Any], Path]:
+        idx = self._index()
+        row = idx.get("items", {}).get(str(file_id or ""))
+        if not isinstance(row, dict):
+>           raise ValueError("file not found")
+E           ValueError: file not found
+
+llamaforge/core/workspace.py:468: ValueError
+___________________ test_any_attachment_metadata[movie.mp4] ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_any_attachment_metadata_m0')
+name = 'movie.mp4'
+
+    @pytest.mark.parametrize("name", ["data.tar", "code.rs", "unknown.blob", "voice.mp3", "movie.mp4", "image.png", "notes.yaml", "doc.pdf", "report.xlsx", "slides.pptx"])
+    def test_any_attachment_metadata(tmp_path, name):
+        ws = FileWorkspace(tmp_path)
+        meta = ws.stage_attachment({"name":name, "data_url":encoded(b"opaque bytes")})
+>       result = ws.tool({"operation":"metadata", "attachment_id":meta["attachment_id"]}, False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/workspace.py:672: in tool
+    row, _ = self._resolve_id(str(args.get("id") or ""))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <llamaforge.core.workspace.FileWorkspace object at 0x7fdabf715460>
+file_id = ''
+
+    def _resolve_id(self, file_id: str) -> tuple[dict[str, Any], Path]:
+        idx = self._index()
+        row = idx.get("items", {}).get(str(file_id or ""))
+        if not isinstance(row, dict):
+>           raise ValueError("file not found")
+E           ValueError: file not found
+
+llamaforge/core/workspace.py:468: ValueError
+___________________ test_any_attachment_metadata[image.png] ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_any_attachment_metadata_i0')
+name = 'image.png'
+
+    @pytest.mark.parametrize("name", ["data.tar", "code.rs", "unknown.blob", "voice.mp3", "movie.mp4", "image.png", "notes.yaml", "doc.pdf", "report.xlsx", "slides.pptx"])
+    def test_any_attachment_metadata(tmp_path, name):
+        ws = FileWorkspace(tmp_path)
+        meta = ws.stage_attachment({"name":name, "data_url":encoded(b"opaque bytes")})
+>       result = ws.tool({"operation":"metadata", "attachment_id":meta["attachment_id"]}, False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/workspace.py:672: in tool
+    row, _ = self._resolve_id(str(args.get("id") or ""))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <llamaforge.core.workspace.FileWorkspace object at 0x7fdabf73e450>
+file_id = ''
+
+    def _resolve_id(self, file_id: str) -> tuple[dict[str, Any], Path]:
+        idx = self._index()
+        row = idx.get("items", {}).get(str(file_id or ""))
+        if not isinstance(row, dict):
+>           raise ValueError("file not found")
+E           ValueError: file not found
+
+llamaforge/core/workspace.py:468: ValueError
+___________________ test_any_attachment_metadata[notes.yaml] ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_any_attachment_metadata_n0')
+name = 'notes.yaml'
+
+    @pytest.mark.parametrize("name", ["data.tar", "code.rs", "unknown.blob", "voice.mp3", "movie.mp4", "image.png", "notes.yaml", "doc.pdf", "report.xlsx", "slides.pptx"])
+    def test_any_attachment_metadata(tmp_path, name):
+        ws = FileWorkspace(tmp_path)
+        meta = ws.stage_attachment({"name":name, "data_url":encoded(b"opaque bytes")})
+>       result = ws.tool({"operation":"metadata", "attachment_id":meta["attachment_id"]}, False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/workspace.py:672: in tool
+    row, _ = self._resolve_id(str(args.get("id") or ""))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <llamaforge.core.workspace.FileWorkspace object at 0x7fdabf75e120>
+file_id = ''
+
+    def _resolve_id(self, file_id: str) -> tuple[dict[str, Any], Path]:
+        idx = self._index()
+        row = idx.get("items", {}).get(str(file_id or ""))
+        if not isinstance(row, dict):
+>           raise ValueError("file not found")
+E           ValueError: file not found
+
+llamaforge/core/workspace.py:468: ValueError
+____________________ test_any_attachment_metadata[doc.pdf] _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_any_attachment_metadata_d1')
+name = 'doc.pdf'
+
+    @pytest.mark.parametrize("name", ["data.tar", "code.rs", "unknown.blob", "voice.mp3", "movie.mp4", "image.png", "notes.yaml", "doc.pdf", "report.xlsx", "slides.pptx"])
+    def test_any_attachment_metadata(tmp_path, name):
+        ws = FileWorkspace(tmp_path)
+        meta = ws.stage_attachment({"name":name, "data_url":encoded(b"opaque bytes")})
+>       result = ws.tool({"operation":"metadata", "attachment_id":meta["attachment_id"]}, False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/workspace.py:672: in tool
+    row, _ = self._resolve_id(str(args.get("id") or ""))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <llamaforge.core.workspace.FileWorkspace object at 0x7fdabf9b2a20>
+file_id = ''
+
+    def _resolve_id(self, file_id: str) -> tuple[dict[str, Any], Path]:
+        idx = self._index()
+        row = idx.get("items", {}).get(str(file_id or ""))
+        if not isinstance(row, dict):
+>           raise ValueError("file not found")
+E           ValueError: file not found
+
+llamaforge/core/workspace.py:468: ValueError
+__________________ test_any_attachment_metadata[report.xlsx] ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_any_attachment_metadata_r0')
+name = 'report.xlsx'
+
+    @pytest.mark.parametrize("name", ["data.tar", "code.rs", "unknown.blob", "voice.mp3", "movie.mp4", "image.png", "notes.yaml", "doc.pdf", "report.xlsx", "slides.pptx"])
+    def test_any_attachment_metadata(tmp_path, name):
+        ws = FileWorkspace(tmp_path)
+        meta = ws.stage_attachment({"name":name, "data_url":encoded(b"opaque bytes")})
+>       result = ws.tool({"operation":"metadata", "attachment_id":meta["attachment_id"]}, False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/workspace.py:672: in tool
+    row, _ = self._resolve_id(str(args.get("id") or ""))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <llamaforge.core.workspace.FileWorkspace object at 0x7fdabf73e6c0>
+file_id = ''
+
+    def _resolve_id(self, file_id: str) -> tuple[dict[str, Any], Path]:
+        idx = self._index()
+        row = idx.get("items", {}).get(str(file_id or ""))
+        if not isinstance(row, dict):
+>           raise ValueError("file not found")
+E           ValueError: file not found
+
+llamaforge/core/workspace.py:468: ValueError
+__________________ test_any_attachment_metadata[slides.pptx] ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_any_attachment_metadata_s0')
+name = 'slides.pptx'
+
+    @pytest.mark.parametrize("name", ["data.tar", "code.rs", "unknown.blob", "voice.mp3", "movie.mp4", "image.png", "notes.yaml", "doc.pdf", "report.xlsx", "slides.pptx"])
+    def test_any_attachment_metadata(tmp_path, name):
+        ws = FileWorkspace(tmp_path)
+        meta = ws.stage_attachment({"name":name, "data_url":encoded(b"opaque bytes")})
+>       result = ws.tool({"operation":"metadata", "attachment_id":meta["attachment_id"]}, False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/workspace.py:672: in tool
+    row, _ = self._resolve_id(str(args.get("id") or ""))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <llamaforge.core.workspace.FileWorkspace object at 0x7fdabf7155e0>
+file_id = ''
+
+    def _resolve_id(self, file_id: str) -> tuple[dict[str, Any], Path]:
+        idx = self._index()
+        row = idx.get("items", {}).get(str(file_id or ""))
+        if not isinstance(row, dict):
+>           raise ValueError("file not found")
+E           ValueError: file not found
+
+llamaforge/core/workspace.py:468: ValueError
+______________________ test_traversal_rejected[../escape] ______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_traversal_rejected____esc0')
+folder = '../escape'
+
+    @pytest.mark.parametrize("folder", ["../escape", "/absolute", "C:\\outside", "a/../../b"])
+    def test_traversal_rejected(tmp_path, folder):
+>       with pytest.raises(ValueError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_skill_audit.py:150: Failed
+______________________ test_traversal_rejected[/absolute] ______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_traversal_rejected__absol0')
+folder = '/absolute'
+
+    @pytest.mark.parametrize("folder", ["../escape", "/absolute", "C:\\outside", "a/../../b"])
+    def test_traversal_rejected(tmp_path, folder):
+>       with pytest.raises(ValueError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_skill_audit.py:150: Failed
+_____________________ test_traversal_rejected[C:\\outside] _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_traversal_rejected_C___ou0')
+folder = 'C:\\outside'
+
+    @pytest.mark.parametrize("folder", ["../escape", "/absolute", "C:\\outside", "a/../../b"])
+    def test_traversal_rejected(tmp_path, folder):
+>       with pytest.raises(ValueError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_skill_audit.py:150: Failed
+______________________ test_traversal_rejected[a/../../b] ______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_traversal_rejected_a_____0')
+folder = 'a/../../b'
+
+    @pytest.mark.parametrize("folder", ["../escape", "/absolute", "C:\\outside", "a/../../b"])
+    def test_traversal_rejected(tmp_path, folder):
+>       with pytest.raises(ValueError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_skill_audit.py:150: Failed
+____________________ test_symlink_escape_and_read_only_list ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_symlink_escape_and_read_o0')
+
+    def test_symlink_escape_and_read_only_list(tmp_path):
+        outside = tmp_path / "outside"; outside.mkdir()
+        ws = FileWorkspace(tmp_path / "ws")
+        (ws.files_root / "link").symlink_to(outside, target_is_directory=True)
+>       with pytest.raises(ValueError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_skill_audit.py:158: Failed
+__________________ test_archive_probe_selective_read_and_bomb __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_archive_probe_selective_r0')
+
+    def test_archive_probe_selective_read_and_bomb(tmp_path):
+        ws = FileWorkspace(tmp_path); b = io.BytesIO()
+        with zipfile.ZipFile(b, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("src/main.py", "print('safe')"); z.writestr("other.txt", "DO_NOT_READ")
+            z.writestr("../escape.py", "UNSAFE"); z.writestr("bomb.txt", "x" * 2_000_000)
+        row = ws.upload_data(name="code.zip", data_url=encoded(b.getvalue()))
+        probe = ws.tool({"operation":"probe", "id":row["id"]}, False)
+>       assert "DO_NOT_READ" not in str(probe) and any(not e["safe"] for e in probe["archive_entries"])
+                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:172: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+.0 = <list_iterator object at 0x7fdabf809ed0>
+
+>   assert "DO_NOT_READ" not in str(probe) and any(not e["safe"] for e in probe["archive_entries"])
+                                                       ^^^^^^^^^
+E   KeyError: 'safe'
+
+tests/test_skill_audit.py:172: KeyError
+_____________ test_calendar_date_clock_composition_and_validation ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_calendar_date_clock_compo0')
+
+    def test_calendar_date_clock_composition_and_validation(tmp_path):
+        cal = CalendarStore(tmp_path)
+>       event = cal.tool({"operation":"create", "title":"جلسه", "jalali":"1405-07-02", "start":"10:00"}, True)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:181: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/workspace.py:340: in tool
+    return self.write(op, args)
+           ^^^^^^^^^^^^^^^^^^^^
+llamaforge/core/workspace.py:223: in write
+    start = _parse_iso(str(data.get("start") or ""))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = '10:00'
+
+    def _parse_iso(value: str) -> datetime:
+        raw = str(value or "").strip()
+        if not raw:
+            raise ValueError("date/time is required")
+        if raw.endswith("Z"):
+            raw = raw[:-1] + "+00:00"
+>       dt = datetime.fromisoformat(raw)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: Invalid isoformat string: '10:00'
+
+llamaforge/core/workspace.py:111: ValueError
+_____________________ test_large_vision_result_valid_json ______________________
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7fdabf88eb40>
+
+    def test_large_vision_result_valid_json(runtime):
+        runtime.vision_available = True
+        meta = runtime.workspace.stage_attachment({"name":"image.png", "kind":"image", "data_url":encoded(b"x" * 20000)})
+>       result = json.loads(runtime.execute("workspace_files", {"operation":"read_content", "attachment_id":meta["attachment_id"]}, AgentPermissions()))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_skill_audit.py:193: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/json/__init__.py:346: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/json/decoder.py:338: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <json.decoder.JSONDecoder object at 0x7fdabfade3f0>
+s = '{\n  "ok": true,\n  "result": {\n    "file": {\n      "attachment_id": "att_f813790292494fcb",\n      "name": "image....eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4\n…[tool result truncated]'
+idx = 0
+
+    def raw_decode(self, s, idx=0):
+        """Decode a JSON document from ``s`` (a ``str`` beginning with
+        a JSON document) and return a 2-tuple of the Python
+        representation and the index in ``s`` where the document ended.
+    
+        This can be used to decode a JSON document from a string that may
+        have extraneous data at the end.
+    
+        """
+        try:
+>           obj, end = self.scan_once(s, idx)
+                       ^^^^^^^^^^^^^^^^^^^^^^
+E           json.decoder.JSONDecodeError: Invalid control character at: line 13 column 17746 (char 18000)
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/json/decoder.py:354: JSONDecodeError
+=========================== short test summary info ============================
+FAILED tests/test_skill_audit.py::test_intent_guard[What's the time?-calendar]
+FAILED tests/test_skill_audit.py::test_intent_guard[PDF \u0631\u0627 \u062e\u0644\u0627\u0635\u0647 \u06a9\u0646-files]
+FAILED tests/test_skill_audit.py::test_intent_guard[Summarize this PDF-files]
+FAILED tests/test_skill_audit.py::test_intent_guard[\u0627\u06cc\u0646 PDF \u0631\u0627 summarize \u06a9\u0646-files]
+FAILED tests/test_skill_audit.py::test_guard_does_not_override_conversation[What is a calendar?]
+FAILED tests/test_skill_audit.py::test_guard_does_not_override_conversation[Explain ZIP archives]
+FAILED tests/test_skill_audit.py::test_guard_does_not_override_conversation[Translate "meeting tomorrow" into Persian]
+FAILED tests/test_skill_audit.py::test_guard_does_not_override_conversation[\u062a\u0642\u0648\u06cc\u0645 \u0686\u06cc\u0633\u062a\u061f]
+FAILED tests/test_skill_audit.py::test_guard_does_not_override_conversation[\u0639\u0628\u0627\u0631\u062a \u0633\u0627\u0639\u062a \u0686\u0646\u062f\u0647 \u0631\u0627 \u0628\u0647 \u0627\u0646\u06af\u0644\u06cc\u0633\u06cc \u062a\u0631\u062c\u0645\u0647 \u06a9\u0646]
+FAILED tests/test_skill_audit.py::test_guard_does_not_override_conversation[Write a poem about tomorrow]
+FAILED tests/test_skill_audit.py::test_guard_does_not_override_conversation[Explain how a browser works]
+FAILED tests/test_skill_audit.py::test_guard_does_not_override_conversation[What is HTTP GET?]
+FAILED tests/test_skill_audit.py::test_manifest_contract_and_family_budget - ...
+FAILED tests/test_skill_audit.py::test_validation_rejects_operation_and_type
+FAILED tests/test_skill_audit.py::test_download_permission - Failed: network ...
+FAILED tests/test_skill_audit.py::test_session_and_writes_are_not_parallel_reads[browser_open]
+FAILED tests/test_skill_audit.py::test_session_and_writes_are_not_parallel_reads[browser_snapshot]
+FAILED tests/test_skill_audit.py::test_session_and_writes_are_not_parallel_reads[download_file]
+FAILED tests/test_skill_audit.py::test_greeting_one_inference - AssertionErro...
+FAILED tests/test_skill_audit.py::test_parallel_owner_isolation_and_overlap
+FAILED tests/test_skill_audit.py::test_budget_final_is_streamed - Failed: Fin...
+FAILED tests/test_skill_audit.py::test_attachment_receipt_and_dedup - Asserti...
+FAILED tests/test_skill_audit.py::test_any_attachment_metadata[data.tar] - Va...
+FAILED tests/test_skill_audit.py::test_any_attachment_metadata[code.rs] - Val...
+FAILED tests/test_skill_audit.py::test_any_attachment_metadata[unknown.blob]
+FAILED tests/test_skill_audit.py::test_any_attachment_metadata[voice.mp3] - V...
+FAILED tests/test_skill_audit.py::test_any_attachment_metadata[movie.mp4] - V...
+FAILED tests/test_skill_audit.py::test_any_attachment_metadata[image.png] - V...
+FAILED tests/test_skill_audit.py::test_any_attachment_metadata[notes.yaml] - ...
+FAILED tests/test_skill_audit.py::test_any_attachment_metadata[doc.pdf] - Val...
+FAILED tests/test_skill_audit.py::test_any_attachment_metadata[report.xlsx]
+FAILED tests/test_skill_audit.py::test_any_attachment_metadata[slides.pptx]
+FAILED tests/test_skill_audit.py::test_traversal_rejected[../escape] - Failed...
+FAILED tests/test_skill_audit.py::test_traversal_rejected[/absolute] - Failed...
+FAILED tests/test_skill_audit.py::test_traversal_rejected[C:\\outside] - Fail...
+FAILED tests/test_skill_audit.py::test_traversal_rejected[a/../../b] - Failed...
+FAILED tests/test_skill_audit.py::test_symlink_escape_and_read_only_list - Fa...
+FAILED tests/test_skill_audit.py::test_archive_probe_selective_read_and_bomb
+FAILED tests/test_skill_audit.py::test_calendar_date_clock_composition_and_validation
+FAILED tests/test_skill_audit.py::test_large_vision_result_valid_json - json....
+40 failed, 18 passed in 0.62s

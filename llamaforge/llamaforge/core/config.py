@@ -2,15 +2,26 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import tempfile
+import threading
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
 APP_DIR = Path.home() / ".llamaforge"
 CONFIG_PATH = APP_DIR / "config.json"
+CONFIG_BACKUP_PATH = APP_DIR / "config.json.bak"
 RUNTIME_DIR = APP_DIR / "runtime"
 DEFAULT_MODEL_DIR = Path.home() / "LlamaForgeModels"
 KEYRING_SERVICE = "LlamaForge"
 KEYRING_USER = "huggingface-token"
+API_PROVIDER_IDS = {"openai", "gemini", "cerebras", "groq", "mistral", "alibaba"}
+ALIBABA_BASE_URLS = {
+    "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+    "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "https://dashscope-us.aliyuncs.com/compatible-mode/v1",
+    "https://cn-hongkong.dashscope.aliyuncs.com/compatible-mode/v1",
+}
 
 
 def _keyring_get() -> str | None:
@@ -36,6 +47,43 @@ def _keyring_store(token: str) -> bool:
         return False
 
 
+def _load_json_file(path: Path) -> dict | None:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else None
+    except Exception:
+        return None
+
+
+def _atomic_write_json(path: Path, value: dict) -> None:
+    """Durably replace one small JSON file without exposing partial contents.
+
+    Older builds wrote config.json directly. If another extracted LlamaForge build
+    started while that write was in progress, it could observe an empty/partial
+    file, fall back to defaults and then persist those defaults. Atomic replace
+    removes that cross-version failure mode.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(value, indent=2, ensure_ascii=False)
+    fd, tmp_name = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+            f.write(payload)
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError:
+                pass
+        os.replace(tmp, path)
+    finally:
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except Exception:
+            pass
+
+
 @dataclass
 class AppConfig:
     model_dirs: list[str] = field(default_factory=lambda: [str(DEFAULT_MODEL_DIR)])
@@ -55,11 +103,18 @@ class AppConfig:
     ui_disconnect_shutdown_seconds: int = 12
     idle_unload_minutes: int = 0
     agent_enabled_default: bool = False
-    agent_allow_write: bool = False
+    agent_allow_write: bool = True
     agent_allow_workspace_write: bool = True
-    agent_allow_private_network: bool = False
+    agent_allow_private_network: bool = True
     agent_browser_headless: bool = False
-    agent_max_steps: int = 8
+    agent_allow_telegram_read: bool = True
+    agent_allow_telegram_write: bool = True
+    agent_allow_tool_creation: bool = False
+    agent_allow_system_commands: bool = False
+    agent_allow_code_execution: bool = False
+    agent_skill_profile: str = "all"
+    agent_max_steps: int = 16
+    diagnostic_full_traces: bool = False
     default_context_size: int = 4096
     generation_overrides_enabled: bool = False
     generation_temperature: float = 0.70
@@ -70,6 +125,12 @@ class AppConfig:
     generation_max_tokens: int = 2048
     speculative_mode: str = "auto"
     adaptive_context: bool = True
+    inference_backend: str = "local"
+    external_model_id: str = ""
+    api_output_syntax: dict = field(default_factory=dict)
+    api_provider_base_urls: dict = field(default_factory=dict)
+    audio_ffmpeg_path: str = ""
+    audio_vosk_model_path: str = ""
 
     @classmethod
     def load(cls) -> "AppConfig":
@@ -80,9 +141,19 @@ class AppConfig:
             cfg = cls()
             cfg.save()
             return cfg
+
+        raw = _load_json_file(CONFIG_PATH)
+        if raw is None:
+            # Recover the last known-good config instead of silently turning a
+            # transient/partial read into a permanent reset of model/runtime paths.
+            raw = _load_json_file(CONFIG_BACKUP_PATH)
+            if raw is not None:
+                try:
+                    _atomic_write_json(CONFIG_PATH, raw)
+                except Exception:
+                    pass
         try:
-            raw = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-            known = {k: v for k, v in raw.items() if k in cls.__dataclass_fields__}
+            known = {k: v for k, v in (raw or {}).items() if k in cls.__dataclass_fields__}
             cfg = cls(**known)
         except Exception:
             cfg = cls()
@@ -102,9 +173,6 @@ class AppConfig:
             cfg.accelerator_mode = "adaptive"
         else:
             cfg.accelerator_mode = str(cfg.accelerator_mode or "adaptive").lower()
-        # accelerator_mode supersedes the legacy CPU-only default. Existing
-        # 0.29.0 configs therefore migrate to Hybrid automatically instead of
-        # silently preserving the old CPU-only behavior forever.
         cfg.cpu_only_default = cfg.accelerator_mode == "cpu"
         cfg.gpu_layer_percent = min(95, max(5, int(getattr(cfg, "gpu_layer_percent", 35) or 35)))
         if cfg.model_memory_mode not in {"ram_only", "ssd_test", "hybrid"}:
@@ -116,7 +184,15 @@ class AppConfig:
         cfg.agent_allow_workspace_write = bool(getattr(cfg, "agent_allow_workspace_write", True))
         cfg.agent_allow_private_network = bool(cfg.agent_allow_private_network)
         cfg.agent_browser_headless = bool(cfg.agent_browser_headless)
-        cfg.agent_max_steps = min(16, max(1, int(cfg.agent_max_steps or 8)))
+        cfg.agent_allow_telegram_read = bool(cfg.agent_allow_telegram_read)
+        cfg.agent_allow_telegram_write = bool(cfg.agent_allow_telegram_write)
+        cfg.agent_allow_tool_creation = bool(getattr(cfg, "agent_allow_tool_creation", False))
+        cfg.agent_allow_system_commands = bool(getattr(cfg, "agent_allow_system_commands", False))
+        cfg.agent_allow_code_execution = bool(getattr(cfg, "agent_allow_code_execution", False))
+        cfg.audio_ffmpeg_path = str(getattr(cfg, "audio_ffmpeg_path", "") or "").strip()[:1000]
+        cfg.audio_vosk_model_path = str(getattr(cfg, "audio_vosk_model_path", "") or "").strip()[:1000]
+        if cfg.agent_skill_profile not in {"all", "telegram_only"}: cfg.agent_skill_profile = "all"
+        cfg.agent_max_steps = min(24, max(1, int(cfg.agent_max_steps or 16)))
         cfg.default_context_size = min(262144, max(512, int(cfg.default_context_size or 4096)))
         cfg.generation_overrides_enabled = bool(cfg.generation_overrides_enabled)
         cfg.generation_temperature = min(2.0, max(0.0, float(cfg.generation_temperature if cfg.generation_temperature is not None else 0.70)))
@@ -129,13 +205,50 @@ class AppConfig:
         if cfg.speculative_mode not in {"off", "auto", "ngram"}:
             cfg.speculative_mode = "auto"
         cfg.adaptive_context = bool(getattr(cfg, "adaptive_context", True))
+        cfg.inference_backend = str(getattr(cfg, "inference_backend", "local") or "local").lower()
+        if cfg.inference_backend not in {"local", *API_PROVIDER_IDS}:
+            cfg.inference_backend = "local"
+        cfg.external_model_id = str(getattr(cfg, "external_model_id", "") or "").strip()[:240]
+        raw_base_urls = getattr(cfg, "api_provider_base_urls", {})
+        cfg.api_provider_base_urls = {}
+        if isinstance(raw_base_urls, dict):
+            alibaba_url = str(raw_base_urls.get("alibaba") or "").strip().rstrip("/")
+            if alibaba_url in {url.rstrip("/") for url in ALIBABA_BASE_URLS}:
+                cfg.api_provider_base_urls["alibaba"] = alibaba_url
+        raw_syntax = getattr(cfg, "api_output_syntax", {})
+        cfg.api_output_syntax = {}
+        if isinstance(raw_syntax, dict):
+            for provider, models in raw_syntax.items():
+                provider = str(provider or "").lower().strip()
+                if provider not in API_PROVIDER_IDS or not isinstance(models, dict):
+                    continue
+                clean_models = {}
+                for model, markers in models.items():
+                    model = str(model or "").strip()[:240]
+                    if not model or not isinstance(markers, dict):
+                        continue
+                    opening = str(markers.get("open_marker") or "").strip()
+                    closing = str(markers.get("close_marker") or "").strip()
+                    if (not opening and not closing) or not opening or not closing:
+                        continue
+                    if len(opening) > 80 or len(closing) > 80 or any(ord(ch) < 32 for ch in opening + closing):
+                        continue
+                    clean_models[model] = {"open_marker": opening, "close_marker": closing}
+                if clean_models:
+                    cfg.api_output_syntax[provider] = clean_models
         return cfg
 
     def save(self) -> None:
         APP_DIR.mkdir(parents=True, exist_ok=True)
         raw = asdict(self)
-        # Prefer the operating-system credential vault. If no usable keyring
-        # backend exists, retain backwards-compatible local config behavior.
         if _keyring_store(self.hf_token):
             raw["hf_token"] = ""
-        CONFIG_PATH.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+
+        # The primary file is replaced atomically, then mirrored to a known-good
+        # backup. If an older build later performs a non-atomic write and is
+        # interrupted, this backup can restore the latest settings.
+        _atomic_write_json(CONFIG_PATH, raw)
+        try:
+            _atomic_write_json(CONFIG_BACKUP_PATH, raw)
+        except Exception:
+            pass

@@ -1,0 +1,138 @@
+{
+  "baseline_commit": "c60aafd9e6e4413f8106c962c1b2f715b0b523f9",
+  "method": "3 alternating subprocess pairs, 35 requests each with 5 warmups; same existing fixture and tracemalloc, old request_tracing module loaded from git; synthetic model, not inference or end-to-end hardware",
+  "summary": {
+    "before": {
+      "disabled": {
+        "median_ms": 0.009,
+        "p95_ms": 0.01,
+        "python_peak_bytes": 2272
+      },
+      "enabled": {
+        "median_ms": 8.175,
+        "p95_ms": 9.782,
+        "python_peak_bytes": 176092
+      }
+    },
+    "after": {
+      "disabled": {
+        "median_ms": 0.009,
+        "p95_ms": 0.01,
+        "python_peak_bytes": 3232
+      },
+      "enabled": {
+        "median_ms": 5.374,
+        "p95_ms": 5.737,
+        "python_peak_bytes": 159714
+      }
+    }
+  },
+  "runs": {
+    "before": [
+      {
+        "fixture": "35 requests / 5 warmup, approximately 8 KB prompt, mocked model; no inference benchmark",
+        "disabled": {
+          "median_ms": 0.009,
+          "p95_ms": 0.01,
+          "python_peak_bytes": 2272,
+          "retained_files": 0,
+          "retained_bytes": 0
+        },
+        "enabled": {
+          "median_ms": 8.175,
+          "p95_ms": 9.782,
+          "python_peak_bytes": 177928,
+          "retained_files": 8,
+          "retained_bytes": 182353
+        }
+      },
+      {
+        "fixture": "35 requests / 5 warmup, approximately 8 KB prompt, mocked model; no inference benchmark",
+        "disabled": {
+          "median_ms": 0.009,
+          "p95_ms": 0.01,
+          "python_peak_bytes": 2272,
+          "retained_files": 0,
+          "retained_bytes": 0
+        },
+        "enabled": {
+          "median_ms": 7.944,
+          "p95_ms": 8.921,
+          "python_peak_bytes": 176092,
+          "retained_files": 8,
+          "retained_bytes": 182355
+        }
+      },
+      {
+        "fixture": "35 requests / 5 warmup, approximately 8 KB prompt, mocked model; no inference benchmark",
+        "disabled": {
+          "median_ms": 0.009,
+          "p95_ms": 0.01,
+          "python_peak_bytes": 2272,
+          "retained_files": 0,
+          "retained_bytes": 0
+        },
+        "enabled": {
+          "median_ms": 8.184,
+          "p95_ms": 16.129,
+          "python_peak_bytes": 174017,
+          "retained_files": 8,
+          "retained_bytes": 182351
+        }
+      }
+    ],
+    "after": [
+      {
+        "fixture": "35 requests / 5 warmup, approximately 8 KB prompt, mocked model; no inference benchmark",
+        "disabled": {
+          "median_ms": 0.009,
+          "p95_ms": 0.009,
+          "python_peak_bytes": 3232,
+          "retained_files": 0,
+          "retained_bytes": 0
+        },
+        "enabled": {
+          "median_ms": 5.374,
+          "p95_ms": 6.181,
+          "python_peak_bytes": 162438,
+          "retained_files": 8,
+          "retained_bytes": 182354
+        }
+      },
+      {
+        "fixture": "35 requests / 5 warmup, approximately 8 KB prompt, mocked model; no inference benchmark",
+        "disabled": {
+          "median_ms": 0.009,
+          "p95_ms": 0.01,
+          "python_peak_bytes": 3232,
+          "retained_files": 0,
+          "retained_bytes": 0
+        },
+        "enabled": {
+          "median_ms": 5.376,
+          "p95_ms": 5.736,
+          "python_peak_bytes": 156696,
+          "retained_files": 8,
+          "retained_bytes": 182354
+        }
+      },
+      {
+        "fixture": "35 requests / 5 warmup, approximately 8 KB prompt, mocked model; no inference benchmark",
+        "disabled": {
+          "median_ms": 0.009,
+          "p95_ms": 0.01,
+          "python_peak_bytes": 3232,
+          "retained_files": 0,
+          "retained_bytes": 0
+        },
+        "enabled": {
+          "median_ms": 5.271,
+          "p95_ms": 5.737,
+          "python_peak_bytes": 159714,
+          "retained_files": 8,
+          "retained_bytes": 182353
+        }
+      }
+    ]
+  }
+}

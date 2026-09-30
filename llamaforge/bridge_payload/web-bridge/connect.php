@@ -22,7 +22,7 @@ aib_json_response([
     'app'=>[
         'id'=>$appId,
         'name'=>(string)($config['app_name'] ?? 'AI Bridge'),
-        'version'=>(string)($config['version'] ?? '3.9.0-live-stream-files'),
+        'version'=>(string)($config['version'] ?? '3.10.1-updater-reliability'),
         'base_url'=>aib_base_url(),
         'chat_url'=>aib_url('index.php'),
     ],

@@ -1,0 +1,83 @@
+{
+  "kind": "control-plane; stub model; not inference",
+  "greeting_model_calls": 1,
+  "calendar_shortlist_count": 1,
+  "shortlist_median_ms": 0.0923889999739913,
+  "calendar_manifest_chars": 2070,
+  "repeated_attachment_unique_ids": 1,
+  "staging_20_turns_ms": 3.7241439999888826,
+  "inbox_bytes": 100371,
+  "repeats": 7,
+  "runs": [
+    {
+      "kind": "control-plane; stub model; not inference",
+      "greeting_model_calls": 1,
+      "calendar_shortlist_count": 1,
+      "shortlist_median_ms": 0.09174799993161287,
+      "calendar_manifest_chars": 2070,
+      "repeated_attachment_unique_ids": 1,
+      "staging_20_turns_ms": 6.108742999913375,
+      "inbox_bytes": 100371
+    },
+    {
+      "kind": "control-plane; stub model; not inference",
+      "greeting_model_calls": 1,
+      "calendar_shortlist_count": 1,
+      "shortlist_median_ms": 0.09018600007948407,
+      "calendar_manifest_chars": 2070,
+      "repeated_attachment_unique_ids": 1,
+      "staging_20_turns_ms": 3.691656000000876,
+      "inbox_bytes": 100371
+    },
+    {
+      "kind": "control-plane; stub model; not inference",
+      "greeting_model_calls": 1,
+      "calendar_shortlist_count": 1,
+      "shortlist_median_ms": 0.08817299999464012,
+      "calendar_manifest_chars": 2070,
+      "repeated_attachment_unique_ids": 1,
+      "staging_20_turns_ms": 3.648741000006339,
+      "inbox_bytes": 100371
+    },
+    {
+      "kind": "control-plane; stub model; not inference",
+      "greeting_model_calls": 1,
+      "calendar_shortlist_count": 1,
+      "shortlist_median_ms": 0.10156300004382501,
+      "calendar_manifest_chars": 2070,
+      "repeated_attachment_unique_ids": 1,
+      "staging_20_turns_ms": 4.16533900011018,
+      "inbox_bytes": 100371
+    },
+    {
+      "kind": "control-plane; stub model; not inference",
+      "greeting_model_calls": 1,
+      "calendar_shortlist_count": 1,
+      "shortlist_median_ms": 0.09591399998498673,
+      "calendar_manifest_chars": 2070,
+      "repeated_attachment_unique_ids": 1,
+      "staging_20_turns_ms": 3.5572330000377406,
+      "inbox_bytes": 100371
+    },
+    {
+      "kind": "control-plane; stub model; not inference",
+      "greeting_model_calls": 1,
+      "calendar_shortlist_count": 1,
+      "shortlist_median_ms": 0.0923889999739913,
+      "calendar_manifest_chars": 2070,
+      "repeated_attachment_unique_ids": 1,
+      "staging_20_turns_ms": 3.7241439999888826,
+      "inbox_bytes": 100371
+    },
+    {
+      "kind": "control-plane; stub model; not inference",
+      "greeting_model_calls": 1,
+      "calendar_shortlist_count": 1,
+      "shortlist_median_ms": 0.11086599988630041,
+      "calendar_manifest_chars": 2070,
+      "repeated_attachment_unique_ids": 1,
+      "staging_20_turns_ms": 3.885969000066325,
+      "inbox_bytes": 100371
+    }
+  ]
+}

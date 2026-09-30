@@ -1,0 +1,59 @@
+..............................................................FF.        [100%]
+=================================== FAILURES ===================================
+____________________ test_invalid_planner_final_uses_stream ____________________
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7fe36e9aa240>
+
+    def test_invalid_planner_final_uses_stream(runtime):
+        def model(messages, tools):
+            p = messages[0]["content"]
+            if "stage 0" in p: return {"content":'{"route":"skills","families":["calendar"]}'}
+            if "STEP 1 OF" in p: return {"content":'{"action":"tool","skill":"calendar","arguments":{"operation":"now"}}'}
+            if "Answer the user's request using only" in p: pytest.fail("must stream fallback")
+            return {"content":"invalid"}
+>       events = list(runtime.run([{"role":"user","content":"What time is it?"}], model, AgentPermissions(),
+            stream_final=lambda _:iter([{"type":"text","delta":"Evidence received."}])))
+
+tests/test_skill_audit.py:255: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/agent_tools.py:1386: in run
+    yield from engine.run(
+llamaforge/core/agent_engine.py:906: in run
+    final_msg = call_model([{"role": "user", "content": final_prompt}], [])
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+llamaforge/core/agent_engine.py:768: in guarded_model
+    response = original_model(messages, tools)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+messages = [{'role': 'user', 'content': 'Answer the user\'s request using only the real observations below. If the requested exte...24","jalali":"1405-07-02","jalali_text":"2 مهر 1405","weekday":"Thursday","weekday_fa":"پنجشنبه","time":"08:04:43"}}'}]
+tools = []
+
+    def model(messages, tools):
+        p = messages[0]["content"]
+        if "stage 0" in p: return {"content":'{"route":"skills","families":["calendar"]}'}
+        if "STEP 1 OF" in p: return {"content":'{"action":"tool","skill":"calendar","arguments":{"operation":"now"}}'}
+>       if "Answer the user's request using only" in p: pytest.fail("must stream fallback")
+                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: must stream fallback
+
+tests/test_skill_audit.py:253: Failed
+_______________ test_office_archive_bomb_and_xlsx_shared_strings _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-2/test_office_archive_bomb_and_x0')
+
+    def test_office_archive_bomb_and_xlsx_shared_strings(tmp_path):
+        ws = FileWorkspace(tmp_path); b = io.BytesIO()
+        with zipfile.ZipFile(b, "w") as z:
+            z.writestr("xl/sharedStrings.xml", '<sst><si><t>Revenue</t></si><si><t>Name</t></si></sst>')
+            z.writestr("xl/worksheets/sheet1.xml", '<worksheet><sheetData><row><c t="s"><v>1</v></c><c t="s"><v>0</v></c></row><row><c t="inlineStr"><is><t>Acme</t></is></c><c><v>42</v></c></row></sheetData></worksheet>')
+        row = ws.upload_data(name="data.xlsx", data_url=encoded(b.getvalue()))
+        text = ws.tool({"operation":"read_content", "id":row["id"]}, False)["text"]
+>       assert "Name\tRevenue" in text and "Acme\t42" in text
+E       AssertionError: assert ('Name\tRevenue' in 'Revenue Name\n1 0 Acme 42')
+
+tests/test_skill_audit.py:267: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_skill_audit.py::test_invalid_planner_final_uses_stream - Fa...
+FAILED tests/test_skill_audit.py::test_office_archive_bomb_and_xlsx_shared_strings
+2 failed, 63 passed in 0.21s

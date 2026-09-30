@@ -11,6 +11,7 @@
     plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>',
     home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m3 11 9-7 9 7"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></svg>',
     chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>',
+    telegram:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 4 3.8 10.7c-.8.3-.8 1.4.1 1.7l4.4 1.4 1.7 5.1c.3.8 1.3 1 1.8.3l2.5-3.2 4.6 3.4c.7.5 1.7.1 1.8-.8L22 5.1c.1-.8-.5-1.4-1-1.1Z"/><path d="m8.3 13.8 10-6.4"/></svg>',
     models:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v9"/></svg>',
     tune:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg>',
     cpu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg>',
@@ -21,6 +22,7 @@
     chevron:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m9 18 6-6-6-6"/></svg>',
     down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m7 10 5 5 5-5"/></svg>',
     send:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></svg>',
+    mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>',
     stop:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>',
     copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4"/></svg>',
     regen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6v5h-5M4 18v-5h5"/><path d="M6.1 9a7 7 0 0 1 11.5-2.6L20 11M4 13l2.4 4.6A7 7 0 0 0 18 15"/></svg>',
@@ -42,7 +44,8 @@
     x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 6 12 12M18 6 6 18"/></svg>',
     calendar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>',
     files:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
-    cluster:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="8.5" y="14" width="7" height="7" rx="2"/><path d="M6.5 10v2h11v-2M12 12v2"/></svg>'
+    cluster:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="8.5" y="14" width="7" height="7" rx="2"/><path d="M6.5 10v2h11v-2M12 12v2"/></svg>',
+    automation:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2M5 4v4h4M19 20v-4h-4"/><path d="M7 7a7 7 0 0 1 10-1M17 17a7 7 0 0 1-10 1"/></svg>'
   };
   function icon(name){ return icons[name] || ''; }
   $$('[data-icon]').forEach(el => el.innerHTML = icon(el.dataset.icon));
@@ -51,13 +54,13 @@
   $('#mobileNavButton').innerHTML = icon('menu');
 
   const routes = [
-    ['home','Home','home'], ['chat','Chat','chat'], ['calendar','Calendar','calendar'], ['files','Files','files'], ['cluster','Cluster','cluster'], ['agent','Agent','globe'], ['brain','Brain','brain'], ['models','Models','models'], ['optimize','Optimize','tune'],
+    ['home','Home','home'], ['chat','Chat','chat'], ['calendar','Calendar','calendar'], ['files','Files','files'], ['telegram','Telegram','telegram'], ['automations','Automations','automation'], ['cluster','Cluster','cluster'], ['agent','Agent','globe'], ['brain','Brain','brain'], ['models','Models','models'], ['optimize','Optimize','tune'],
     ['system','System','cpu'], ['runtime','Runtime','runtime'], ['advanced','Advanced','terminal'], ['logs','Logs','logs'], ['settings','Settings','settings']
   ];
 
   const App = {
     state:null,
-    route:(location.hash || '#models').slice(1),
+    route:(location.hash || '#chat').slice(1),
     chatAbort:null,
     streaming:false,
     contextTokens:null,
@@ -72,23 +75,106 @@
     brainLearning:false,
     brainSetup:false,
     brainTurnPending:false,
+    brainLessonDraft:{question:'',answer:''},
     brainTogglePending:false,
     toolsOpen:localStorage.getItem('lf.toolsOpen')==='1',
     pendingMemoryMode:null,
     settingsMemoryDirty:false,
     settingsFormDirty:false,
     settingsDraft:{},
+    agentDraft:{},
+    agentRevision:0,
+    agentRenderRevision:0,
+    agentBusy:false,
+    programMonitor:{visible:false,dismissed:false,jobId:'',status:'',processStatus:'',streaming:false,steps:[],timer:null,closeTimer:null,polling:false,pollingToken:0,token:0},
+    telegramForm:{values:{},step:'',status:'',busy:false,lastAction:''},
+    telegramPage:{loaded:false,loading:false,error:'',data:null,selected:'',messages:[],messageLoading:false,hasMore:false,autoResumeAttempted:false,filter:'all',searchQuery:'',searchResults:[],searchLoading:false,drafts:{},replyTo:null,attachment:null,uploadedFile:null,busy:false,media:{},lastActionAt:0,uncertainAction:null},
+    telegramPollTimer:null,
+    telegramRevision:0,
+    voiceRecorder:null,
+    voiceChunks:[],
+    voiceRecording:false,
+    voiceBusy:false,
+    voiceJobId:null,
+    voiceUploadController:null,
     pendingAttachments:[],
     calendarCursor:null,
+    calendarSelected:'',
+    calendarRequest:0,
+    calendarQuery:'',
+    calendarSearchRequest:0,
+    chatDrafts:{},
+    attachmentDrafts:{},
+    historyQuery:'',
+    generationId:null,
+    generationThreadId:null,
     filesFolder:'',
     filesSearch:'',
+    apiProviderDraft:{openai:'',gemini:'',cerebras:'',groq:'',mistral:'',alibaba:''},
+    apiProviderBusy:{openai:false,gemini:false,cerebras:false,groq:false,mistral:false,alibaba:false},
+    apiProviderTestBusy:{openai:false,gemini:false,cerebras:false,groq:false,mistral:false,alibaba:false},
+    apiProviderSelectOpen:{openai:false,gemini:false,cerebras:false,groq:false,mistral:false,alibaba:false},
+    apiProviderSelection:{openai:'',gemini:'',cerebras:'',groq:'',mistral:'',alibaba:''},
+    apiProviderTests:{openai:{},gemini:{},cerebras:{},groq:{},mistral:{},alibaba:{}},
+    apiOutputSyntaxDraft:{},
+    apiOutputSyntaxSaving:{},
+    apiProviderInteractionUntil:0,
+    uiInteractionUntil:0,
+    uiDeferredRender:false,
+    uiDeferredTimer:0,
+    routeEpoch:0,
+    clusterRequest:0,
+    filesRequest:0,
   };
 
   function escapeHtml(s='') { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
   function formatBytesGB(gb){ return Number(gb||0).toFixed(gb>=10?1:2) + ' GB'; }
   function formatBytes(n){n=Number(n||0);if(n<=0)return '0 B';const u=['B','KB','MB','GB','TB'];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return `${n.toFixed(i>=3?2:i>=2?1:0)} ${u[i]}`;}
   function formatEta(sec){sec=Number(sec);if(!Number.isFinite(sec)||sec<0)return '';if(sec<60)return `${Math.ceil(sec)}s`;const m=Math.floor(sec/60),s=Math.ceil(sec%60);return `${m}m ${s}s`;}
-  function shortName(name='', n=44){ return name.length>n ? name.slice(0,n-1)+'…' : name; }
+  function inferenceInfo(){ const s=App.state||{}, i=s.inference||{}; return {backend:i.backend||'local',ready:i.external?!!i.ready:!!s.server?.ready,external:!!i.external,model:i.external?(i.model||null):(s.active_model||null)}; }
+  function inferenceReady(){ return !!inferenceInfo().ready; }
+  function activeDisplayModel(){ return inferenceInfo().model; }
+  function externalInference(){ return !!inferenceInfo().external; }
+  function apiProviderEditing(){
+    const active=document.activeElement;
+    const focused=!!(active&&active.matches&&active.matches('input[id^=\"apiKey-\"], select[data-api-model], input[data-api-output-open], input[data-api-output-close]'));
+    const busy=Object.values(App.apiProviderBusy||{}).some(Boolean)||Object.values(App.apiProviderTestBusy||{}).some(Boolean)||Object.values(App.apiOutputSyntaxSaving||{}).some(Boolean);
+    const selectOpen=Object.values(App.apiProviderSelectOpen||{}).some(Boolean);
+    const interacting=Date.now()<Number(App.apiProviderInteractionUntil||0);
+    return focused||busy||selectOpen||interacting;
+  }
+  function holdApiProviderInteraction(ms=900){App.apiProviderInteractionUntil=Math.max(Number(App.apiProviderInteractionUntil||0),Date.now()+Math.max(120,Number(ms||0)));}
+  function editableUIControl(el){
+    return !!(el&&el.matches&&el.matches('input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), textarea, select, [contenteditable="true"]'));
+  }
+  function interactiveUIControl(el){
+    return !!(el&&el.closest&&el.closest('button, input, textarea, select, a, summary, [role="button"], [contenteditable="true"]'));
+  }
+  function uiInteractionActive(){
+    const active=document.activeElement;
+    return editableUIControl(active)||Date.now()<Number(App.uiInteractionUntil||0);
+  }
+  function holdUIInteraction(ms=900){
+    App.uiInteractionUntil=Math.max(Number(App.uiInteractionUntil||0),Date.now()+Math.max(120,Number(ms||0)));
+  }
+  function cancelUIDeferredTimer(){
+    if(App.uiDeferredTimer&&typeof clearTimeout==='function')clearTimeout(App.uiDeferredTimer);
+    App.uiDeferredTimer=0;
+  }
+  function flushDeferredUIRender(){
+    cancelUIDeferredTimer();
+    if(!App.uiDeferredRender)return;
+    if(editableUIControl(document.activeElement))return;
+    const wait=Number(App.uiInteractionUntil||0)-Date.now();
+    if(wait>0){App.uiDeferredTimer=setTimeout(flushDeferredUIRender,Math.min(1200,wait+35));return;}
+    App.uiDeferredRender=false;
+    refreshState(false);
+  }
+  function scheduleDeferredUIRender(delay=140){
+    cancelUIDeferredTimer();
+    App.uiDeferredTimer=setTimeout(flushDeferredUIRender,Math.max(30,Number(delay||0)));
+  }
+  function shortName(name='', n=44){ name=String(name??''); return name.length>n ? name.slice(0,n-1)+'…' : name; }
   function hasRTL(text=''){ return /[\u0590-\u08FF\uFB1D-\uFEFC]/.test(text); }
   function routeTitle(){ return routes.find(x=>x[0]===App.route)?.[1] || 'LlamaForge'; }
   function brainStructuralKey(brain={}){
@@ -101,9 +187,11 @@
     });
   }
   function stateRenderKey(next){
-    const base={route:App.route,model:next.active_model?.path,ready:next.server?.ready,running:next.server?.running,error:next.server?.error,runtime:next.runtime?.server,job:next.job?.state,models:next.models?.length,trainables:next.trainable_models?.length};
+    const inf=next.inference||{}; const base={route:App.route,model:inf.external?(inf.model?.id||'api'):(next.active_model?.path||''),backend:inf.backend||'local',ready:inf.external?!!inf.ready:!!next.server?.ready,running:next.server?.running,error:next.server?.error,runtime:next.runtime?.server,job:next.job?.state,models:next.models?.length,trainables:next.trainable_models?.length};
+    if(App.route==='models'||App.route==='chat')base.api=JSON.stringify(next.api||{});
     if(App.route==='brain')base.brain=brainStructuralKey(next.brain||{});
-    if(App.route==='agent')base.agent=JSON.stringify(next.agent||{});
+    if(App.route==='agent'||App.route==='telegram')base.agent=JSON.stringify(next.agent||{});
+    if(App.route==='automations')base.automations=JSON.stringify(next.automations||{});
     if(App.route==='settings')base.settings=JSON.stringify(next.config||{});
     if(App.route==='runtime')base.runtimeJob=JSON.stringify(next.job||{});
     if(App.route==='cluster')base.cluster=JSON.stringify(next.cluster||{});
@@ -131,17 +219,24 @@
     });
   }
   function setRoute(route){
+    if(App.route==='telegram'&&route!=='telegram')telegramClearPreviews();
     App.route = routes.some(x=>x[0]===route) ? route : 'models';
+    App.routeEpoch++;
+    App.uiDeferredRender=false;
+    cancelUIDeferredTimer();
     location.hash = App.route;
     document.querySelector('.app-shell').classList.remove('mobile-menu');
     renderNav(); render();
   }
 
+  function persistChatHistory(){return localStorage.getItem('lf.persistChatHistory')!=='0'}
   function loadThreads(){
+    if(!persistChatHistory())return [];
     try { const x=JSON.parse(localStorage.getItem('lf.threads')||'[]'); return Array.isArray(x)?x:[]; } catch { return []; }
   }
   function saveThreads(){
-    const persisted=App.threads.slice(0,40).map(t=>({...t,messages:(t.messages||[]).map(m=>({...m,attachments:Array.isArray(m.attachments)?m.attachments.map(a=>{const x={...a};if(x.data_url){delete x.data_url;x.unavailable=true}if(x.text){delete x.text;x.unavailable=true}return x;}):undefined}))}));
+    if(!persistChatHistory()){try{localStorage.removeItem('lf.threads');localStorage.removeItem('lf.activeThread')}catch{};renderRecent();return}
+    const persisted=App.threads.slice(0,40).map(t=>({...t,messages:(t.messages||[]).map(m=>({...m,attachments:Array.isArray(m.attachments)?m.attachments.map(a=>{const x={...a};if(x.data_url){delete x.data_url;x.unavailable=!x.attachment_id}if(x.text){delete x.text;x.unavailable=!x.attachment_id}return x;}):undefined}))}));
     try{localStorage.setItem('lf.threads',JSON.stringify(persisted));}catch{}
     renderRecent();
   }
@@ -151,12 +246,19 @@
     return t;
   }
   function newThread(){
-    if(App.streaming && App.chatAbort) App.chatAbort.abort();
+    if(App.streaming)stopGeneration();
+    if(App.activeThreadId)App.attachmentDrafts[App.activeThreadId]=App.pendingAttachments;
+    App.pendingAttachments=[];
     const t={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),title:'New chat',messages:[],created:Date.now(),updated:Date.now()};
     App.threads.unshift(t); App.activeThreadId=t.id; App.contextTokens=null; localStorage.setItem('lf.activeThread',t.id); saveThreads(); setRoute('chat');
   }
-  function selectThread(id){ App.activeThreadId=id; localStorage.setItem('lf.activeThread',id); App.contextTokens=null; setRoute('chat'); }
-  function deleteThread(id){ App.threads=App.threads.filter(t=>t.id!==id); if(App.activeThreadId===id) App.activeThreadId=App.threads[0]?.id||null; saveThreads(); render(); }
+  function selectThread(id){
+    if(id!==App.activeThreadId&&App.streaming)stopGeneration();
+    if(App.activeThreadId)App.attachmentDrafts[App.activeThreadId]=App.pendingAttachments;
+    App.activeThreadId=id;App.pendingAttachments=App.attachmentDrafts[id]||[];
+    localStorage.setItem('lf.activeThread',id);App.contextTokens=null;setRoute('chat');
+  }
+  function deleteThread(id){ if(App.activeThreadId===id&&App.streaming)stopGeneration();delete App.chatDrafts[id];delete App.attachmentDrafts[id];if(App.activeThreadId===id)App.pendingAttachments=[];App.threads=App.threads.filter(t=>t.id!==id); if(App.activeThreadId===id) App.activeThreadId=App.threads[0]?.id||null; saveThreads(); render(); }
   async function clearAllThreads(){
     if(App.streaming)stopGeneration();
     const ok=await confirmModal('Clear chat history','Delete every local conversation stored in this browser? This cannot be undone.','Clear all',true);if(!ok)return;
@@ -165,20 +267,20 @@
   function titleFromPrompt(text){ const clean=text.replace(/\s+/g,' ').trim(); return clean.length>38?clean.slice(0,37)+'…':clean||'New chat'; }
 
   function renderNav(){
-    // Keep the daily workflow intentionally small.  Advanced engine pages still
-    // exist and can be reached from Settings, but the main navigation is just:
-    // choose a model -> chat -> see learning status.
-    const primaryIds=new Set(['models','chat','calendar','files','cluster','agent','brain','settings','logs']);
-    const primary=routes.filter(x=>primaryIds.has(x[0]));
-    const button=([id,label,ic])=>`<button class="nav-item ${App.route===id?'active':''}" data-route="${id}" title="${label}">${icon(ic)}<span class="nav-label">${label}</span></button>`;
-    $('#nav').innerHTML=primary.map(button).join('');
+    const primaryIds=new Set(['chat','calendar','files','telegram','automations','models','brain']);
+    const button=([id,label,ic])=>`<button class="nav-item ${App.route===id?'active':''}" data-route="${id}" title="${label}" ${App.route===id?'aria-current="page"':''}>${icon(ic)}<span class="nav-label">${label}</span></button>`;
+    const advanced=routes.filter(x=>!primaryIds.has(x[0])&&x[0]!=='home');
+    $('#nav').innerHTML=routes.filter(x=>primaryIds.has(x[0])).map(button).join('')+
+      `<details class="nav-tools" ${App.toolsOpen?'open':''}><summary title="Tools & settings">${icon('tune')}<span class="nav-label">Tools & settings</span>${icon('down')}</summary><div class="nav-tools-list">${advanced.map(button).join('')}</div></details>`;
+    $('.nav-tools').ontoggle=e=>{App.toolsOpen=e.target.open;localStorage.setItem('lf.toolsOpen',App.toolsOpen?'1':'0')};
     $$('[data-route]').forEach(b=>b.onclick=()=>setRoute(b.dataset.route));
     document.querySelector('.app-shell').classList.toggle('sidebar-collapsed',App.sidebarCollapsed);
     renderRecent(); updateChrome();
   }
   function renderRecent(){
     const root=$('#recentChats'); if(!root) return;
-    root.innerHTML=App.threads.slice(0,12).map(t=>`<div class="recent-chat-row ${App.activeThreadId===t.id?'active':''}"><button class="recent-chat" data-thread="${escapeHtml(t.id)}" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</button><button class="recent-delete" data-delete-thread="${escapeHtml(t.id)}" title="Delete chat">${icon('trash')}</button></div>`).join('') || '<div style="padding:6px 11px;color:var(--faint);font-size:10px">No conversations yet</div>';
+    root.innerHTML=App.threads.filter(t=>!App.historyQuery||(t.title+' '+t.messages.map(m=>m.content||'').join(' ')).toLocaleLowerCase().includes(App.historyQuery.toLocaleLowerCase())).slice(0,40).map(t=>`<div class="recent-chat-row ${App.activeThreadId===t.id?'active':''}"><button class="recent-chat" data-thread="${escapeHtml(t.id)}" title="${escapeHtml(t.title)}" dir="auto">${escapeHtml(t.title)}</button><button class="recent-rename" data-rename-thread="${escapeHtml(t.id)}" aria-label="Rename chat">${icon('edit')}</button><button class="recent-delete" data-delete-thread="${escapeHtml(t.id)}" title="Delete chat">${icon('trash')}</button></div>`).join('') || '<div style="padding:6px 11px;color:var(--faint);font-size:10px">No conversations yet</div>';
+    $$('[data-rename-thread]',root).forEach(b=>b.onclick=()=>{const t=App.threads.find(x=>x.id===b.dataset.renameThread);const name=prompt('Conversation name',t.title);if(name?.trim()){t.title=name.trim().slice(0,120);saveThreads()}});
     $$('[data-thread]',root).forEach(b=>b.onclick=()=>selectThread(b.dataset.thread));
     $$('[data-delete-thread]',root).forEach(b=>b.onclick=async e=>{e.stopPropagation();const id=b.dataset.deleteThread,t=App.threads.find(x=>x.id===id);const ok=await confirmModal('Delete chat',`Delete “${t?.title||'this chat'}”?`,'Delete',true);if(ok)deleteThread(id)});
   }
@@ -186,14 +288,14 @@
     const s=App.state;
     const currentRoute=routes.find(x=>x[0]===App.route);
     const heading=`<span class="page-heading-icon">${icon(currentRoute?.[2]||'home')}</span><h1>${routeTitle()}</h1>`; if($('#pageHeading')?.innerHTML!==heading) $('#pageHeading').innerHTML=heading;
-    const model=s?.active_model;
-    const modelHtml=model?`${icon('models')}<span class="pill-name">${escapeHtml(shortName(model.name,32))}</span>${icon('down')}`:`${icon('models')}<span class="pill-name">Choose model</span>`; if($('#modelPill')?.innerHTML!==modelHtml) $('#modelPill').innerHTML=modelHtml;
-    const ss=s?.server;
+    const inf=s?.inference||{}, external=!!inf.external, model=external?(inf.model||null):(s?.active_model||null);
+    const modelHtml=model?`${icon('models')}<span class="pill-name">${escapeHtml(shortName(model.name||model.id||'Model',32))}${external?` · ${escapeHtml(String(inf.backend||'API').toUpperCase())}`:''}</span>${icon('down')}`:`${icon('models')}<span class="pill-name">Choose model</span>`; if($('#modelPill')?.innerHTML!==modelHtml) $('#modelPill').innerHTML=modelHtml;
+    const ss=s?.server, ready=external?!!inf.ready:!!ss?.ready;
     let cls='',txt='Offline';
-    if(ss?.ready){cls='ready';txt='Ready'} else if(ss?.running){cls='loading';txt='Loading'} else if(ss?.error){cls='error';txt='Needs attention'};
+    if(ready){cls='ready';txt=external?'API Ready':'Ready'} else if(!external&&ss?.running){cls='loading';txt='Loading'} else if(ss?.error){cls='error';txt='Needs attention'};
     $('#connectionPill').className='connection-pill '+cls;
     const connectionHtml=`<span class="status-dot ${cls==='ready'?'ready':cls==='loading'?'loading':cls==='error'?'error':''}"></span>${txt}`; if($('#connectionPill')?.innerHTML!==connectionHtml) $('#connectionPill').innerHTML=connectionHtml;
-    const runtimeHtml=`<span class="status-dot ${ss?.ready?'ready':ss?.running?'loading':ss?.error?'error':''}"></span><span class="nav-label">${ss?.ready?'Model ready':ss?.running?'Loading model':s?.runtime?.installed?'Runtime ready':'Runtime not installed'}</span>`; if($('#runtimeMini')?.innerHTML!==runtimeHtml) $('#runtimeMini').innerHTML=runtimeHtml;
+    const runtimeHtml=external?`<span class="status-dot ${ready?'ready':'error'}"></span><span class="nav-label">${ready?`${String(inf.backend||'API').toUpperCase()} API ready`:'API model needs setup'}</span>`:`<span class="status-dot ${ss?.ready?'ready':ss?.running?'loading':ss?.error?'error':''}"></span><span class="nav-label">${ss?.ready?'Model ready':ss?.running?'Loading model':s?.runtime?.installed?'Runtime ready':'Runtime not installed'}</span>`; if($('#runtimeMini')?.innerHTML!==runtimeHtml) $('#runtimeMini').innerHTML=runtimeHtml;
   }
 
   function render(){
@@ -209,6 +311,8 @@
       case 'chat': return renderChat(view);
       case 'calendar': return renderCalendar(view);
       case 'files': return renderFiles(view);
+      case 'telegram': return renderTelegram(view);
+      case 'automations': return renderAutomations(view);
       case 'cluster': return renderCluster(view);
       case 'agent': return renderAgent(view);
       case 'brain': return renderBrain(view);
@@ -228,9 +332,90 @@
     const ss=App.state?.server; if(ss?.ready) return `${icon('chat')} Open chat`; if(ss?.running) return `${icon('runtime')} Loading…`; return `${icon('play')} Run optimized`;
   }
 
+  function automationTime(value){
+    if(!value)return '—';
+    try{return new Date(Number(value)*1000).toLocaleString()}catch{return '—'}
+  }
+  function automationTriggerLabel(row){
+    const s=row.schedule||{};
+    if(row.trigger_type==='event')return `Event · ${row.event_name||'event'}`;
+    if(row.trigger_type==='interval')return `Every ${Math.max(1,Math.round(Number(s.interval_seconds||60)/60))} min · ${s.schedule_mode||'fixed_delay'}`;
+    if(row.trigger_type==='delay')return `One-shot delay · ${Number(s.delay_seconds||0)} sec`;
+    if(row.trigger_type==='cron')return `Cron · ${s.cron||''}`;
+    return row.trigger_type||'—';
+  }
+  async function automationAction(body){
+    const result=await api('/api/automations/action',{method:'POST',body});
+    scheduleStateRefresh();
+    return result;
+  }
+  async function renderAutomations(view){
+    view.className='view automations-route';
+    view.innerHTML=`<div class="page"><div class="loading-card">${spinner()}<span>Loading automations…</span></div></div>`;
+    try{
+      const data=await api('/api/automations');
+      if(App.route!=='automations')return;
+      const status=data.automations||{}, rows=Array.isArray(status.automations)?status.automations:[];
+      view.innerHTML=`<div class="page automations-page">
+        ${pageTitle('AUTOMATION ENGINE','Persistent loops & events','Schedules live in the control plane, not inside one model generation. Each run gets compact state, bounded retries and its own timeout.')}
+        <section class="section automation-summary-grid">
+          <div class="stat-card"><span>Automations</span><strong>${Number(status.count||rows.length)}</strong></div>
+          <div class="stat-card"><span>Enabled</span><strong>${Number(status.enabled||0)}</strong></div>
+          <div class="stat-card"><span>Running</span><strong>${Number(status.running||0)}</strong></div>
+          <div class="stat-card"><span>Pending</span><strong>${Number(status.pending||0)}</strong></div>
+        </section>
+        <section class="section"><div class="section-head"><div><h3>Create automation</h3><p>Prefer Event for live sources such as Telegram. For slow local models, fixed delay + coalesce prevents overlapping runs.</p></div></div>
+          <div class="automation-create-grid">
+            <div class="field"><label>Name</label><input id="autoName" maxlength="120" placeholder="Telegram assistant"></div>
+            <div class="field"><label>Trigger</label><select id="autoTrigger"><option value="interval">Interval</option><option value="event">Event</option><option value="cron">Cron</option><option value="delay">Delayed once</option></select></div>
+            <div class="field"><label>Interval / delay (minutes)</label><input id="autoMinutes" type="number" min="1" value="15"></div>
+            <div class="field"><label>Event name</label><input id="autoEvent" placeholder="telegram.message.received"></div>
+            <div class="field"><label>Cron</label><input id="autoCron" dir="ltr" placeholder="*/15 * * * *"></div>
+            <div class="field"><label>Overlap</label><select id="autoOverlap"><option value="coalesce">Coalesce latest</option><option value="skip">Skip while running</option><option value="queue">Queue up to 10</option><option value="parallel">Parallel</option></select></div>
+          </div>
+          <div class="field"><label>Persistent task</label><textarea id="autoTask" rows="4" maxlength="12000" placeholder="Describe what one iteration should do. Do not describe an infinite loop; the scheduler handles repetition."></textarea></div>
+          <div class="inline-actions"><button id="autoCreate" class="primary-button">Create automation</button><span id="autoCreateStatus" class="muted"></span></div>
+        </section>
+        <section class="section"><div class="section-head"><div><h3>Active automations</h3><p>History and state stay outside the model context.</p></div><button id="autoRefresh" class="secondary-button">${icon('refresh')} Refresh</button></div>
+          <div class="automation-list">${rows.length?rows.map(row=>`<article class="detail-card automation-card" data-auto-id="${escapeHtml(row.id)}">
+            <div class="automation-card-head"><div><strong>${escapeHtml(row.name||row.id)}</strong><small>${escapeHtml(automationTriggerLabel(row))}</small></div><span class="skill-family-state ${row.enabled?'available':'disabled'}">${row.running_count?'Running':row.enabled?'Enabled':'Paused'}</span></div>
+            <p dir="auto">${escapeHtml(String(row.task||'').slice(0,420))}</p>
+            <div class="automation-meta"><span>Next <b>${escapeHtml(automationTime(row.next_run_at))}</b></span><span>Last <b>${escapeHtml(row.last_status||'—')}</b></span><span>Runs active <b>${Number(row.running_count||0)}</b></span><span>Pending <b>${Number(row.pending_count||0)}</b></span></div>
+            ${row.last_error?`<div class="error-card compact"><strong>Last error</strong><p>${escapeHtml(row.last_error)}</p></div>`:''}
+            <details><summary>State & permissions</summary><pre class="automation-state">${escapeHtml(JSON.stringify({state:row.state||{},allowed_tools:row.allowed_tools||[]},null,2))}</pre></details>
+            <div class="inline-actions"><button class="secondary-button" data-auto-run="${escapeHtml(row.id)}">Run now</button><button class="secondary-button" data-auto-toggle="${escapeHtml(row.id)}" data-enabled="${row.enabled?'1':'0'}">${row.enabled?'Pause':'Resume'}</button><button class="danger-button" data-auto-delete="${escapeHtml(row.id)}">Delete</button></div>
+          </article>`).join(''):'<div class="empty-card"><strong>No automations yet</strong><p>Ask the Agent to create one, or use the form above.</p></div>'}</div>
+        </section>
+      </div>`;
+      $('#autoRefresh').onclick=()=>renderAutomations(view);
+      $('#autoCreate').onclick=async()=>{
+        const btn=$('#autoCreate'),msg=$('#autoCreateStatus'),trigger=$('#autoTrigger').value,minutes=Math.max(1,Number($('#autoMinutes').value||1));
+        const body={operation:'create',name:$('#autoName').value.trim()||'Automation',task:$('#autoTask').value.trim(),trigger_type:trigger,overlap_policy:$('#autoOverlap').value,misfire_policy:'run_once',max_runtime_seconds:300,max_retries:2};
+        if(!body.task){msg.textContent='Task is required.';return}
+        if(trigger==='interval'){body.interval_seconds=Math.max(30,Math.round(minutes*60));body.schedule_mode='fixed_delay'}
+        if(trigger==='delay')body.delay_seconds=Math.max(1,Math.round(minutes*60));
+        if(trigger==='event'){body.event_name=$('#autoEvent').value.trim();if(!body.event_name){msg.textContent='Event name is required.';return}}
+        if(trigger==='cron'){body.cron=$('#autoCron').value.trim();if(!body.cron){msg.textContent='Cron expression is required.';return}}
+        btn.disabled=true;msg.textContent='Creating…';
+        try{await automationAction(body);toast('Automation created');renderAutomations(view)}catch(e){msg.textContent=e.message;btn.disabled=false}
+      };
+      $$('[data-auto-run]',view).forEach(b=>b.onclick=async()=>{b.disabled=true;try{await automationAction({operation:'run_now',id:b.dataset.autoRun});toast('Automation queued')}catch(e){toast('Run failed',e.message)}finally{renderAutomations(view)}});
+      $$('[data-auto-toggle]',view).forEach(b=>b.onclick=async()=>{b.disabled=true;try{await automationAction({operation:b.dataset.enabled==='1'?'pause':'resume',id:b.dataset.autoToggle})}catch(e){toast('Automation update failed',e.message)}finally{renderAutomations(view)}});
+      $$('[data-auto-delete]',view).forEach(b=>b.onclick=async()=>{if(!await confirmModal('Delete automation','This deletes its saved state and run history.','Delete',true))return;try{await automationAction({operation:'delete',id:b.dataset.autoDelete});toast('Automation deleted')}catch(e){toast('Delete failed',e.message)}finally{renderAutomations(view)}});
+    }catch(e){if(App.route==='automations')view.innerHTML=`<div class="page"><div class="error-card"><strong>Automations unavailable</strong><p>${escapeHtml(e.message)}</p><button id="autoRetry" class="secondary-button">Retry</button></div></div>`;$('#autoRetry')?.addEventListener('click',()=>renderAutomations(view));}
+  }
+
   async function renderCluster(view){
+    const request=++App.clusterRequest,routeEpoch=App.routeEpoch;
     let c=App.state?.cluster||{};
-    try{ c=await api('/api/cluster'); if(App.state)App.state.cluster=c; }catch(e){ view.innerHTML=`<div class="error-card"><strong>Cluster unavailable</strong><p>${escapeHtml(e.message)}</p></div>`; return; }
+    try{
+      c=await api('/api/cluster');
+      if(App.route!=='cluster'||routeEpoch!==App.routeEpoch||request!==App.clusterRequest)return;
+      if(App.state)App.state.cluster=c;
+    }catch(e){
+      if(App.route==='cluster'&&routeEpoch===App.routeEpoch&&request===App.clusterRequest)view.innerHTML=`<div class="error-card"><strong>Cluster unavailable</strong><p>${escapeHtml(e.message)}</p></div>`;
+      return;
+    }
     const role=c.role||'standalone', backend=c.backend||{}, workers=c.nodes||[], nodes=(role==='master'&&c.master_compute)?[c.master_compute,...workers]:workers, plan=c.active_plan;
     const online=Number(c.workers_online||0), registered=Number(c.workers_registered||0);
     const roleBtn=(id,label,sub)=>`<button class="cluster-role ${role===id?'active':''}" data-role="${id}"><strong>${label}</strong><small>${sub}</small></button>`;
@@ -281,68 +466,132 @@
     $$('[data-profile]').forEach(b=>b.onclick=async()=>{try{await api('/api/cluster/profile/load',{method:'POST',body:{name:b.dataset.profile}});toast('Cluster profile loaded',b.dataset.profile,'info');renderCluster(view)}catch(e){toast('Profile load failed',e.message,'error')}});
   }
 
-  async function renderCalendar(view){
-    view.className='view calendar-route';
-    view.innerHTML=`<div class="page calendar-page"><div class="calendar-loading">${icon('calendar')}<strong>در حال آماده‌سازی تقویم…</strong></div></div>`;
+  async function searchCalendarEvents(query,root,now,onSaved){
+    const text=query.trim(),sequence=++App.calendarSearchRequest;
+    root.hidden=!text;
+    if(!text){root.innerHTML='';return}
+    root.innerHTML='<p class="cal-search-status">در حال جستجو…</p>';
+    const current=()=>root.isConnected&&App.route==='calendar'&&sequence===App.calendarSearchRequest&&text===App.calendarQuery.trim();
     try{
-      const nowData=await api('/api/calendar/now');
-      const now=nowData.now||{};
-      if(!App.calendarCursor){const [y,m]=(now.jalali||'1405-01-01').split('-').map(Number);App.calendarCursor={year:y,month:m};}
-      const {year,month}=App.calendarCursor;
-      const data=await api(`/api/calendar/month?year=${year}&month=${month}`);
-      if(App.route!=='calendar')return;
-      const cal=data.month||{},days=cal.days||[];
-      const today=String(data.now?.jalali||'');
-      const offset=((Number(cal.first_weekday||0)-5)+7)%7;
-      const headers=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
-      const blanks=Array.from({length:offset},()=>'<div class="calendar-day blank"></div>').join('');
-      const dayHtml=days.map(d=>{
-        const isToday=d.jalali===today,holiday=!!d.holiday||!!d.weekend;
-        const events=(d.events||[]).slice(0,3);
-        return `<button class="calendar-day ${isToday?'today':''} ${holiday?'holiday':''}" data-cal-day="${escapeHtml(d.jalali)}" data-greg-day="${escapeHtml(d.gregorian)}">
-          <div class="cal-day-top"><strong>${d.day}</strong><span>${escapeHtml(d.weekday_fa||'')}</span></div>
-          ${d.holiday?`<small class="holiday-name">${escapeHtml(d.holiday)}</small>`:''}
-          <div class="day-events">${events.map(e=>`<span title="${escapeHtml(e.title||'')}">${escapeHtml(shortName(e.title||'رویداد',22))}</span>`).join('')}${(d.events||[]).length>3?`<em>+${d.events.length-3}</em>`:''}</div>
-        </button>`;
-      }).join('');
-      const upcoming=days.flatMap(d=>(d.events||[]).map(e=>({...e,jalali:d.jalali,weekday:d.weekday_fa}))).filter(e=>String(e.start||'')>=String(new Date().toISOString().slice(0,16))).slice(0,10);
-      const eventCount=days.reduce((n,d)=>n+(d.events||[]).length,0);
-      view.innerHTML=`<div class="page calendar-page calendar-v2" dir="rtl">
-        <header class="calendar-topbar"><div class="calendar-title-block"><span class="mini-kicker">تقویم هوشمند</span><div class="calendar-title-line"><h2>${escapeHtml(cal.month_name||'')} <b>${year}</b></h2><span>${eventCount} رویداد این ماه</span></div><p>برنامه‌ات را اینجا ببین یا مستقیم به Agent بگو چه چیزی ثبت، جابه‌جا یا پیدا کند.</p></div><div class="calendar-top-actions"><button id="calToday" class="secondary-button">امروز</button><button id="calAdd" class="primary-button">${icon('plus')} رویداد جدید</button></div></header>
-        <div class="calendar-glance"><div class="calendar-today-card"><span class="today-orb">${escapeHtml(String((now.jalali||'').split('-')[2]||''))}</span><div><small>امروز · ${escapeHtml(now.weekday_fa||'')}</small><strong>${escapeHtml(now.jalali_text||now.jalali||'')}</strong></div><b>${escapeHtml((now.time||'').slice(0,5))}</b></div><div class="calendar-agent-prompt">${icon('spark')}<div><strong>با زبان طبیعی برنامه‌ریزی کن</strong><span>مثلاً: «فردا ساعت ۱۰ جلسه بذار» یا «اولین زمان خالی دو ساعته‌ام را پیدا کن»</span></div></div></div>
-        <div class="calendar-layout">
-          <section class="calendar-card calendar-main-card">
-            <div class="calendar-toolbar"><div class="calendar-nav"><button id="calPrev" class="icon-button ghost" aria-label="ماه قبل">${icon('chevron')}</button><button id="calNext" class="icon-button ghost" aria-label="ماه بعد">${icon('chevron')}</button></div><div class="calendar-month-title">${escapeHtml(cal.month_name||'')} ${year}</div><div class="calendar-toolbar-note">برای افزودن رویداد روی یک روز کلیک کن</div></div>
-            <div class="calendar-weekdays">${headers.map((h,i)=>`<span class="${i===6?'holiday':''}">${h}</span>`).join('')}</div>
-            <div class="calendar-grid">${blanks}${dayHtml}</div>
-          </section>
-          <aside class="calendar-side"><div class="calendar-side-card calendar-agenda"><div class="calendar-side-title"><div><span class="mini-kicker">AGENDA</span><h3>برنامه‌های پیشِ رو</h3></div><span class="agenda-count">${upcoming.length}</span></div><div class="upcoming-list">${upcoming.length?upcoming.map(e=>`<div class="upcoming-item"><span class="upcoming-time">${escapeHtml(String(e.start||'').slice(11,16)||'—')}</span><div><strong>${escapeHtml(e.title||'رویداد')}</strong><small>${escapeHtml(e.weekday||'')} · ${escapeHtml(e.jalali||'')}</small></div></div>`).join(''):`<div class="calendar-empty-agenda">${icon('calendar')}<strong>برنامه‌ای نزدیک نیست</strong><span>روی هر روز کلیک کن تا یک رویداد بسازی.</span></div>`}</div></div>
-          <div class="calendar-side-card calendar-agent-card"><div class="calendar-agent-icon">${icon('spark')}</div><div><strong>Agent به تقویم دسترسی دارد</strong><p>خواندن زمان، دیدن رویدادها، ثبت و تغییر برنامه‌ها از Skillهای عمومی تقویم انجام می‌شود؛ لازم نیست نام Skill را بدانی.</p></div></div></aside>
-        </div>
-      </div>`;
-      const shift=delta=>{let y=App.calendarCursor.year,m=App.calendarCursor.month+delta;if(m<1){m=12;y--}if(m>12){m=1;y++}App.calendarCursor={year:y,month:m};renderCalendar(view)};
-      $('#calPrev').onclick=()=>shift(-1);$('#calNext').onclick=()=>shift(1);
-      $('#calToday').onclick=()=>{const [y,m]=(now.jalali||'1405-01').split('-').map(Number);App.calendarCursor={year:y,month:m};renderCalendar(view)};
-      $('#calAdd').onclick=()=>openCalendarEventModal(today||`${year}-${String(month).padStart(2,'0')}-01`);
-      $$('[data-cal-day]').forEach(b=>b.onclick=()=>openCalendarEventModal(b.dataset.calDay,b.dataset.gregDay));
-    }catch(e){view.innerHTML=`<div class="page"><div class="error-card"><strong>تقویم باز نشد</strong><p>${escapeHtml(e.message)}</p></div></div>`;}
+      const data=await api('/api/calendar/events?q='+encodeURIComponent(text)+'&limit=50');
+      if(!current())return;
+      const events=data.events||[];
+      root.innerHTML=events.length?`<p class="cal-search-status">${events.length.toLocaleString('fa-IR')} نتیجه در همهٔ ماه‌ها${events.length===50?' · حداکثر ۵۰ نتیجه؛ جستجو را دقیق‌تر کن':''}</p>`+events.map(e=>`<button class="cal-search-result" data-found-event="${escapeHtml(e.id)}"><span><strong>${escapeHtml(e.title||'رویداد')}</strong>${e.location?`<small>${escapeHtml(e.location)}</small>`:''}</span><bdi>${escapeHtml(String(e.start||'').replace('T',' · '))}</bdi>${icon('edit')}</button>`).join(''):'<p class="cal-search-status">رویدادی با این عبارت پیدا نشد.</p>';
+      $$('[data-found-event]',root).forEach(b=>b.onclick=()=>{const event=events.find(e=>e.id===b.dataset.foundEvent);openCalendarEventModal({gregorian:String(event.start).slice(0,10)},now,event,onSaved)});
+    }catch(e){if(current())root.innerHTML=`<p class="form-error">جستجو انجام نشد: ${escapeHtml(e.message)}</p>`}
   }
 
-  function openCalendarEventModal(jalali='',gregorian=''){
-    const root=$('#modalRoot');
-    const today=new Date().toISOString().slice(0,10);
-    const g=gregorian||today;
-    root.innerHTML=`<div class="modal-backdrop calendar-modal"><div class="modal-card" dir="rtl"><div class="modal-head"><div><div class="eyebrow">CALENDAR</div><h3>رویداد جدید</h3><p>${escapeHtml(jalali||'')}</p></div><button id="calModalClose" class="icon-button ghost">${icon('x')}</button></div><div class="modal-body form-grid"><label class="field span-2"><span>عنوان</span><input id="calTitle" placeholder="مثلاً جلسه با شرکت" autofocus></label><label class="field"><span>تاریخ میلادی</span><input id="calDate" type="date" value="${escapeHtml(g)}"></label><label class="field"><span>ساعت</span><input id="calTime" type="time" value="10:00"></label><label class="field"><span>مدت</span><select id="calDuration"><option value="30">۳۰ دقیقه</option><option value="60" selected>۱ ساعت</option><option value="90">۹۰ دقیقه</option><option value="120">۲ ساعت</option></select></label><label class="field"><span>یادآوری</span><select id="calReminder"><option value="">بدون یادآوری</option><option value="10">۱۰ دقیقه قبل</option><option value="30" selected>۳۰ دقیقه قبل</option><option value="60">۱ ساعت قبل</option><option value="1440">۱ روز قبل</option></select></label><label class="field span-2"><span>توضیح</span><textarea id="calNotes" rows="3" placeholder="اختیاری"></textarea></label></div><div class="modal-actions"><button id="calCancel" class="secondary-button">انصراف</button><button id="calSave" class="primary-button">ثبت رویداد</button></div></div></div>`;
-    const close=()=>root.innerHTML='';$('#calModalClose').onclick=close;$('#calCancel').onclick=close;
-    $('#calSave').onclick=async()=>{const title=$('#calTitle').value.trim();if(!title){toast('عنوان لازم است','','error');return}const d=$('#calDate').value,t=$('#calTime').value||'10:00',dur=Number($('#calDuration').value||60),start=new Date(`${d}T${t}:00`),end=new Date(start.getTime()+dur*60000),rem=$('#calReminder').value;try{await api('/api/calendar',{method:'POST',body:{operation:'create',title,start:start.toISOString(),end:end.toISOString(),notes:$('#calNotes').value,reminders:rem?[Number(rem)]:[]}});close();toast('رویداد ثبت شد',title);renderCalendar($('#view'));}catch(e){toast('ثبت نشد',e.message,'error')}};
+  async function renderCalendar(view){
+    const request=++App.calendarRequest;
+    view.className='view calendar-route';
+    view.innerHTML='<div class="page"><div class="empty-state" role="status">در حال دریافت تقویم…</div></div>';
+    try{
+      const cursor=App.calendarCursor;
+      const data=await api('/api/calendar/month'+(cursor?`?year=${cursor.year}&month=${cursor.month}`:''));
+      if(App.route!=='calendar'||request!==App.calendarRequest)return;
+      const cal=data.month,now=data.now,days=cal.days||[],events=cal.events||[];
+      App.calendarCursor={year:cal.year,month:cal.month};
+      if(!days.some(d=>d.jalali===App.calendarSelected))App.calendarSelected=days.find(d=>d.jalali===now.jalali)?.jalali||days[0]?.jalali;
+      const fa=n=>Number(n).toLocaleString('fa-IR',{useGrouping:false});
+      const paint=()=>{
+        if(App.route!=='calendar'||request!==App.calendarRequest)return;
+        const selected=days.find(d=>d.jalali===App.calendarSelected)||days[0];
+        const agenda=LFWorkspaceUI.eventsForDay(events,selected.gregorian);
+        const blanks=Array.from({length:(cal.first_weekday+2)%7},()=>'<span class="cal-cell empty" aria-hidden="true"></span>').join('');
+        view.innerHTML=`<div class="page calendar-workspace" dir="rtl">
+          <header class="cal-page-head"><div><p class="cal-kicker">برنامهٔ شما</p><h2>تقویم</h2><p>امروز ${escapeHtml(now.jalali_text)} · ${escapeHtml(now.weekday_fa)}</p></div><div class="cal-head-actions"><button id="calToday" class="secondary-button">امروز</button><button id="calAdd" class="primary-button">${icon('plus')} رویداد جدید</button></div></header>
+          <section class="cal-search" aria-label="جستجوی رویدادها"><label for="calSearch">جستجوی رویدادها</label><div>${icon('search')}<input id="calSearch" type="search" maxlength="200" dir="auto" value="${escapeHtml(App.calendarQuery)}" placeholder="عنوان، مکان یا یادداشت در همهٔ ماه‌ها…"></div><div id="calSearchResults" class="cal-search-results" aria-live="polite" hidden></div></section>
+          <div class="cal-workspace-grid"><section class="cal-month-panel" aria-label="نمای ماهانه">
+            <div class="cal-month-toolbar"><h3>${escapeHtml(cal.month_name)} <span>${fa(cal.year)}</span></h3><div><button id="calPrev" class="icon-button" aria-label="ماه قبل" ${cal.year===1200&&cal.month===1?'disabled':''}>${icon('chevron')}</button><button id="calNext" class="icon-button" aria-label="ماه بعد" ${cal.year===1700&&cal.month===12?'disabled':''}>${icon('chevron')}</button></div></div>
+            <div class="cal-week-labels">${['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'].map(h=>`<span>${h}</span>`).join('')}</div>
+            <div class="cal-month-grid">${blanks}${days.map(d=>`<button class="cal-cell ${d.jalali===now.jalali?'today':''} ${d.jalali===selected.jalali?'selected':''} ${d.weekend||d.holiday?'holiday':''}" data-cal-day="${d.jalali}" aria-pressed="${d.jalali===selected.jalali}" aria-label="${fa(d.day)} ${escapeHtml(cal.month_name)}، ${fa(d.event_count||0)} رویداد${d.holiday?'، '+escapeHtml(d.holiday):''}"><span class="cal-day-number">${fa(d.day)}</span>${d.holiday?`<span class="cal-holiday" title="${escapeHtml(d.holiday)}">${escapeHtml(d.holiday)}</span>`:''}<span class="cal-event-chips">${(d.events||[]).slice(0,2).map(e=>`<span title="${escapeHtml(e.title)}">${escapeHtml(e.title)}</span>`).join('')}${d.event_count>2?`<small>+${fa(d.event_count-2)}</small>`:''}</span></button>`).join('')}</div>
+            <footer class="cal-month-footer"><span><i></i> امروز</span><span>${fa(events.length)} رویداد در این ماه</span></footer>
+          </section>
+          <aside class="cal-agenda-panel"><div class="cal-agenda-heading"><div><p>${escapeHtml(selected.weekday_fa)}</p><h3>${fa(selected.day)} ${escapeHtml(cal.month_name)}</h3></div><span class="cal-count">${fa(agenda.length)}</span></div>
+            ${selected.holiday?`<p class="cal-day-holiday">${escapeHtml(selected.holiday)}</p>`:''}
+            <div class="cal-agenda-list">${agenda.length?agenda.map(e=>`<button class="cal-agenda-event" data-cal-event="${escapeHtml(e.id)}"><span class="cal-event-line"></span><span><time>${e.all_day?'تمام روز':String(e.start).slice(0,10)===selected.gregorian?escapeHtml(String(e.start).slice(11,16)):'ادامهٔ رویداد'}</time><strong>${escapeHtml(e.title||'رویداد')}</strong>${e.location?`<small>${escapeHtml(e.location)}</small>`:''}</span>${icon('edit')}</button>`).join(''):`<div class="cal-agenda-empty">${icon('calendar')}<strong>این روز آزاد است</strong><p>یک قرار یا یادآوری به برنامه‌ات اضافه کن.</p></div>`}</div>
+            <button id="calSelectedAdd" class="secondary-button cal-add-day">${icon('plus')} افزودن به این روز</button>
+            <p class="cal-timezone">زمان تقویم: <bdi>${escapeHtml(now.timezone)} (${escapeHtml(now.utc_offset)})</bdi></p>
+          </aside></div>
+          <div class="cal-chat-link">${icon('spark')}<span>می‌توانی برنامه‌ات را در چت هم تنظیم کنی.</span><button id="calAsk" class="text-button">رفتن به چت ${icon('chevron')}</button></div>
+        </div>`;
+        const shift=delta=>{let {year,month}=App.calendarCursor;month+=delta;if(month<1){month=12;year--}if(month>12){month=1;year++}App.calendarCursor={year,month};renderCalendar(view)};
+        $('#calPrev').onclick=()=>shift(-1);$('#calNext').onclick=()=>shift(1);
+        $('#calToday').onclick=()=>{App.calendarCursor=null;App.calendarSelected=now.jalali;renderCalendar(view)};
+        $('#calAdd').onclick=$('#calSelectedAdd').onclick=()=>openCalendarEventModal(selected,now,null,()=>renderCalendar(view));
+        $$('[data-cal-day]',view).forEach(b=>b.onclick=()=>{App.calendarSelected=b.dataset.calDay;paint();$(`[data-cal-day="${App.calendarSelected}"]`,view)?.focus()});
+        $$('[data-cal-event]',view).forEach(b=>b.onclick=()=>{const event=events.find(e=>e.id===b.dataset.calEvent);openCalendarEventModal(selected,now,event,()=>renderCalendar(view))});
+        $('#calAsk').onclick=()=>setRoute('chat');
+        const input=$('#calSearch'),results=$('#calSearchResults');let timer=null;
+        input.oninput=()=>{App.calendarQuery=input.value;App.calendarSearchRequest++;clearTimeout(timer);results.innerHTML='';results.hidden=true;timer=setTimeout(()=>{if(input.isConnected)searchCalendarEvents(input.value,results,now,()=>renderCalendar(view))},250)};
+        if(App.calendarQuery.trim())searchCalendarEvents(App.calendarQuery,results,now,()=>renderCalendar(view));
+      };
+      paint();
+    }catch(e){if(App.route==='calendar'&&request===App.calendarRequest)view.innerHTML=`<div class="page"><div class="error-card"><strong>تقویم باز نشد</strong><p>${escapeHtml(e.message)}</p><button id="calRetry" class="secondary-button">تلاش دوباره</button></div></div>`;const retry=$('#calRetry');if(retry)retry.onclick=()=>renderCalendar(view);}
+  }
+
+  function openCalendarEventModal(day,now,event=null,onSaved=()=>{}){
+    const root=$('#modalRoot'),previousFocus=document.activeElement;
+    let busy=false,dateRequest=0,dateBasis='gregorian';
+    const date=event?.start?.slice(0,10)||day.gregorian;
+    const initialMinutes=event?.end?Math.max(1,Math.round((Date.parse(event.end.slice(0,19)+'Z')-Date.parse(event.start.slice(0,19)+'Z'))/60000)):60;
+    root.innerHTML=`<div class="modal-backdrop cal-dialog-backdrop"><form class="cal-dialog" dir="rtl" role="dialog" aria-modal="true" aria-labelledby="calDialogTitle">
+      <header><div><p class="cal-kicker">تقویم شخصی</p><h3 id="calDialogTitle">${event?'ویرایش رویداد':'رویداد جدید'}</h3></div><button id="calModalClose" type="button" class="icon-button" aria-label="بستن">${icon('x')}</button></header>
+      <div class="cal-dialog-fields"><label class="field span-2"><span>عنوان</span><input id="calTitle" required maxlength="300" dir="auto" value="${escapeHtml(event?.title||'')}" placeholder="مثلاً جلسهٔ تیم"></label>
+      <label class="field"><span>تاریخ شمسی</span><input id="calJalali" dir="ltr" inputmode="numeric" placeholder="1405-07-02" aria-describedby="calFormError" value="${event?'':day.jalali}"></label>
+      <label class="field"><span>تاریخ میلادی</span><input id="calDate" type="date" required value="${date}"></label>
+      <label class="cal-all-day span-2"><input id="calAllDay" type="checkbox" ${event?.all_day?'checked':''}> تمام روز</label>
+      <label class="field"><span>ساعت شروع</span><input id="calTime" type="time" required value="${event?.start?.slice(11,16)||'10:00'}"></label>
+      <label class="field"><span>مدت (دقیقه)</span><input id="calDuration" type="number" min="1" max="525600" required value="${initialMinutes}"></label>
+      <label class="field"><span>مکان</span><input id="calLocation" dir="auto" maxlength="500" value="${escapeHtml(event?.location||'')}" placeholder="اختیاری"></label>
+      <label class="field"><span>یادآوری (دقیقه قبل)</span><input id="calReminder" type="number" min="0" max="525600" placeholder="بدون یادآوری" value="${event?event.reminders?.[0]??'':30}"></label>
+      <label class="field span-2"><span>یادداشت</span><textarea id="calNotes" dir="auto" rows="3" maxlength="5000" placeholder="اختیاری">${escapeHtml(event?.notes||'')}</textarea></label>
+      <p class="cal-timezone span-2">ساعت‌ها بر اساس زمان دستگاه میزبان هستند: <bdi>${escapeHtml(now.timezone)} (${escapeHtml(now.utc_offset)})</bdi></p>
+      <p id="calFormError" class="form-error span-2" role="alert"></p></div>
+      <footer>${event?'<button id="calDelete" type="button" class="text-button danger">لغو رویداد</button>':''}<span></span><button id="calCancel" type="button" class="secondary-button">انصراف</button><button id="calSave" type="submit" class="primary-button">${event?'ذخیرهٔ تغییرات':'ثبت رویداد'}</button></footer>
+    </form></div>`;
+    const dialog=$('.cal-dialog',root),err=$('#calFormError',root);
+    const close=()=>{if(busy)return;dateRequest++;root.innerHTML='';previousFocus?.focus()};
+    const fields=$$('input,textarea,button',dialog);
+    const lock=on=>{busy=on;fields.forEach(e=>e.disabled=on);if(!on)syncAllDay()};
+    const syncAllDay=()=>{$('#calTime').disabled=$('#calDuration').disabled=$('#calAllDay').checked};
+    const convert=async(kind,value)=>{
+      const id=++dateRequest;err.textContent='';
+      try{const data=await api('/api/calendar',{method:'POST',body:{operation:'convert',[kind]:value}});if(id!==dateRequest||!dialog.isConnected)return false;$('#calJalali').value=data.result.jalali;$('#calDate').value=data.result.gregorian;return true}
+      catch(e){if(id===dateRequest&&dialog.isConnected)err.textContent=e.message;return false}
+    };
+    $('#calJalali').oninput=()=>{dateRequest++;dateBasis='jalali'};
+    $('#calDate').oninput=()=>{dateRequest++;dateBasis='gregorian'};
+    $('#calJalali').onchange=e=>{dateBasis='jalali';return convert('jalali',e.target.value.replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c))).replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))))};
+    $('#calDate').onchange=e=>{dateBasis='gregorian';return convert('gregorian',e.target.value)};
+    if(event)convert('gregorian',date);
+    $('#calAllDay').onchange=syncAllDay;syncAllDay();
+    $('#calModalClose').onclick=$('#calCancel').onclick=close;
+    $('.cal-dialog-backdrop',root).onclick=e=>{if(e.target===e.currentTarget)close()};
+    dialog.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close()}else if(e.key==='Tab'){const enabled=$$('input,textarea,button',dialog).filter(e=>!e.disabled);const first=enabled[0],last=enabled.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}};
+    dialog.onsubmit=async e=>{
+      e.preventDefault();if(busy)return;lock(true);err.textContent='';
+      try{
+        const dateText=$(dateBasis==='jalali'?'#calJalali':'#calDate').value.replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c))).replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)));
+        if(!await convert(dateBasis,dateText))throw new Error(err.textContent||'تاریخ معتبر انتخاب کنید.');
+        const payload=LFWorkspaceUI.calendarPayload({id:event?.id,title:$('#calTitle').value,date:$('#calDate').value,time:$('#calTime').value,duration:$('#calDuration').value,allDay:$('#calAllDay').checked,reminder:$('#calReminder').value,notes:$('#calNotes').value,location:$('#calLocation').value});
+        if(event?.reminders?.length>1&&String(event.reminders[0])===$('#calReminder').value)payload.reminders=event.reminders;
+        // Preserve a multiday all-day event when editing its title/notes.
+        if(event?.all_day&&payload.all_day&&initialMinutes>1440)payload.end=new Date(Date.parse(payload.start+'Z')+initialMinutes*60000).toISOString().slice(0,19);
+        await api('/api/calendar',{method:'POST',body:payload});busy=false;close();toast(event?'تغییرات ذخیره شد':'رویداد ثبت شد',payload.title);onSaved();
+      }catch(error){err.textContent=error.message;lock(false);}
+    };
+    const cancel=$('#calDelete');if(cancel)cancel.onclick=async()=>{if(busy)return;if(cancel.dataset.confirm!=='yes'){cancel.dataset.confirm='yes';cancel.textContent='تأیید لغو رویداد';return}lock(true);try{await api('/api/calendar',{method:'POST',body:{operation:'cancel',id:event.id}});busy=false;close();toast('رویداد لغو شد');onSaved()}catch(e){err.textContent=e.message;lock(false)}};
+    $('#calTitle').focus();
   }
 
   async function renderFiles(view){
+    const request=++App.filesRequest,routeEpoch=App.routeEpoch;
     view.className='view files-route';
     view.innerHTML=`<div class="page files-page"><div class="calendar-loading">${icon('files')}<strong>در حال خواندن فایل‌ها…</strong></div></div>`;
     try{
       const q=App.filesSearch.trim();const data=await api(q?`/api/workspace/files?q=${encodeURIComponent(q)}`:`/api/workspace/files?folder=${encodeURIComponent(App.filesFolder||'')}`);
-      if(App.route!=='files')return;
+      if(App.route!=='files'||routeEpoch!==App.routeEpoch||request!==App.filesRequest)return;
       const items=q?(data.matches||[]):(data.items||[]);
       const parts=(App.filesFolder||'').split('/').filter(Boolean);
       const crumbs=[`<button data-folder="">فایل‌های من</button>`];let acc='';for(const part of parts){acc=acc?`${acc}/${part}`:part;crumbs.push(`<span>/</span><button data-folder="${escapeHtml(acc)}">${escapeHtml(part)}</button>`)}
@@ -359,7 +608,7 @@
       $('#newFolderBtn').onclick=async()=>{const name=prompt('نام پوشه جدید:');if(!name)return;try{await api('/api/workspace/files',{method:'POST',body:{operation:'mkdir',folder:App.filesFolder,name}});renderFiles(view)}catch(e){toast('ساخت پوشه ناموفق',e.message,'error')}};
       const uploadBtn=$('#uploadWorkspaceBtn'),input=$('#workspaceFileInput');uploadBtn.onclick=()=>input.click();input.onchange=()=>uploadWorkspaceFiles(input.files,view);
       let st=null;$('#fileSearch').oninput=e=>{clearTimeout(st);App.filesSearch=e.target.value;st=setTimeout(()=>renderFiles(view),260)};
-    }catch(e){view.innerHTML=`<div class="page"><div class="error-card"><strong>فایل منیجر باز نشد</strong><p>${escapeHtml(e.message)}</p></div></div>`;}
+    }catch(e){if(App.route==='files'&&routeEpoch===App.routeEpoch&&request===App.filesRequest)view.innerHTML=`<div class="page"><div class="error-card"><strong>فایل منیجر باز نشد</strong><p>${escapeHtml(e.message)}</p></div></div>`;}
   }
 
   function fileManagerRow(item,searchMode=false){
@@ -370,7 +619,7 @@
 
   function readAsDataURL(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(r.error||new Error('read failed'));r.readAsDataURL(file)})}
   async function uploadWorkspaceFiles(files,view){
-    for(const file of [...(files||[])]){if(file.size>45*1024*1024){toast('فایل خیلی بزرگ است',`${file.name} بیشتر از ۴۵ مگابایت است.`,'error');continue}try{toast('در حال افزودن فایل',file.name,'info',1800);const data_url=await readAsDataURL(file);await api('/api/workspace/upload',{method:'POST',body:{name:file.name,folder:App.filesFolder,data_url}})}catch(e){toast('آپلود ناموفق',`${file.name}: ${e.message}`,'error',5000)}}renderFiles(view);
+    for(const file of [...(files||[])]){if(file.size>20*1024*1024){toast('فایل خیلی بزرگ است',`${file.name} بیشتر از ۲۰ مگابایت است.`,'error');continue}try{toast('در حال افزودن فایل',file.name,'info',1800);const data_url=await readAsDataURL(file);await api('/api/workspace/upload',{method:'POST',body:{name:file.name,folder:App.filesFolder,data_url}})}catch(e){toast('آپلود ناموفق',`${file.name}: ${e.message}`,'error',5000)}}renderFiles(view);
   }
 
   function renderHome(view){
@@ -557,14 +806,42 @@
     }catch(e){closeRuntimeProgressModal();throw e}
   }
 
+  function apiUsageSummary(provider={}){
+    const u=provider.usage||{},rate=u.rate_limits||{};
+    const remReq=rate['x-ratelimit-remaining-requests']||rate['ratelimit-remaining-requests']||'';
+    const remTok=rate['x-ratelimit-remaining-tokens']||rate['ratelimit-remaining-tokens']||'';
+    const rateText=remReq||remTok?`Provider remaining: ${remReq?`${remReq} requests`:''}${remReq&&remTok?' · ':''}${remTok?`${remTok} tokens`:''}`:'Account-wide remaining quota is not exposed by the standard key.';
+    return `<div class="api-usage-grid"><span><b>${Number(u.requests||0).toLocaleString()}</b><small>requests</small></span><span><b>${Number(u.input_tokens||0).toLocaleString()}</b><small>input tokens</small></span><span><b>${Number(u.output_tokens||0).toLocaleString()}</b><small>output tokens</small></span><span><b>${formatBytes(Number(u.bytes_sent||0)+Number(u.bytes_received||0))}</b><small>observed traffic</small></span></div><small class="api-quota-note">${escapeHtml(rateText)}</small>`;
+  }
+  function apiProviderCard(id,provider={},apiState={},inf={}){
+    const configured=!!provider.configured,models=Array.isArray(provider.models)?provider.models:[],active=inf.backend===id?String(inf.model?.id||apiState.active_model||''):'';
+    const preferred=String(App.apiProviderSelection?.[id]||'');
+    const selected=models.some(m=>String(m.id||'')===preferred)?preferred:(active&&models.some(m=>String(m.id||'')===active)?active:(models[0]?.id||''));
+    if(!models.some(m=>String(m.id||'')===preferred))App.apiProviderSelection[id]=selected;
+    const test=App.apiProviderTests?.[id]?.[selected]||null,testBusy=!!App.apiProviderTestBusy?.[id],busy=!!App.apiProviderBusy?.[id];
+    const draft=String(App.apiProviderDraft?.[id]||'');
+    const syntaxKey=`${id}::${selected}`,savedSyntax=provider.output_syntax?.[selected]||{};
+    const syntax=App.apiOutputSyntaxDraft?.[syntaxKey]||savedSyntax;
+    const openMarker=String(syntax.open_marker||''),closeMarker=String(syntax.close_marker||'');
+    const syntaxSaving=!!App.apiOutputSyntaxSaving?.[syntaxKey];
+    return `<article class="api-provider-card ${inf.backend===id?'active':''}" data-provider-card="${id}">
+      <div class="api-provider-head"><div><span class="mini-kicker">CLOUD API</span><h3>${escapeHtml(provider.name||id)}</h3></div><span class="tag ${configured?'brain-ready-tag':''}">${busy?'Saving…':configured?'Key saved':'Not connected'}</span></div>
+      <div class="field"><label for="apiKey-${id}">API key</label><input id="apiKey-${id}" type="password" autocomplete="off" spellcheck="false" value="${escapeHtml(draft)}" placeholder="${configured?'Key securely saved · enter only to replace':'Paste API key'}"></div>
+      ${Object.keys(provider.base_url_options||{}).length?`<div class="field"><label>Alibaba region · API keys are region-specific</label><div class="inline-actions"><select data-api-base="${id}">${Object.entries(provider.base_url_options).map(([label,url])=>`<option value="${escapeHtml(url)}" ${String(provider.base_url||'')===String(url)?'selected':''}>${escapeHtml(label)}</option>`).join('')}</select><button class="secondary-button" data-api-base-save="${id}">Use region</button></div></div>`:''}
+      <div class="inline-actions api-provider-actions"><button class="secondary-button" data-api-save="${id}">${configured?'Replace key':'Save & connect'}</button>${configured?`<button class="secondary-button" data-api-refresh="${id}">${icon('refresh')} Refresh models</button><button class="text-button api-clear-key" data-api-clear="${id}">Clear key</button>`:''}</div>
+      ${configured?`<div class="field api-model-select"><label>Available models (${models.length})</label><select data-api-model="${id}" ${models.length?'':'disabled'}>${models.length?models.map(m=>{const modelId=String(m.id||''),result=App.apiProviderTests?.[id]?.[modelId];return `<option value="${escapeHtml(modelId)}" ${modelId===selected?'selected':''}>${result?(result.ok?'✓ ':'× '):''}${escapeHtml(modelId)}</option>`}).join(''):'<option>Refresh model list</option>'}</select></div><div class="api-model-actions"><button class="primary-button api-use-model" data-api-use="${id}" ${models.length&&!busy?'':'disabled'}>${icon('chat')} ${inf.backend===id?'Use selected API model':'Use this API model'}</button><button class="secondary-button api-test-model" data-api-test="${id}" ${models.length&&!busy&&!testBusy?'':'disabled'}>${testBusy?'Testing…':'Test selected model'}</button></div><small class="api-model-test-note">Sends one short “سلام” request, with a 24-token output limit. Provider access and quota still apply.</small>${test?`<div class="api-model-test-result ${test.ok?'success':'failure'}"><strong>${test.ok?'Test passed':'Test failed'} · ${escapeHtml(selected)}</strong><span>${escapeHtml(test.ok?test.response:test.error)}</span>${test.ok&&test.usage?`<small>${Number(test.usage.prompt_tokens||0)} input · ${Number(test.usage.completion_tokens||0)} output tokens</small>`:''}</div>`:''}<details class="api-output-syntax" open><summary><span>Output syntax</span><small>${openMarker&&closeMarker?'Custom markers':'Auto-detect'}</small></summary><p>Common thought markers are detected from live responses. If this model uses a different pair, enter it here. Provider model lists do not reliably publish this syntax.</p><div class="api-output-syntax-fields"><div class="field"><label>Opening marker</label><input data-api-output-open="${id}" data-api-output-model="${escapeHtml(selected)}" value="${escapeHtml(openMarker)}" placeholder="&lt;thought&gt;" autocomplete="off" spellcheck="false"></div><div class="field"><label>Closing marker</label><input data-api-output-close="${id}" data-api-output-model="${escapeHtml(selected)}" value="${escapeHtml(closeMarker)}" placeholder="&lt;/thought&gt;" autocomplete="off" spellcheck="false"></div></div><div class="api-output-syntax-actions"><button class="secondary-button" data-api-output-save="${id}" data-api-output-model="${escapeHtml(selected)}" ${syntaxSaving?'disabled':''}>${syntaxSaving?'Saving…':'Save syntax'}</button><small>Leave both empty to use automatic detection.</small></div></details>${apiUsageSummary(provider)}`:''}
+    </article>`;
+  }
+
   function renderModels(view){
-    const s=App.state||{}, models=s.model_library||s.models||[], managed=s.trainable_models||[], active=s.active_model?.path, brain=s.brain||{}, quick=(s.quick_models||[])[0]||{};
+    const s=App.state||{}, inf=inferenceInfo(s), apiState=s.api||{}, models=s.model_library||s.models||[], managed=s.trainable_models||[], active=inf.backend==='local'?s.active_model?.path:'', brain=s.brain||{}, quick=(s.quick_models||[])[0]||{};
     const internal=managed.filter(m=>m.internal_dependency), sources=managed.filter(m=>!m.internal_dependency);
     const dl=['model-download','model-bundle-download'].includes(s.job?.kind)&&s.job?.state==='running'?s.job:null;
     const quickBusy=s.job?.kind==='model-bundle-download'&&s.job?.state==='running';
     const quickStatus=quick.installed?'Chat + learning ready':quick.chat_ready?'Chat ready · learning setup continues in background':'Downloads chat first, then prepares learning';
     view.innerHTML=`<div class="page simple-models-page">${pageTitle('MODELS','One model. Chat with it. Teach the same model.','For the easiest path, install the lightweight Qwen2.5 model below. LlamaForge downloads a sub-1GB GGUF for chat and the exact matching trainable checkpoint for learning, then binds them as one model.')}
       <section class="quick-model-hero"><div class="quick-model-icon">${icon('brain')}</div><div class="quick-model-copy"><div class="eyebrow">RECOMMENDED · LIGHT · ONE CLICK</div><h3>${escapeHtml(quick.name||'Qwen2.5 1.5B Instruct')}</h3><p>One logical model: <strong>${escapeHtml(quick.chat_size||'~986 MB')}</strong> Q4_K_M GGUF for chat + the exact <code>${escapeHtml(quick.training_repo||'Qwen/Qwen2.5-1.5B-Instruct')}</code> checkpoint for Personal Brain learning. Chat is never blocked by the larger learning download.</p><div class="tag-row"><span class="tag">${escapeHtml(quick.size_label||'1.5B')}</span><span class="tag">Qwen2.5</span><span class="tag">Persian-friendly</span><span class="tag">Under 1 GB chat</span><span class="tag brain-ready-tag">Trainable</span><span class="tag">${escapeHtml(quickStatus)}</span></div></div><button id="quickModel" class="primary-button quick-model-button" ${quickBusy&&!quick.chat_ready?'disabled':''}>${icon(quick.chat_ready?'chat':'download')} ${quick.chat_ready?'Load & chat':quickBusy?'Downloading chat…':'Download light model'}</button></section>
+      <section class="section api-models-section"><div class="section-head"><div><h3>External model APIs</h3><p>OpenAI, Gemini, Cerebras, Groq, Mistral and Alibaba share the Chat interface. When Psiphon/System Proxy is active, cloud API calls and Telegram use that proxy; local llama.cpp stays direct.</p></div><span class="tag">${apiState.route?.detected?`Proxy ${escapeHtml(apiState.route.host||'')}:${escapeHtml(String(apiState.route.port||''))}`:'Direct route'}</span></div><div class="api-provider-grid">${['openai','gemini','cerebras','groq','mistral','alibaba'].map(id=>apiProviderCard(id,apiState.providers?.[id]||{name:id},apiState,inf)).join('')}</div></section>
       <div class="simple-model-actions"><button id="downloadModel" class="secondary-button">${icon('download')} Other models</button><button id="browseModel" class="secondary-button">${icon('folder')} Open local GGUF</button><button id="addFolder" class="secondary-button">${icon('plus')} Add folder</button><button id="rescanModels" class="secondary-button">${icon('refresh')} Rescan</button></div>
       <div class="learning-mode-banner ${brain.enabled?'on':'off'}"><div>${icon('brain')}<span><strong>Personal learning ${brain.enabled?'ON':'OFF'}</strong><small>${brain.enabled?'User facts and corrections are trained into this model; chat history is not used as hidden memory.':'Chat works normally, but messages will not change model weights.'}</small></span></div>${brain.enabled?'':`<button id="enableLearning" class="primary-button">Enable learning</button>`}</div>
       ${dl?`<div class="model-download-strip"><div><strong>${escapeHtml(dl.message||'Downloading model…')}</strong><small>${escapeHtml(dl.repo||'')} ${dl.total?`· ${formatBytes(dl.done||0)} / ${formatBytes(dl.total)}`:''}</small></div><div class="progress"><div style="width:${Math.max(3,Math.min(100,dl.progress!=null?Number(dl.progress||0)*100:(dl.total?Number(dl.done||0)/Number(dl.total)*100:8)))}%"></div></div></div>`:''}
@@ -609,6 +886,104 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     $('#addFolder').onclick=async()=>{try{const p=await api('/api/dialog/folder');if(!p.path)return;await api('/api/models/add-folder',{method:'POST',body:{path:p.path}});toast('Folder added',p.path);setTimeout(()=>refreshState(true),700)}catch(e){toast('Could not add folder',e.message,'error')}};
     $('#modelSearch').oninput=e=>filterModelCards(e.target.value);
     $$('.model-card.unified-model').forEach(card=>{card.onclick=()=>activateModelAndChat(card);const b=card.querySelector('.model-run-button');if(b)b.onclick=e=>{e.stopPropagation();activateModelAndChat(card)}});
+    $$('.api-provider-card').forEach(card=>{
+      card.onpointerdown=()=>holdApiProviderInteraction();
+      card.onmousedown=()=>holdApiProviderInteraction();
+    });
+    $$('input[id^="apiKey-"]').forEach(input=>{
+      const provider=input.id.slice('apiKey-'.length);
+      const hold=()=>holdApiProviderInteraction();
+      input.onpointerdown=hold; input.onmousedown=hold; input.onfocus=hold; input.onkeydown=hold;
+      input.oninput=()=>{holdApiProviderInteraction();App.apiProviderDraft[provider]=input.value||''};
+      input.onpaste=()=>{holdApiProviderInteraction();setTimeout(()=>{App.apiProviderDraft[provider]=input.value||''},0)};
+    });
+    $$('select[data-api-model]').forEach(select=>{
+      const provider=select.dataset.apiModel;
+      const open=()=>{App.apiProviderSelectOpen[provider]=true;holdApiProviderInteraction()};
+      select.onpointerdown=open;
+      select.onmousedown=open;
+      select.onfocus=open;
+      select.onchange=()=>{App.apiProviderSelection[provider]=select.value||'';App.apiProviderSelectOpen[provider]=false;holdApiProviderInteraction()};
+      select.onblur=()=>setTimeout(()=>{if(document.activeElement!==select){App.apiProviderSelectOpen[provider]=false;scheduleDeferredUIRender(180)}},0);
+    });
+    $$('[data-api-save]').forEach(b=>b.onclick=async()=>{
+      const provider=b.dataset.apiSave,input=$('#apiKey-'+provider),key=String(input?.value||App.apiProviderDraft?.[provider]||'').trim();
+      if(!key){toast('API key required','Paste the key first.','error');return}
+      App.apiProviderDraft[provider]=key; App.apiProviderBusy[provider]=true; b.disabled=true;
+      let saved=false;
+      try{
+        const result=await api('/api/providers/key',{method:'POST',body:{provider,api_key:key}});
+        const confirmed=!!result?.api?.providers?.[provider]?.configured;
+        if(!confirmed)throw new Error('The key was not readable after secure storage. It was not accepted as saved.');
+        saved=true; App.apiProviderDraft[provider]='';
+        toast('API key saved','Secure storage confirmed. Testing the provider connection…','ok',3200);
+        try{
+          const r=await api('/api/providers/models',{method:'POST',body:{provider}});
+          toast('API connected',`${(r.models||[]).length} models returned by ${provider.toUpperCase()}.`,'ok',4200);
+        }catch(connectError){
+          toast('Key saved, connection test failed',connectError.message,'error',9000);
+        }
+      }catch(e){
+        toast(saved?'Connection test failed':'API key was not saved',e.message,'error',9000);
+      }finally{
+        App.apiProviderBusy[provider]=false;
+        try{await refreshState(true)}catch{}
+      }
+    });
+    $$('[data-api-base-save]').forEach(b=>b.onclick=async()=>{
+      const provider=b.dataset.apiBaseSave,base_url=$(`[data-api-base="${provider}"]`)?.value||'';
+      try{await api('/api/providers/base-url',{method:'POST',body:{provider,base_url}});await refreshState(true);toast('API region saved',`${provider.toUpperCase()} · ${base_url}`,'ok',4200)}
+      catch(e){toast('Could not change API region',e.message,'error',7000)}
+    });
+    $$('[data-api-refresh]').forEach(b=>b.onclick=async()=>{const provider=b.dataset.apiRefresh;App.apiProviderBusy[provider]=true;b.disabled=true;try{const r=await api('/api/providers/models',{method:'POST',body:{provider}});toast('Model list refreshed',`${(r.models||[]).length} models returned by ${provider.toUpperCase()}.`,'ok',3400)}catch(e){toast('Could not refresh models',e.message,'error',8000)}finally{App.apiProviderBusy[provider]=false;await refreshState(true)}});
+    $$('[data-api-use]').forEach(b=>b.onclick=async()=>{const provider=b.dataset.apiUse,sel=$(`[data-api-model="${provider}"]`),model=sel?.value||'';if(!model)return; b.disabled=true;try{await api('/api/providers/select',{method:'POST',body:{provider,model}});await refreshState(true);toast('API model selected',`${provider.toUpperCase()} · ${model}`,'ok',3600);setRoute('chat')}catch(e){toast('Could not select API model',e.message,'error',8000)}finally{b.disabled=false}});
+    $$('[data-api-test]').forEach(b=>b.onclick=async()=>{
+      const provider=b.dataset.apiTest,model=$(`[data-api-model="${provider}"]`)?.value||'';
+      if(!model)return;
+      App.apiProviderSelection[provider]=model;App.apiProviderTestBusy[provider]=true;b.disabled=true;b.textContent='Testing…';
+      try{
+        const result=await api('/api/providers/test',{method:'POST',body:{provider,model}});
+        const tests=App.apiProviderTests[provider]||(App.apiProviderTests[provider]={});
+        tests[model]={ok:true,response:String(result.response||'').slice(0,320),usage:result.usage||null};
+        toast('Model test passed',`${provider.toUpperCase()} · ${model}: ${String(result.response||'').slice(0,180)}`,'ok',8000);
+      }catch(e){
+        const tests=App.apiProviderTests[provider]||(App.apiProviderTests[provider]={});
+        tests[model]={ok:false,error:String(e.message||'Model test failed').slice(0,500)};
+        toast('Model test failed',e.message,'error',9000);
+      }finally{
+        App.apiProviderTestBusy[provider]=false;
+        if(App.route==='models')renderModels($('#view'));
+      }
+    });
+    $$('[data-api-output-open], [data-api-output-close]').forEach(input=>{
+      const hold=()=>holdApiProviderInteraction();
+      input.onpointerdown=hold;input.onmousedown=hold;input.onfocus=hold;input.onkeydown=hold;
+      input.oninput=()=>{
+        holdApiProviderInteraction();
+        const provider=input.dataset.apiOutputOpen||input.dataset.apiOutputClose||'';
+        const model=input.dataset.apiOutputModel||'';
+        const card=input.closest?.('[data-provider-card]');
+        const opening=card?.querySelector('[data-api-output-open]')?.value||'';
+        const closing=card?.querySelector('[data-api-output-close]')?.value||'';
+        App.apiOutputSyntaxDraft[`${provider}::${model}`]={open_marker:opening,close_marker:closing};
+      };
+    });
+    $$('[data-api-output-save]').forEach(b=>b.onclick=async()=>{
+      const provider=b.dataset.apiOutputSave||'',model=b.dataset.apiOutputModel||'';
+      const card=b.closest?.('[data-provider-card]');
+      const openMarker=String(card?.querySelector('[data-api-output-open]')?.value||'').trim();
+      const closeMarker=String(card?.querySelector('[data-api-output-close]')?.value||'').trim();
+      if(!!openMarker!==!!closeMarker){toast('Both markers are required','Enter both the opening and closing markers, or leave both blank for automatic detection.','error');return}
+      const key=`${provider}::${model}`;App.apiOutputSyntaxSaving[key]=true;
+      App.apiOutputSyntaxDraft[key]={open_marker:openMarker,close_marker:closeMarker};
+      b.disabled=true;b.textContent='Saving…';
+      try{
+        await api('/api/providers/output-syntax',{method:'POST',body:{provider,model,open_marker:openMarker,close_marker:closeMarker}});
+        toast(openMarker?'Output syntax saved':'Automatic syntax detection enabled',`${provider.toUpperCase()} · ${model}`,'ok',3600);
+      }catch(e){toast('Could not save output syntax',e.message,'error',7000)}
+      finally{App.apiOutputSyntaxSaving[key]=false;await refreshState(true)}
+    });
+    $$('[data-api-clear]').forEach(b=>b.onclick=async()=>{const provider=b.dataset.apiClear;if(!(await confirmModal('Clear API key',`Remove the saved ${provider.toUpperCase()} API key from this computer?`,'Clear',true)))return;App.apiProviderBusy[provider]=true;try{await api('/api/providers/key',{method:'POST',body:{provider,api_key:''}});App.apiProviderDraft[provider]='';toast('API key cleared')}catch(e){toast('Could not clear API key',e.message,'error')}finally{App.apiProviderBusy[provider]=false;await refreshState(true)}});
   }
   async function activateModelAndChat(card){
     if(!card||card.dataset.loading==='1')return;
@@ -786,7 +1161,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     const perfState=perf.state||'idle', tune=s.autotune||null, tuneJob=(s.job?.kind==='autotune'?s.job:null);
     view.innerHTML=`<div class="page">${pageTitle('Engine','Adaptive compute & launch','Adaptive AutoTune measures this exact GGUF on the installed runtime. Manual CPU/GPU modes stay available for experimentation.')}
       ${tuneJob?`<section class="section"><div class="panel panel-pad autotune-status"><div><span class="mini-kicker">AUTOTUNE</span><strong>${escapeHtml(tuneJob.message||tuneJob.state||'Working…')}</strong><small>${tuneJob.state==='done'&&tune?`Winner: ${Number(tune.generation_tps||0).toFixed(2)} tok/s decode · ${Number(tune.gpu_layer_percent||0)}% GPU · ${Number(tune.threads||0)} threads`:`llama-bench is measuring throughput without a second copy of the model.`}</small></div><div class="autotune-progress-line"><div class="progress"><div style="width:${Math.round(Math.max(0,Math.min(1,Number(tuneJob.progress||0)))*100)}%"></div></div><b>${Math.round(Math.max(0,Math.min(1,Number(tuneJob.progress||0)))*100)}%</b>${['running','cancelling'].includes(tuneJob.state)?`<button id="cancelAutotuneAdvanced" class="secondary-button" ${tuneJob.state==='cancelling'?'disabled':''}>${tuneJob.state==='cancelling'?'Cancelling…':'Cancel'}</button>`:''}</div></div></section>`:''}
-      ${!m?emptyMini('Choose a model before changing launch settings.'):`<div class="engine-grid"><section class="panel panel-pad engine-main"><div class="form-grid"><div class="field"><label>Memory profile</label><select id="profileSelect">${['Safe','Balanced','Max Speed','Low RAM','Giant Model (Experimental)'].map(p=>`<option ${p===(a?.recommended_profile||'Balanced')?'selected':''}>${p}</option>`).join('')}</select></div><div class="field"><label>Context length</label><input id="ctxInput" type="number" min="512" max="${m.context_length||262144}" step="1" value="${Number((s.config||{}).default_context_size||a?.recommended_ctx||4096)}"></div></div>
+      ${!m?emptyMini('Choose a model before changing launch settings.'):`<div class="engine-grid"><section class="panel panel-pad engine-main"><div class="form-grid"><div class="field"><label>Memory profile</label><select id="profileSelect">${['Safe','Balanced','Max Speed','Low RAM','Giant Model (Experimental)'].map(p=>`<option ${p===(a?.recommended_profile||'Balanced')?'selected':''}>${p}</option>`).join('')}</select></div><div class="field"><label>Context length</label><input id="ctxInput" type="number" min="512" max="${Math.min(262144,Number(m.context_length||262144))}" step="1" value="${Math.min(262144,Number(m.context_length||262144),Number((s.config||{}).default_context_size||4096))}"></div></div>
       <div class="compute-mode-block"><div class="compute-mode-head"><div><span class="mini-kicker">COMPUTE ENGINE</span><h3>Choose CPU, GPU, or both</h3><p>${acc.hasGpu?`Detected ${escapeHtml((s.hardware.gpus||[]).map(g=>g.name).join(', '))}. Your choice is saved and used by every Load action.`:'No compatible GPU was detected, so CPU mode is the only available option.'}</p></div></div><div class="compute-mode-grid" id="accelModePicker"><button type="button" data-accel="adaptive" class="compute-mode-card ${acc.mode==='adaptive'?'selected':''}"><span>${icon('spark')}</span><strong>Adaptive</strong><small>Benchmark-picked per model</small></button><button type="button" data-accel="cpu" class="compute-mode-card ${acc.mode==='cpu'?'selected':''}"><span>${icon('cpu')}</span><strong>CPU only</strong><small>No GPU offload</small></button><button type="button" data-accel="gpu" class="compute-mode-card ${acc.mode==='gpu'?'selected':''}" ${acc.hasGpu?'':'disabled'}><span>${icon('harddrive')}</span><strong>GPU</strong><small>Maximum Vulkan offload</small></button><button type="button" data-accel="hybrid" class="compute-mode-card ${acc.mode==='hybrid'?'selected':''}" ${acc.hasGpu?'':'disabled'}><span>${icon('spark')}</span><strong>CPU + GPU</strong><small>Normal layer split</small></button><button type="button" data-accel="max_both" class="compute-mode-card ${acc.mode==='max_both'?'selected':''}" ${acc.hasGpu?'':'disabled'}><span>${icon('cpu')}</span><strong>Max Both</strong><small>CPU-first + iGPU assist</small></button></div></div>
       <div class="thread-control gpu-share-control ${['hybrid','max_both'].includes(acc.mode)?'active':'inactive'}" style="margin-top:12px"><div class="thread-label"><span>GPU share in Hybrid mode</span><strong id="gpuLayerValue">${acc.mode==='gpu'?100:['hybrid','max_both'].includes(acc.mode)?acc.percent:0}%</strong></div><input id="gpuLayerPercent" type="range" min="5" max="95" step="5" value="${acc.percent}" ${acc.hasGpu&&['hybrid','max_both'].includes(acc.mode)?'':'disabled'}><small>Hybrid: manual split. Max Both: use a small GPU slice so the CPU keeps real transformer work; Intel iGPU starts near 10%.</small></div>
       <div class="thread-tuner"><div class="thread-tuner-head"><div><span class="mini-kicker">CPU POLICY</span><h3>Utilization controller</h3><p>Use a percentage budget for normal operation. Saturation mode intentionally oversubscribes llama.cpp workers and raises process priority to chase higher Task Manager utilization.</p></div><div class="cpu-cap"><strong>${s.hardware?.physical_cores||'?'}P / ${s.hardware?.logical_cores||'?'}L</strong><span>${aggressive} max workers</span></div></div>
@@ -812,7 +1187,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       const paintAccel=mode=>{accelMode=mode;modeButtons.forEach(b=>b.classList.toggle('selected',b.dataset.accel===mode));if(gpuRange)gpuRange.disabled=!acc.hasGpu||!['hybrid','max_both'].includes(mode);if(mode==='max_both'&&Number(gpuRange.value)>30)gpuRange.value='10';if(gpuValue)gpuValue.textContent=mode==='gpu'?'100%':['hybrid','max_both'].includes(mode)?`${gpuRange.value}%`:'0%';const ctl=$('.gpu-share-control');if(ctl){ctl.classList.toggle('active',['hybrid','max_both'].includes(mode));ctl.classList.toggle('inactive',!['hybrid','max_both'].includes(mode))}saveAcceleratorPrefs(mode,Number(gpuRange?.value||acc.percent));};
       modeButtons.forEach(b=>b.onclick=()=>{if(b.disabled)return;paintAccel(b.dataset.accel)});
       if(gpuRange)gpuRange.oninput=()=>{if(gpuValue)gpuValue.textContent=['hybrid','max_both'].includes(accelMode)?`${gpuRange.value}%`:accelMode==='gpu'?'100%':'0%';saveAcceleratorPrefs(accelMode,Number(gpuRange.value))};
-      $('#manualStart').onclick=async()=>{try{const cp=cpuThreadPrefs(),pct=Number(gpuRange?.value||35);saveAcceleratorPrefs(accelMode,pct);await api('/api/settings',{method:'POST',body:{accelerator_mode:accelMode,gpu_layer_percent:pct,default_context_size:Number($('#ctxInput').value||4096)}});await ensureRuntimeInstalled();await api('/api/server/start',{method:'POST',body:{model_path:m.path,profile:$('#profileSelect').value,ctx:Number($('#ctxInput').value),accelerator_mode:accelMode,cpu_only:accelMode==='cpu',gpu_layer_percent:pct,thread_mode:accelMode==='adaptive'?'auto':accelMode==='max_both'?'saturate':cp.mode,threads:accelMode==='max_both'?(s.hardware?.logical_cores||cp.threads):cp.threads,threads_batch:accelMode==='max_both'?(s.hardware?.logical_cores||cp.threads_batch):cp.threads_batch,cpu_target_percent:accelMode==='max_both'?100:cp.target_percent,cpu_saturation:accelMode==='max_both'?true:cp.saturation,speculative_mode:String(s.config?.speculative_mode||'auto'),adaptive_context:Boolean(s.config?.adaptive_context!==false)}});toast('Server starting',accelMode==='adaptive'?(s.autotune?`Adaptive measured plan · ${Number(s.autotune.generation_tps||0).toFixed(2)} tok/s benchmark`:'Adaptive heuristic · run AutoTune for a measured plan'):accelMode==='max_both'?`Max Both · ${pct}% GPU layers · all logical CPU workers`:accelMode==='hybrid'?`CPU + GPU hybrid · ${pct}% GPU layers · ${cpuPlanSummary(cp)}`:accelMode==='gpu'?`GPU max offload · ${cpuPlanSummary(cp)}`:cpuPlanSummary(cp),'info')}catch(e){toast('Could not start model',e.message,'error')}};
+      $('#manualStart').onclick=async()=>{try{const cp=cpuThreadPrefs(),pct=Number(gpuRange?.value||35);saveAcceleratorPrefs(accelMode,pct);const ctx=LFProtocol.contextValue($('#ctxInput').value,Math.min(262144,Number(m.context_length||262144)));const saved=await api('/api/settings',{method:'POST',body:{accelerator_mode:accelMode,gpu_layer_percent:pct,default_context_size:ctx}});if(App.state?.config)Object.assign(App.state.config,saved);await ensureRuntimeInstalled();await api('/api/server/start',{method:'POST',body:{model_path:m.path,profile:$('#profileSelect').value,ctx:saved.default_context_size,accelerator_mode:accelMode,cpu_only:accelMode==='cpu',gpu_layer_percent:pct,thread_mode:accelMode==='max_both'?'saturate':cp.mode,threads:accelMode==='max_both'?(s.hardware?.logical_cores||cp.threads):cp.threads,threads_batch:accelMode==='max_both'?(s.hardware?.logical_cores||cp.threads_batch):cp.threads_batch,cpu_target_percent:accelMode==='max_both'?100:cp.target_percent,cpu_saturation:accelMode==='max_both'?true:cp.saturation,speculative_mode:String(s.config?.speculative_mode||'auto'),adaptive_context:Boolean(s.config?.adaptive_context!==false)}});toast('Server starting',accelMode==='adaptive'?(s.autotune?`Adaptive measured plan · ${Number(s.autotune.generation_tps||0).toFixed(2)} tok/s benchmark`:'Adaptive heuristic · run AutoTune for a measured plan'):accelMode==='max_both'?`Max Both · ${pct}% GPU layers · all logical CPU workers`:accelMode==='hybrid'?`CPU + GPU hybrid · ${pct}% GPU layers · ${cpuPlanSummary(cp)}`:accelMode==='gpu'?`GPU max offload · ${cpuPlanSummary(cp)}`:cpuPlanSummary(cp),'info')}catch(e){toast('Could not start model',e.message,'error')}};
       if($('#cancelAutotuneAdvanced'))$('#cancelAutotuneAdvanced').onclick=async()=>{try{await api('/api/autotune/cancel',{method:'POST',body:{}});toast('Cancelling AutoTune','','info');await refreshState(true)}catch(e){toast('Could not cancel AutoTune',e.message,'error')}};
       if($('#manualStop')) $('#manualStop').onclick=stopServer; $('#advancedLogs').onclick=()=>setRoute('logs');
     }
@@ -836,9 +1211,65 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     }catch(e){toast('Could not exit cleanly',e.message,'error')}
   }
 
+  function traceOptions(rows){
+    return rows.filter(r=>/^trace_[a-f0-9]{32}$/.test(r.id||'')).map(r=>`<option value="${r.id}">${escapeHtml(`${r.started_at||''} · ${r.origin||'local'} · ${r.status||''}${r.complete===false?' · incomplete':''} · ${r.preview||r.message_id||r.id}`)}</option>`).join('');
+  }
+  async function refreshRequestTraces(){
+    const picker=$('#requestTracePicker');if(App.route!=='logs'||!picker)return;
+    try{
+      const data=await api('/api/logs/requests');if(App.route!=='logs'||!picker.isConnected)return;
+      const old=App.traceSelected||picker.value;
+      picker.innerHTML=traceOptions(data.traces||[]);
+      const chosen=(data.traces||[]).some(r=>r.id===old)?old:(data.traces||[])[0]?.id||'';
+      picker.value=chosen;
+      $('#traceRecording').checked=!!data.settings?.enabled;
+      $('#traceStatus').textContent=data.settings?.error?`Recording error: ${data.settings.error}`:`${(data.traces||[]).length} requests · up to ${data.settings?.max_traces||100} retained · ${Math.round((data.settings?.max_total_bytes||0)/1048576)} MB total limit`;
+      $('#downloadTrace').disabled=!chosen;
+      if(chosen)await showRequestTrace(chosen);
+      else $('#requestTimeline').textContent='No request recorded yet. Reproduce the problem, then refresh this list.';
+    }catch(e){if($('#traceStatus'))$('#traceStatus').textContent=e.message;}
+  }
+  async function showRequestTrace(id){
+    const root=$('#requestTimeline');if(!root||!/^trace_[a-f0-9]{32}$/.test(id||''))return;
+    App.traceSelected=id;const revision=(App.traceRevision||0)+1;App.traceRevision=revision;
+    root.textContent='Loading request timeline…';
+    try{
+      const data=await api(`/api/logs/requests/detail?id=${encodeURIComponent(id)}`);
+      if(App.route!=='logs'||App.traceSelected!==id||App.traceRevision!==revision||!root.isConnected)return;
+      root.innerHTML=(data.events||[]).map(e=>`<details class="trace-event" data-trace-seq="${Number(e.seq)||0}"><summary><span>${Number(e.seq)||0}. ${escapeHtml(e.event||'event')}</span><small>${Number(e.elapsed_ms||0).toLocaleString()} ms</small></summary><pre></pre></details>`).join('');
+      $$('[data-trace-seq]',root).forEach(detail=>{detail.ontoggle=async()=>{
+        if(!detail.open||detail.dataset.loaded)return;
+        const pre=$('pre',detail);pre.textContent='Loading full event…';
+        try{const row=await api(`/api/logs/requests/event?id=${encodeURIComponent(id)}&seq=${Number(detail.dataset.traceSeq)}`);
+          if(detail.isConnected){pre.textContent=JSON.stringify(row.event,null,2);detail.dataset.loaded='1';}
+        }catch(e){pre.textContent=e.message;}
+      }});
+    }catch(e){if(App.traceSelected===id&&App.traceRevision===revision&&root.isConnected)root.textContent=e.message;}
+  }
+  async function downloadRequestTrace(){
+    const id=App.traceSelected;if(!/^trace_[a-f0-9]{32}$/.test(id||''))return;
+    try{
+      const response=await fetch(`/api/logs/requests/export?id=${encodeURIComponent(id)}`);
+      if(!response.ok)throw new Error((await response.json()).error||'Download failed');
+      const objectUrl=URL.createObjectURL(await response.blob());const a=document.createElement('a');
+      a.href=objectUrl;a.download=id+'.zip';document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
+    }catch(e){toast('Could not download request trace',e.message,'error');}
+  }
+
   function renderLogs(view){
-    view.innerHTML=`<div class="page">${pageTitle('Diagnostics','Runtime logs','Live llama.cpp output, Brain Trainer phases, native crash codes, memory snapshots and persistent session logs.')}
-      <div class="log-shell"><div class="log-toolbar"><span id="logCount">Loading…</span><div class="inline-actions"><button id="copyLogs" class="text-button">${icon('copy')} Copy log</button><button id="copyTrainerLog" class="text-button">${icon('brain')} Copy trainer session</button><button id="copyDiagnostics" class="text-button">${icon('info')} Copy full diagnostic</button><button id="clearLogs" class="text-button">Clear</button><button id="refreshLogs" class="text-button">${icon('refresh')} Refresh</button></div></div><div id="logMeta" style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.55"></div><pre id="logOutput" class="log-output"></pre></div></div>`;
+    view.innerHTML=`<div class="page">${pageTitle('Diagnostics','Request traces & runtime logs','Follow each prompt through model routing, Skills, tool results and the final response.')}
+      <section class="request-traces">
+        <div class="trace-heading"><div><h3>Full request log · گزارش کامل درخواست</h3><p>Local chat and Web Bridge requests are recorded here. The ZIP includes prompts, actual model payloads, outputs and tool observations. Credentials are redacted; conversation text remains in the report.</p></div><label class="trace-switch"><input type="checkbox" id="traceRecording"> Record full requests</label></div>
+        <div class="trace-controls"><select id="requestTracePicker" aria-label="Request to inspect"></select><button id="refreshTraces" class="text-button">${icon('refresh')} Refresh requests</button><button id="downloadTrace" class="primary-button" disabled>${icon('download')} Download full log (.zip)</button></div>
+        <p id="traceStatus" class="trace-status" role="status">Loading…</p><div id="requestTimeline" class="trace-timeline"></div>
+      </section>
+      <div class="log-shell"><div class="log-toolbar"><span id="logCount">Loading…</span><div class="inline-actions"><button id="copyLogs" class="text-button">${icon('copy')} Copy log</button><button id="copyTrainerLog" class="text-button">${icon('brain')} Copy trainer session</button><button id="copyDiagnostics" class="text-button">${icon('info')} Copy system diagnostic</button><button id="clearLogs" class="text-button">Clear</button><button id="refreshLogs" class="text-button">${icon('refresh')} Refresh</button></div></div><div id="logMeta" style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.55"></div><pre id="logOutput" class="log-output"></pre></div></div>`;
+    refreshRequestTraces();
+    $('#refreshTraces').onclick=refreshRequestTraces;
+    $('#requestTracePicker').onchange=e=>showRequestTrace(e.target.value);
+    $('#downloadTrace').onclick=downloadRequestTrace;
+    $('#traceRecording').onchange=async e=>{const input=e.target;input.disabled=true;try{await api('/api/logs/requests/settings',{method:'POST',body:{enabled:input.checked}});await refreshRequestTraces()}catch(error){input.checked=!input.checked;toast('Could not change recording',error.message,'error')}finally{input.disabled=false}};
     refreshLogs(); $('#copyLogs').onclick=async()=>{const t=$('#logOutput').textContent||'';await navigator.clipboard.writeText(t);toast('Log copied',`${t.length.toLocaleString()} characters copied`)}; $('#copyTrainerLog').onclick=async()=>{try{const x=await api('/api/logs/trainer');const t=x.text||JSON.stringify(x.info||{},null,2);await navigator.clipboard.writeText(t);toast('Trainer session copied',`${t.length.toLocaleString()} characters copied`)}catch(e){toast('Could not copy trainer session',e.message,'error')}}; $('#copyDiagnostics').onclick=async()=>{try{const d=await api('/api/diagnostics');const t=JSON.stringify(d,null,2);await navigator.clipboard.writeText(t);toast('Full diagnostic copied',`${t.length.toLocaleString()} characters · secrets omitted`)}catch(e){toast('Could not build diagnostic',e.message,'error')}}; $('#clearLogs').onclick=async()=>{await api('/api/logs/clear',{method:'POST'});refreshLogs();toast('Logs cleared')}; $('#refreshLogs').onclick=refreshLogs;
   }
   async function refreshLogs(){ if(App.route!=='logs')return; try{const x=await api('/api/logs');const out=$('#logOutput'); if(!out)return; const near=out.scrollTop+out.clientHeight>=out.scrollHeight-80; out.textContent=(x.lines||[]).join('\n'); $('#logCount').textContent=`${(x.lines||[]).length} lines`; const meta=$('#logMeta'),t=x.last_trainer||{}; if(meta){const ex=t.exit_name?`${t.exit_name} ${t.exit_hex||''}`:'no trainer session yet';meta.textContent=`Persistent: ${x.persistent_log||'—'}  ·  Trainer: ${ex}  ·  Phase: ${t.last_phase||'—'}  ·  Peak RSS: ${Number(t.peak_worker_rss_mb||0).toFixed(0)} MB  ·  Session: ${t.log_path||'—'}`;} if(near)out.scrollTop=out.scrollHeight;}catch{} }
@@ -855,8 +1286,8 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     const accelBase=acceleratorPrefs(), hasGpu=accelBase.hasGpu;
     let selectedAccel=String(val('accelerator_mode',accelBase.mode)||'adaptive');if(!['adaptive','cpu','gpu','hybrid','max_both'].includes(selectedAccel))selectedAccel='adaptive';if(!hasGpu&&selectedAccel!=='adaptive')selectedAccel='cpu';
     const gpuShare=Math.max(5,Math.min(95,Number(val('gpu_layer_percent',accelBase.percent)||35)));
-    const ctxMax=Math.max(512,Number(active?.context_length||262144));
-    const ctxValue=Math.max(512,Math.min(ctxMax,Number(val('default_context_size',c.default_context_size||4096))));
+    const isApi=externalInference(), ctxMax=Math.max(512,Math.min(262144,Number((isApi?null:active?.context_length)||262144)));
+    const ctxValue=LFProtocol.draftValue(draft,'default_context_size',c.default_context_size||4096);
     const genManual=Boolean(val('generation_overrides_enabled',c.generation_overrides_enabled));
     const isDirty=App.settingsFormDirty||Object.keys(draft).length>0;
 
@@ -880,16 +1311,16 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
         <div class="autotune-card"><div><span class="mini-kicker">PER-MODEL AUTOTUNE</span><strong>${App.state?.autotune?'Measured plan saved':'No benchmark for this GGUF yet'}</strong><small>${App.state?.autotune?`Decode ${Number(App.state.autotune.generation_tps||0).toFixed(2)} tok/s · prompt ${Number(App.state.autotune.prompt_tps||0).toFixed(1)} tok/s · ~${Math.round(Number(App.state.autotune.estimated_ttft_ms||0))} ms compute TTFT · ${Number(App.state.autotune.threads||0)} threads · ${Number(App.state.autotune.gpu_layer_percent||0)}% GPU`:'AutoTune temporarily unloads the model, measures CPU threads, GPU layers and batch sizes with llama-bench, then saves the winner for this exact file.'}</small></div><div class="inline-actions"><button type="button" id="runAutotune" class="primary-button" ${active?'':'disabled'}>${icon('spark')} ${App.state?.autotune?'Retune model':'Run AutoTune'}</button>${App.state?.autotune?'<button type="button" id="clearAutotune" class="secondary-button">Clear result</button>':''}</div></div>
       </section>
 
-      <section class="section settings-section"><div class="settings-section-head"><div><span class="mini-kicker">MODEL WINDOW</span><h3>Context & output</h3><p>Your context value is now kept as a local draft while you edit it, so background state refreshes cannot reset the field.</p></div>${isDirty?'<span class="settings-unsaved">Unsaved changes</span>':''}</div>
-        <div class="context-control-card"><div class="context-control-main"><label for="defaultContext">Context limit</label><div class="context-input-wrap"><input id="defaultContext" type="number" min="512" max="${ctxMax}" step="1" value="${ctxValue}"><span>tokens</span></div><small>Any integer from 512 to ${ctxMax.toLocaleString()} is accepted. The model is reloaded before a new context takes effect.</small></div><div class="context-presets" id="contextPresets">${[4096,8192,16384,32768].filter(x=>x<=ctxMax).map(x=>`<button type="button" data-context="${x}" class="${ctxValue===x?'active':''}">${x===4096?'4K':x===8192?'8K':x===16384?'16K':'32K'}</button>`).join('')}<button type="button" data-context="8000" class="${ctxValue===8000?'active':''}">8000</button></div></div>
-        <div class="form-grid settings-form-grid" style="margin-top:14px"><div class="field"><label>Maximum answer tokens</label><input id="generationMaxTokens" type="number" min="16" max="32768" step="1" value="${Number(val('generation_max_tokens',c.generation_max_tokens||2048))}"><small>Maximum number of new tokens in one response.</small></div><div class="field"><label>Speculative decoding</label><select id="speculativeMode"><option value="auto" ${String(val('speculative_mode',c.speculative_mode||'auto'))==='auto'?'selected':''}>Auto (recommended)</option><option value="ngram" ${String(val('speculative_mode',c.speculative_mode||'auto'))==='ngram'?'selected':''}>N-gram</option><option value="off" ${String(val('speculative_mode',c.speculative_mode||'auto'))==='off'?'selected':''}>Off</option></select><small>Auto uses llama.cpp n-gram speculation when supported. AutoTune measures the target model only; speculative decoding is not part of llama-bench.</small></div><label class="check-row compact-check"><input id="adaptiveContext" type="checkbox" ${Boolean(val('adaptive_context',c.adaptive_context!==false))?'checked':''}><span><strong>Adaptive context guard</strong><small>For large models, clamp only the active launch context to preserve RAM; your saved preference stays unchanged.</small></span></label><label class="check-row compact-check"><input id="manualGeneration" type="checkbox" ${genManual?'checked':''}><span><strong>Manual generation settings</strong><small>Off = Smart Chat chooses sampling automatically.</small></span></label></div>
+      <section class="section settings-section"><div class="settings-section-head"><div><span class="mini-kicker">MODEL WINDOW</span><h3>Context & output</h3><p>These saved values are shared by Chat, Agent, local models and API models.</p></div>${isDirty?'<span class="settings-unsaved">Unsaved changes</span>':''}</div>
+        <div class="context-control-card"><div class="context-control-main"><label for="defaultContext">Context limit</label><div class="context-input-wrap"><input id="defaultContext" type="number" min="512" max="${ctxMax}" step="1" value="${escapeHtml(String(ctxValue))}"><span>tokens</span></div><small>${isApi?'API conversation history uses an approximate token budget. The provider sets its own actual model window; changes apply on the next message.':'Local models must be reloaded before a new context takes effect.'}</small><small>Saved: ${Number(c.default_context_size||4096).toLocaleString()} · ${isApi?'API history budget':`Active local: ${loaded?Number(ss.plan?.ctx_size||0).toLocaleString():'unloaded'}`}</small></div><div class="context-presets" id="contextPresets">${[4096,8192,16384,32768].filter(x=>x<=ctxMax).map(x=>`<button type="button" data-context="${x}" class="${ctxValue===x?'active':''}">${x===4096?'4K':x===8192?'8K':x===16384?'16K':'32K'}</button>`).join('')}<button type="button" data-context="8000" class="${ctxValue===8000?'active':''}">8000</button></div></div>
+        <div class="form-grid settings-form-grid" style="margin-top:14px"><div class="field"><label>Maximum answer tokens</label><input id="generationMaxTokens" type="number" min="16" max="32768" step="1" value="${Number(val('generation_max_tokens',c.generation_max_tokens||2048))}"><small>Maximum number of new tokens in one response.</small></div><div class="field"><label>Speculative decoding</label><select id="speculativeMode"><option value="auto" ${String(val('speculative_mode',c.speculative_mode||'auto'))==='auto'?'selected':''}>Auto (recommended)</option><option value="ngram" ${String(val('speculative_mode',c.speculative_mode||'auto'))==='ngram'?'selected':''}>N-gram</option><option value="off" ${String(val('speculative_mode',c.speculative_mode||'auto'))==='off'?'selected':''}>Off</option></select><small>Auto stays off until an end-to-end speedup is measured. N-gram is a manual experiment; llama-bench does not measure speculative decoding.</small></div><label class="check-row compact-check"><input id="adaptiveContext" type="checkbox" ${Boolean(val('adaptive_context',c.adaptive_context!==false))?'checked':''}><span><strong>Adaptive context guard</strong><small>For large models, clamp only the active launch context to preserve RAM; your saved preference stays unchanged.</small></span></label><label class="check-row compact-check"><input id="manualGeneration" type="checkbox" ${genManual?'checked':''}><span><strong>Manual generation settings</strong><small>Off = Smart Chat chooses sampling automatically.</small></span></label></div>
         <details class="settings-advanced-generation" ${genManual?'open':''}><summary>Sampling controls</summary><div class="form-grid" style="margin-top:14px"><div class="field"><label>Temperature</label><input id="generationTemperature" type="number" min="0" max="2" step="0.01" value="${Number(val('generation_temperature',c.generation_temperature??0.7))}"></div><div class="field"><label>Top P</label><input id="generationTopP" type="number" min="0" max="1" step="0.01" value="${Number(val('generation_top_p',c.generation_top_p??0.95))}"></div><div class="field"><label>Top K</label><input id="generationTopK" type="number" min="0" max="500" step="1" value="${Number(val('generation_top_k',c.generation_top_k??40))}"></div><div class="field"><label>Min P</label><input id="generationMinP" type="number" min="0" max="1" step="0.01" value="${Number(val('generation_min_p',c.generation_min_p??0))}"></div><div class="field"><label>Repeat penalty</label><input id="generationRepeat" type="number" min="0.8" max="1.3" step="0.01" value="${Number(val('generation_repeat_penalty',c.generation_repeat_penalty??1.03))}"></div></div></details>
         <div class="settings-primary-actions"><button id="saveModelControls" class="secondary-button">${icon('check')} Save controls</button>${active?`<button id="settingsLoadModel" class="primary-button">${icon('play')} ${loaded?'Reload model':'Load model'}</button>`:''}${ss.running?`<button id="settingsUnloadTop" class="secondary-button">${icon('stop')} Unload</button>`:''}<button id="settingsChooseModel" class="secondary-button">${icon('models')} Choose model</button></div>
       </section>
 
       <section class="section settings-section"><div class="settings-section-head"><div><span class="mini-kicker">MEMORY</span><h3>Model residency</h3><p>Control how aggressively model weights stay resident in RAM.</p></div></div><div class="memory-mode-grid" id="memoryModePicker">${card('ram_only','Full RAM','No mmap: load GGUF weights through normal process memory. Block loading when it cannot fit safely.')}${card('ssd_test','SSD / mmap','Disk-backed mmap/lazy mode for very large models or troubleshooting.')}${card('hybrid','Smart RAM','Automatically use Full RAM when it fits; otherwise switch to mmap.')}</div><div class="memory-mode-status" id="memoryModeStatus">${App.settingsMemoryDirty?`Not applied yet: ${memoryLabel(selectedMode)}`:`Saved mode: ${memoryLabel(savedMode)}`}</div><div class="inline-actions" style="margin-top:12px"><button type="button" id="applyMemoryMode" class="primary-button" ${App.settingsMemoryDirty?'':'disabled'}>Apply memory mode</button><button type="button" id="cancelMemoryMode" class="secondary-button" ${App.settingsMemoryDirty?'':'disabled'}>Cancel change</button></div><small id="memoryModeHelp" class="settings-help">${memoryHelp(selectedMode)}</small></section>
 
-      <div class="settings-two-col"><section class="settings-section"><div class="settings-section-head"><div><span class="mini-kicker">SYSTEM</span><h3>Local runtime behavior</h3></div></div><div class="form-grid"><div class="field"><label>Maximum RAM target (%)</label><input id="ramGuard" type="number" min="50" max="95" step="1" value="${Number(val('max_ram_percent',c.max_ram_percent||88))}"></div><div class="field"><label>llama-server port</label><input id="portSetting" type="number" min="1024" max="65535" step="1" value="${Number(val('port',c.port||8080))}"></div><div class="field"><label>Unload after idle</label><select id="idleUnload"><option value="0" ${idle===0?'selected':''}>Never</option><option value="10" ${idle===10?'selected':''}>10 minutes</option><option value="30" ${idle===30?'selected':''}>30 minutes</option><option value="60" ${idle===60?'selected':''}>60 minutes</option></select></div><div class="field"><label>UI disconnect grace</label><select id="disconnectGrace">${[8,12,20,45].map(x=>`<option value="${x}" ${Number(val('ui_disconnect_shutdown_seconds',c.ui_disconnect_shutdown_seconds||12))===x?'selected':''}>${x} seconds</option>`).join('')}</select></div></div><label class="check-row" style="margin-top:12px"><input id="exitUnload" type="checkbox" ${Boolean(val('exit_unloads_model',c.exit_unloads_model!==false))?'checked':''}><span><strong>Unload model when LlamaForge closes</strong><small>Recommended so llama-server does not remain mapped in memory.</small></span></label></section>
+      <div class="settings-two-col"><section class="settings-section"><div class="settings-section-head"><div><span class="mini-kicker">SYSTEM</span><h3>Local runtime behavior</h3></div></div><div class="form-grid"><div class="field"><label>Maximum RAM target (%)</label><input id="ramGuard" type="number" min="50" max="95" step="1" value="${Number(val('max_ram_percent',c.max_ram_percent||88))}"></div><div class="field"><label>llama-server port</label><input id="portSetting" type="number" min="1024" max="65535" step="1" value="${Number(val('port',c.port||8080))}"></div><div class="field"><label>Unload after idle</label><select id="idleUnload"><option value="0" ${idle===0?'selected':''}>Never</option><option value="10" ${idle===10?'selected':''}>10 minutes</option><option value="30" ${idle===30?'selected':''}>30 minutes</option><option value="60" ${idle===60?'selected':''}>60 minutes</option></select></div><div class="field"><label>UI disconnect grace</label><select id="disconnectGrace">${[8,12,20,45].map(x=>`<option value="${x}" ${Number(val('ui_disconnect_shutdown_seconds',c.ui_disconnect_shutdown_seconds||12))===x?'selected':''}>${x} seconds</option>`).join('')}</select></div></div><label class="check-row" style="margin-top:12px"><input id="exitUnload" type="checkbox" ${Boolean(val('exit_unloads_model',c.exit_unloads_model!==false))?'checked':''}><span><strong>Unload model when LlamaForge closes</strong><small>Recommended so llama-server does not remain mapped in memory.</small></span></label><label class="check-row" style="margin-top:10px"><input id="persistChatHistory" type="checkbox" ${persistChatHistory()?'checked':''}><span><strong>Keep chat history in this browser</strong><small>Turn off to keep conversations only until this page/app session ends.</small></span></label></section>
         <section class="settings-section"><div class="settings-section-head"><div><span class="mini-kicker">FILES & ACCESS</span><h3>Local model sources</h3></div></div><div class="field"><label>Hugging Face access token</label><input id="hfToken" type="password" placeholder="${c.hf_token_configured?'Token already configured · enter only to replace':'hf_…'}"><small>Only needed for gated/private models.</small></div><div class="settings-folder-list">${(c.model_dirs||[]).map(p=>`<div class="detail-row"><span>${icon('folder')} Folder</span><span>${escapeHtml(p)}</span></div>`).join('')||'<div class="empty-mini">No extra model folder configured.</div>'}</div><div class="inline-actions" style="margin-top:14px"><button id="settingsAddFolder" class="secondary-button">${icon('plus')} Add folder</button><button id="saveSettings" class="primary-button">Save all settings</button></div></section></div>
       <section class="section"><div class="inline-actions">${ss.running?`<button id="settingsUnload" class="secondary-button">${icon('stop')} Unload model now</button>`:''}<button id="exitApp" class="danger-button">Exit & unload</button></div></section>
     </div>`;
@@ -898,7 +1329,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     const clearDraft=(keys)=>{const d={...(App.settingsDraft||{})};keys.forEach(k=>delete d[k]);App.settingsDraft=d;App.settingsFormDirty=Object.keys(d).length>0};
     const getAccelFromDom=()=>String($$('#settingsAccelPicker [data-settings-accel].selected')[0]?.dataset.settingsAccel||selectedAccel);
     const modelControlPayload=()=>({
-      default_context_size:Number($('#defaultContext').value||4096),
+      default_context_size:LFProtocol.contextValue($('#defaultContext').value,ctxMax),
       accelerator_mode:getAccelFromDom(),
       gpu_layer_percent:Number($('#settingsGpuShare').value||35),
       speculative_mode:String($('#speculativeMode')?.value||'auto'),
@@ -913,7 +1344,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     });
     const modelKeys=['default_context_size','accelerator_mode','gpu_layer_percent','speculative_mode','adaptive_context','generation_overrides_enabled','generation_temperature','generation_top_p','generation_top_k','generation_min_p','generation_repeat_penalty','generation_max_tokens'];
     const bindDraft=(id,key,parser=(el)=>el.value)=>{const el=$('#'+id);if(!el)return;const mark=()=>{setDraft(key,parser(el));if(id==='defaultContext'){const summary=$('#settingsCtxSummary');if(summary)summary.textContent=Number(el.value||0).toLocaleString();$$('#contextPresets [data-context]').forEach(b=>b.classList.toggle('active',Number(b.dataset.context)===Number(el.value)))}};el.addEventListener('input',mark);el.addEventListener('change',mark)};
-    bindDraft('defaultContext','default_context_size',el=>Number(el.value||4096));bindDraft('speculativeMode','speculative_mode',el=>String(el.value||'auto'));bindDraft('adaptiveContext','adaptive_context',el=>el.checked);bindDraft('generationMaxTokens','generation_max_tokens',el=>Number(el.value||2048));bindDraft('manualGeneration','generation_overrides_enabled',el=>el.checked);bindDraft('generationTemperature','generation_temperature',el=>Number(el.value||0));bindDraft('generationTopP','generation_top_p',el=>Number(el.value||0));bindDraft('generationTopK','generation_top_k',el=>Number(el.value||0));bindDraft('generationMinP','generation_min_p',el=>Number(el.value||0));bindDraft('generationRepeat','generation_repeat_penalty',el=>Number(el.value||1.03));bindDraft('ramGuard','max_ram_percent',el=>Number(el.value||88));bindDraft('portSetting','port',el=>Number(el.value||8080));bindDraft('exitUnload','exit_unloads_model',el=>el.checked);bindDraft('idleUnload','idle_unload_minutes',el=>Number(el.value||0));bindDraft('disconnectGrace','ui_disconnect_shutdown_seconds',el=>Number(el.value||12));
+    bindDraft('defaultContext','default_context_size',el=>el.value);bindDraft('speculativeMode','speculative_mode',el=>String(el.value||'auto'));bindDraft('adaptiveContext','adaptive_context',el=>el.checked);bindDraft('generationMaxTokens','generation_max_tokens',el=>Number(el.value||2048));bindDraft('manualGeneration','generation_overrides_enabled',el=>el.checked);bindDraft('generationTemperature','generation_temperature',el=>Number(el.value||0));bindDraft('generationTopP','generation_top_p',el=>Number(el.value||0));bindDraft('generationTopK','generation_top_k',el=>Number(el.value||0));bindDraft('generationMinP','generation_min_p',el=>Number(el.value||0));bindDraft('generationRepeat','generation_repeat_penalty',el=>Number(el.value||1.03));bindDraft('ramGuard','max_ram_percent',el=>Number(el.value||88));bindDraft('portSetting','port',el=>Number(el.value||8080));bindDraft('exitUnload','exit_unloads_model',el=>el.checked);bindDraft('idleUnload','idle_unload_minutes',el=>Number(el.value||0));bindDraft('disconnectGrace','ui_disconnect_shutdown_seconds',el=>Number(el.value||12));
     const hf=$('#hfToken');if(hf){const mark=()=>{App.settingsFormDirty=true};hf.addEventListener('input',mark)};
 
     $$('#contextPresets [data-context]').forEach(b=>b.onclick=()=>{const x=Math.max(512,Math.min(ctxMax,Number(b.dataset.context)));$('#defaultContext').value=String(x);$('#defaultContext').dispatchEvent(new Event('input',{bubbles:true}))});
@@ -925,13 +1356,13 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     if($('#runAutotune'))$('#runAutotune').onclick=async()=>{const btn=$('#runAutotune');try{btn.disabled=true;const payload=modelControlPayload();await api('/api/settings',{method:'POST',body:{accelerator_mode:'adaptive',speculative_mode:payload.speculative_mode,adaptive_context:payload.adaptive_context}});saveAcceleratorPrefs('adaptive',payload.gpu_layer_percent);await api('/api/autotune/start',{method:'POST',body:{model_path:active?.path||'',apply_and_start:true}});toast('AutoTune started','The current model will be unloaded while llama-bench measures this exact GGUF.','info',6000);setRoute('advanced');await refreshState(true)}catch(e){toast('AutoTune could not start',e.message,'error',9000)}finally{const b=$('#runAutotune');if(b)b.disabled=false}};
     if($('#clearAutotune'))$('#clearAutotune').onclick=async()=>{try{await api('/api/autotune/clear',{method:'POST',body:{model_path:active?.path||''}});toast('AutoTune result cleared','Adaptive will use its hardware heuristic until you benchmark again.','ok');await refreshState(true)}catch(e){toast('Could not clear AutoTune',e.message,'error')}};
     $('#saveModelControls').onclick=async()=>{try{const payload=modelControlPayload(),saved=await api('/api/settings',{method:'POST',body:payload});if(App.state?.config)Object.assign(App.state.config,payload,saved);saveAcceleratorPrefs(payload.accelerator_mode,payload.gpu_layer_percent);clearDraft(modelKeys);App.renderKey='';await refreshState(true);toast('Model controls saved',`Context ${Number(payload.default_context_size).toLocaleString()} · ${acceleratorLabel(payload.accelerator_mode)}`,'ok',4800)}catch(e){toast('Could not save model controls',e.message,'error')}};
-    if($('#settingsLoadModel'))$('#settingsLoadModel').onclick=async()=>{const btn=$('#settingsLoadModel');const old=btn.innerHTML;try{btn.disabled=true;btn.innerHTML=`${icon('runtime')} Preparing engine…`;const payload=modelControlPayload();await api('/api/settings',{method:'POST',body:payload});if(App.state?.config)Object.assign(App.state.config,payload);saveAcceleratorPrefs(payload.accelerator_mode,payload.gpu_layer_percent);clearDraft(modelKeys);await ensureRuntimeInstalled();btn.innerHTML=`${icon('play')} Starting model…`;const cp=cpuThreadPrefs();await api('/api/server/start',{method:'POST',body:{model_path:active.path,profile:(App.state?.assessment?.recommended_profile||'Balanced'),ctx:payload.default_context_size,accelerator_mode:payload.accelerator_mode,cpu_only:payload.accelerator_mode==='cpu',gpu_layer_percent:payload.gpu_layer_percent,thread_mode:payload.accelerator_mode==='adaptive'?'auto':payload.accelerator_mode==='max_both'?'saturate':cp.mode,threads:payload.accelerator_mode==='max_both'?(App.state?.hardware?.logical_cores||cp.threads):cp.threads,threads_batch:payload.accelerator_mode==='max_both'?(App.state?.hardware?.logical_cores||cp.threads_batch):cp.threads_batch,cpu_target_percent:payload.accelerator_mode==='max_both'?100:cp.target_percent,cpu_saturation:payload.accelerator_mode==='max_both'?true:cp.saturation,memory_mode:savedMode,speculative_mode:payload.speculative_mode,adaptive_context:payload.adaptive_context}});toast(loaded?'Reloading model':'Loading model',`${payload.default_context_size.toLocaleString()} context · ${acceleratorLabel(payload.accelerator_mode)}`,'info',5000);await refreshState(true)}catch(e){toast('Could not load model',e.message,'error',9000)}finally{const current=$('#settingsLoadModel');if(current){current.disabled=false;current.innerHTML=old}}};
+    if($('#settingsLoadModel'))$('#settingsLoadModel').onclick=async()=>{const btn=$('#settingsLoadModel');const old=btn.innerHTML;try{btn.disabled=true;btn.innerHTML=`${icon('runtime')} Preparing engine…`;const payload=modelControlPayload();await api('/api/settings',{method:'POST',body:payload});if(App.state?.config)Object.assign(App.state.config,payload);saveAcceleratorPrefs(payload.accelerator_mode,payload.gpu_layer_percent);clearDraft(modelKeys);await ensureRuntimeInstalled();btn.innerHTML=`${icon('play')} Starting model…`;const cp=cpuThreadPrefs();await api('/api/server/start',{method:'POST',body:{model_path:active.path,profile:(App.state?.assessment?.recommended_profile||'Balanced'),ctx:payload.default_context_size,accelerator_mode:payload.accelerator_mode,cpu_only:payload.accelerator_mode==='cpu',gpu_layer_percent:payload.gpu_layer_percent,thread_mode:payload.accelerator_mode==='max_both'?'saturate':cp.mode,threads:payload.accelerator_mode==='max_both'?(App.state?.hardware?.logical_cores||cp.threads):cp.threads,threads_batch:payload.accelerator_mode==='max_both'?(App.state?.hardware?.logical_cores||cp.threads_batch):cp.threads_batch,cpu_target_percent:payload.accelerator_mode==='max_both'?100:cp.target_percent,cpu_saturation:payload.accelerator_mode==='max_both'?true:cp.saturation,memory_mode:savedMode,speculative_mode:payload.speculative_mode,adaptive_context:payload.adaptive_context}});toast(loaded?'Reloading model':'Loading model',`${payload.default_context_size.toLocaleString()} context · ${acceleratorLabel(payload.accelerator_mode)}`,'info',5000);await refreshState(true)}catch(e){toast('Could not load model',e.message,'error',9000)}finally{const current=$('#settingsLoadModel');if(current){current.disabled=false;current.innerHTML=old}}};
     if($('#settingsUnloadTop'))$('#settingsUnloadTop').onclick=unloadModel;$('#settingsChooseModel').onclick=()=>setRoute('models');
 
     const paintMemoryChoice=(mode,dirty=true)=>{App.pendingMemoryMode=mode;App.settingsMemoryDirty=dirty;$$('#memoryModePicker [data-memory-mode]').forEach(btn=>{const active=btn.dataset.memoryMode===mode;btn.classList.toggle('selected',active);btn.setAttribute('aria-pressed',active?'true':'false')});const help=$('#memoryModeHelp'),status=$('#memoryModeStatus'),apply=$('#applyMemoryMode'),cancel=$('#cancelMemoryMode');if(help)help.textContent=memoryHelp(mode);if(status)status.textContent=dirty?`Not applied yet: ${memoryLabel(mode)}`:`Saved mode: ${memoryLabel(mode)}`;if(apply)apply.disabled=!dirty;if(cancel)cancel.disabled=!dirty};
     $$('#memoryModePicker [data-memory-mode]').forEach(btn=>btn.onclick=()=>paintMemoryChoice(btn.dataset.memoryMode,true));$('#cancelMemoryMode').onclick=()=>{App.pendingMemoryMode=null;App.settingsMemoryDirty=false;paintMemoryChoice(savedMode,false)};
     $('#applyMemoryMode').onclick=async()=>{const requested=App.pendingMemoryMode||savedMode,button=$('#applyMemoryMode'),status=$('#memoryModeStatus');button.disabled=true;if(status)status.textContent=`Applying: ${memoryLabel(requested)}…`;try{const saved=await api('/api/settings',{method:'POST',body:{model_memory_mode:requested}});const actual=saved.model_memory_mode;if(actual!==requested)throw new Error(`Backend saved ${actual||'nothing'} instead of ${requested}`);if(App.state?.config)App.state.config.model_memory_mode=actual;App.pendingMemoryMode=null;App.settingsMemoryDirty=false;paintMemoryChoice(actual,false);App.renderKey=stateRenderKey(App.state||{});toast('Memory mode applied',`${memoryLabel(actual)} will be used on the next model load.`)}catch(e){App.pendingMemoryMode=requested;App.settingsMemoryDirty=true;paintMemoryChoice(requested,true);toast('Could not apply memory mode',e.message,'error')}};
-    $('#saveSettings').onclick=async()=>{try{const mm=App.settingsMemoryDirty?(App.pendingMemoryMode||savedMode):savedMode,payload={...modelControlPayload(),model_memory_mode:mm,max_ram_percent:Number($('#ramGuard').value),port:Number($('#portSetting').value),exit_unloads_model:$('#exitUnload').checked,idle_unload_minutes:Number($('#idleUnload').value),ui_disconnect_shutdown_seconds:Number($('#disconnectGrace').value),...(($('#hfToken').value||'').trim()?{hf_token:$('#hfToken').value.trim()}:{})};await api('/api/settings',{method:'POST',body:payload});saveAcceleratorPrefs(payload.accelerator_mode,payload.gpu_layer_percent);App.settingsDraft={};App.pendingMemoryMode=null;App.settingsMemoryDirty=false;App.settingsFormDirty=false;await refreshState(true);toast('Settings saved',`${acceleratorLabel(payload.accelerator_mode)} · context ${Number(payload.default_context_size).toLocaleString()}`)}catch(e){toast('Could not save settings',e.message,'error')}};
+    $('#saveSettings').onclick=async()=>{try{const mm=App.settingsMemoryDirty?(App.pendingMemoryMode||savedMode):savedMode,payload={...modelControlPayload(),model_memory_mode:mm,max_ram_percent:Number($('#ramGuard').value),port:Number($('#portSetting').value),exit_unloads_model:$('#exitUnload').checked,idle_unload_minutes:Number($('#idleUnload').value),ui_disconnect_shutdown_seconds:Number($('#disconnectGrace').value),...(($('#hfToken').value||'').trim()?{hf_token:$('#hfToken').value.trim()}:{})};await api('/api/settings',{method:'POST',body:payload});const keepHistory=$('#persistChatHistory')?.checked!==false;localStorage.setItem('lf.persistChatHistory',keepHistory?'1':'0');if(!keepHistory){localStorage.removeItem('lf.threads');localStorage.removeItem('lf.activeThread')}else saveThreads();saveAcceleratorPrefs(payload.accelerator_mode,payload.gpu_layer_percent);App.settingsDraft={};App.pendingMemoryMode=null;App.settingsMemoryDirty=false;App.settingsFormDirty=false;await refreshState(true);toast('Settings saved',`${acceleratorLabel(payload.accelerator_mode)} · context ${Number(payload.default_context_size).toLocaleString()}`)}catch(e){toast('Could not save settings',e.message,'error')}};
     $('#settingsAddFolder').onclick=async()=>{try{const p=await api('/api/dialog/folder');if(!p.path)return;await api('/api/models/add-folder',{method:'POST',body:{path:p.path}});await refreshState(true);render()}catch(e){toast('Could not add folder',e.message,'error')}};if($('#settingsUnload'))$('#settingsUnload').onclick=unloadModel;$('#exitApp').onclick=exitLlamaForge;
   }
 
@@ -944,16 +1375,16 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     const trainerReady=!!b.trainer_ready && !!b.toolchain_ready;
     const learned=!!b.adapter_ready;
     const pct=Math.max(0,Math.min(100,Number(j.progress||0)*100));
-    const statusTitle=!b.enabled?'Personal Brain is off':busy?'Setting up your Brain…':setupReady?(learned?'Learning is active':'Ready to learn'):'One-time setup needed';
+    const statusTitle=!b.enabled?'Personal Brain is off':busy?'Checking your learning update…':setupReady?(learned?'Learning is active':'Ready to learn'):'One-time setup needed';
     const statusCopy=!b.enabled
       ? 'Turn it on and LlamaForge will guide the rest. No chat history, RAG, or memory text is injected when Zero-context is active.'
       : j.state==='cancelling' ? (j.message||'Stopping the current Brain task safely…')
       : busy ? (j.message||'Preparing the learning engine…')
-      : setupReady ? `Just chat normally. After each completed turn, LlamaForge trains private personal weights for <strong>${escapeHtml(m?.name||'this model')}</strong> before the next turn.`
+      : setupReady ? `Teach a fact or correction. LlamaForge checks the lesson and validates candidate weights for <strong>${escapeHtml(m?.name||'this model')}</strong> before activation.`
       : 'LlamaForge can detect the matching trainable model and prepare the learning engine automatically.';
 
     view.innerHTML=`<div class="page brain-page brain-simple">
-      ${pageTitle('PERSONAL BRAIN','Teach by chatting','Keep the normal chat simple. LlamaForge handles the training plumbing in the background.')}
+      ${pageTitle('PERSONAL BRAIN','Teach by chatting','Teach a correction, preserve earlier learning, and check each update before activation.')}
 
       <section class="brain-simple-hero ${setupReady?'ready':b.enabled?'armed':'off'}">
         <div class="brain-simple-copy">
@@ -991,12 +1422,23 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       </section>
 
       <section class="brain-simple-grid">
-        <div class="brain-simple-card"><span class="card-kicker">HOW IT WORKS</span><h3>You talk. It learns. Context resets.</h3>
-          <div class="brain-flow"><div><span>1</span><p><strong>Chat normally</strong><small>You send a message and get the usual local response.</small></p></div><i></i><div><span>2</span><p><strong>Weights update</strong><small>LlamaForge creates training examples and micro-trains your private LoRA.</small></p></div><i></i><div><span>3</span><p><strong>Next turn starts clean</strong><small>Only the newest user message is sent to inference.</small></p></div></div>
+        <div class="brain-simple-card"><span class="card-kicker">HOW IT WORKS</span><h3>Teach. Check. Activate.</h3>
+          <div class="brain-flow"><div><span>1</span><p><strong>User supervision</strong><small>Questions alone do not become training answers.</small></p></div><i></i><div><span>2</span><p><strong>Candidate check</strong><small>New lesson loss and earlier examples are checked before saving.</small></p></div><i></i><div><span>3</span><p><strong>Verified activation</strong><small>The generation is confirmed after the adapter reload succeeds.</small></p></div></div>
         </div>
         <div class="brain-simple-card"><span class="card-kicker">CURRENT BRAIN</span><h3>${learned?`Generation ${Number(b.generation||0)}`:'No learned weights yet'}</h3>
           <div class="brain-mini-stats"><div><span>Previous turns sent</span><strong>${b.enabled&&b.zero_context?'0':'Normal chat'}</strong></div><div><span>Confirmed learned turns</span><strong>${Number(b.learned_packets||0)}</strong></div><div><span>Mode</span><strong>${b.enabled?(setupReady?'Automatic':'Setup needed'):'Off'}</strong></div></div>
         </div>
+      </section>
+
+      <section class="brain-panel brain-lesson-card">
+        <div class="brain-panel-head"><div><span class="mini-kicker">TEACH A CORRECTION</span><h3>Your question. Your correct answer.</h3></div></div>
+        <p class="muted-copy">Only the answer you enter here is used as supervision. The candidate must pass its learning checks and reload before the generation is confirmed.</p>
+        <div class="brain-two-col">
+          <div class="field"><label for="brainLessonQuestion">Question or situation</label><textarea id="brainLessonQuestion" rows="3" maxlength="6000" placeholder="What should you call me?">${escapeHtml(App.brainLessonDraft.question)}</textarea></div>
+          <div class="field"><label for="brainLessonAnswer">Correct answer</label><textarea id="brainLessonAnswer" rows="3" maxlength="12000" placeholder="Your answer…">${escapeHtml(App.brainLessonDraft.answer)}</textarea></div>
+        </div>
+        <div class="inline-actions"><button id="brainTeach" class="primary-button" ${!b.enabled||!setupReady||busy?'disabled':''}>${icon('brain')} Learn this correction</button><span class="muted-copy">${setupReady?'Uses this model’s existing personal adapter.':'Prepare the learning engine to use this lesson.'}</span></div>
+        ${b.validation?.method?`<div class="brain-validation"><strong>Last confirmed check</strong><span>Lesson loss: ${Number(b.validation.before?.new??0).toFixed(3)} → ${Number(b.validation.after?.new??0).toFixed(3)}</span>${b.validation.before?.replay!=null?`<span>Replay loss: ${Number(b.validation.before.replay).toFixed(3)} → ${Number(b.validation.after?.replay).toFixed(3)}</span>`:''}<small>Checks ${Number(b.validation.examples||0)} curriculum examples; this is not a held-out recall score.</small></div>`:''}
       </section>
 
       <details class="brain-advanced-disclosure">
@@ -1006,7 +1448,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
             <section class="brain-panel"><div class="brain-panel-head"><div><span class="mini-kicker">BEHAVIOR</span><h3>Learning contract</h3></div></div>
               <label class="brain-check"><input id="brainZero" type="checkbox" ${b.zero_context?'checked':''}><span><strong>Zero-context inference</strong><small>Send only the latest user turn to llama-server.</small></span></label>
               <label class="brain-check"><input id="brainStrict" type="checkbox" ${b.strict_learning?'checked':''}><span><strong>Learn before next turn</strong><small>Wait for weight training before accepting the next message.</small></span></label>
-              <label class="brain-check"><input id="brainSynthesize" type="checkbox" ${b.auto_synthesize?'checked':''}><span><strong>Generate durable examples</strong><small>Expand facts, people, plans and preferences into training examples.</small></span></label>
+              <label class="brain-check"><input id="brainSynthesize" type="checkbox" ${b.auto_synthesize?'checked':''}><span><strong>Generate durable examples</strong><small>Compile short answers with supporting quotes from your own message.</small></span></label>
             </section>
             <section class="brain-panel"><div class="brain-panel-head"><div><span class="mini-kicker">MODEL SOURCE</span><h3>Managed automatically</h3></div></div>
               <div class="detail-row"><span>Selected model</span><span>${escapeHtml(b.selected_model_name||m?.name||'—')}</span></div>
@@ -1021,7 +1463,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
             <div class="brain-param-grid">
               <div class="field"><label>LoRA rank</label><input id="brainRank" type="number" min="2" max="128" value="${b.rank||8}"></div>
               <div class="field"><label>Micro steps / turn</label><input id="brainSteps" type="number" min="1" max="128" value="${b.micro_steps||8}"></div>
-              <div class="field"><label>Replay examples</label><input id="brainReplay" type="number" min="0" max="128" value="${b.replay_samples||8}"></div>
+              <div class="field"><label>Replay examples</label><input id="brainReplay" type="number" min="0" max="128" value="${b.replay_samples??8}"></div>
               <div class="field"><label>Max training tokens</label><input id="brainMaxLen" type="number" min="64" max="2048" value="${b.max_length||384}"></div>
               <div class="field"><label>Learning rate</label><input id="brainLR" type="number" step="0.00001" min="0.000001" max="0.01" value="${b.learning_rate||0.00015}"></div>
               <div class="field"><label>LoRA alpha</label><input id="brainAlpha" type="number" min="2" max="256" value="${b.alpha||16}"></div>
@@ -1032,6 +1474,18 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       </details>
     </div>`;
 
+    for(const [id,key] of [['brainLessonQuestion','question'],['brainLessonAnswer','answer']]){
+      const field=$('#'+id);if(field)field.oninput=()=>{App.brainLessonDraft[key]=field.value};
+    }
+    $('#brainTeach').onclick=async()=>{
+      const question=App.brainLessonDraft.question.trim(),answer=App.brainLessonDraft.answer.trim();
+      if(!question||!answer){toast('Complete the lesson','Enter both a question and your correct answer.','info');return}
+      try{
+        const st=await api('/api/brain/learn',{method:'POST',body:{mode:'explicit',model_key:b.model_key,user:question+'\n'+answer,examples:[{user:question,assistant:answer}]}});
+        if(App.state)App.state.brain=st;patchBrainChatState(st);renderBrain(view);
+        toast('Correction submitted','You can follow compilation, validation and activation here.','info');
+      }catch(e){toast('Could not start learning',e.message,'error',7000)}
+    };
     const device=$('#brainDevice'); if(device)device.value=b.device||'auto';
     const collect=()=>({
       enabled:b.enabled,
@@ -1043,7 +1497,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       device:$('#brainDevice')?.value||b.device||'auto',
       rank:Number($('#brainRank')?.value||b.rank||8),alpha:Number($('#brainAlpha')?.value||b.alpha||16),
       learning_rate:Number($('#brainLR')?.value||b.learning_rate||0.00015),micro_steps:Number($('#brainSteps')?.value||b.micro_steps||8),
-      replay_samples:Number($('#brainReplay')?.value||b.replay_samples||8),max_length:Number($('#brainMaxLen')?.value||b.max_length||384)
+      replay_samples:Number($('#brainReplay')?.value??b.replay_samples??8),max_length:Number($('#brainMaxLen')?.value||b.max_length||384)
     });
     const applyBrainState=(x,{renderNow=false}={})=>{if(!x)return x;if(App.state)App.state.brain=x;patchBrainChatState(x);patchBrainPageState(x);if(renderNow&&App.route==='brain')renderBrain($('#view'));return x};
     const save=async(body=collect(),quiet=false,renderNow=false)=>{try{const x=await api('/api/brain/settings',{method:'POST',body});applyBrainState(x,{renderNow});if(!quiet)toast('Brain settings saved');return x}catch(e){toast('Could not save Brain settings',e.message,'error',6500);throw e}};
@@ -1150,26 +1604,131 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     }catch(e){toast('Could not read Bridge backups',e.message,'error',7000)}
   }
 
+  const telegramFields=['telegramApiId','telegramApiHash','telegramPhone','telegramCode','telegramPassword'];
+  function agentInputFocused(){
+    const active=document.activeElement;
+    return ['INPUT','TEXTAREA','SELECT'].includes(active?.tagName)&&!!active.closest?.('.agent-page');
+  }
+  function telegramDigits(value){
+    return String(value||'').replace(/[۰-۹٠-٩]/g,c=>String(c.charCodeAt(0)-(c>='۰'?1776:1632)));
+  }
+  function updateTelegramControls(){
+    if(App.route!=='agent'||!$('#telegramPhone'))return;
+    const form=App.telegramForm,tg=App.state?.agent?.telegram||{},installer=tg.installer||{};
+    const installed=!!tg.installed&&!!tg.vault_installed,connected=!!tg.connected;
+    const account=$('#telegramAccountStatus');
+    if(account)account.textContent=(connected?tg.account?.name||'Connected':tg.paused?'Disconnected':tg.saved_session?'Saved session':'Not connected')+(tg.account?.username?' @'+tg.account.username:'');
+    const step=form.step||(tg.login_pending?'code':'');
+    const disabled={installTelegram:form.busy||installer.state==='running',telegramConnect:form.busy||connected||!installed,
+      telegramVerify:form.busy||connected||!installed||!step,telegramResume:form.busy||connected||!installed||!tg.saved_session,
+      telegramDisconnect:form.busy||!connected,telegramRevoke:form.busy||!installed||(!connected&&!tg.saved_session),telegramPing:form.busy||!installed};
+    Object.entries(disabled).forEach(([id,value])=>{const el=$('#'+id);if(el)el.disabled=value});
+    telegramFields.forEach(id=>{const el=$('#'+id);if(el)el.disabled=form.busy});
+    const install=$('#installTelegram');if(install){install.hidden=installed;install.textContent=installer.state==='running'?'Installing…':'Install Telegram support';}
+    const status=$('#telegramLoginStatus');
+    let message=form.status||(connected?'Account connected.':step==='password'?'Enter your Telegram two-step password, then Verify login.':step?'Enter the verification code from Telegram, then Verify login.':tg.saved_session?(tg.paused?'Saved login is paused. It will stay disconnected until you press Reconnect saved session.':'Saved session is available and will reconnect automatically when Telegram is opened.'):'');
+    if(!form.busy&&form.lastAction==='install')message=installer.state==='error'?installer.error||'Installation failed. Try again.':installed?'Telegram support installed. Enter your API ID, API Hash and phone number.':'Installing Telegram support…';
+    if(status){status.textContent=message;status.setAttribute('aria-busy',String(form.busy));}
+    if(installer.state==='running'&&!App.telegramPollTimer){
+      App.telegramPollTimer=setTimeout(()=>{App.telegramPollTimer=null;if(App.route==='agent')refreshState(false)},1500);
+    }
+  }
+  function clearTelegramFields(ids=telegramFields){
+    ids.forEach(id=>{delete App.telegramForm.values[id];const el=App.route==='agent'?$('#'+id):null;if(el)el.value=''});
+  }
+  async function telegramAction(path,body){
+    const form=App.telegramForm;if(form.busy)return;
+    form.busy=true;form.lastAction=path;form.status='Working…';App.telegramRevision++;App.agentRenderRevision++;
+    updateTelegramControls();
+    let next='';
+    try{
+      const result=await api('/api/agent/telegram/'+path,{method:'POST',body});
+      if(App.state){App.state.agent=App.state.agent||{};const before=App.state.agent.telegram||{};App.state.agent.telegram=path==='install'?{...before,installer:result}:{...before,...result};}
+      if(path==='install'){form.status='Installing Telegram support…';}
+      else if(path==='ping'){form.status=result.message||'Telegram ping finished.';}
+      else if(result.next==='password'){
+        form.step=next='password';clearTelegramFields(['telegramCode','telegramPassword']);
+        form.status='Enter your Telegram two-step password, then Verify login.';
+      }else if(result.next==='code'){
+        form.step=next='code';clearTelegramFields(['telegramApiHash','telegramCode','telegramPassword']);
+        form.status='Enter the verification code from Telegram, then Verify login.';
+      }else{form.step='';clearTelegramFields();form.status=result.connected?'Account connected.':'Account disconnected.';}
+    }catch(e){form.status=e.message;toast('Telegram',e.message,'error',7000)}
+    finally{form.busy=false;App.telegramRevision++;App.agentRenderRevision++;updateTelegramControls();scheduleStateRefresh();}
+    if(next&&App.route==='agent')$('#'+(next==='password'?'telegramPassword':'telegramCode'))?.focus();
+  }
+  function bindTelegramControls(){
+    const form=App.telegramForm;
+    telegramFields.forEach(id=>{const el=$('#'+id);if(!el)return;el.value=form.values[id]||'';el.oninput=el.onchange=()=>{form.values[id]=el.value};});
+    const value=id=>$('#'+id)?.value??form.values[id]??'';
+    const invalid=message=>{form.status=message;form.lastAction='';updateTelegramControls();};
+    if($('#installTelegram'))$('#installTelegram').onclick=()=>telegramAction('install',{});
+    if($('#telegramPing'))$('#telegramPing').onclick=()=>{const apiId=telegramDigits(value('telegramApiId')).trim(),apiHash=value('telegramApiHash').trim();const body=/^[1-9]\d*$/.test(apiId)&&Number.isSafeInteger(Number(apiId))&&/^[a-fA-F0-9]{32}$/.test(apiHash)?{api_id:Number(apiId),api_hash:apiHash}:{};return telegramAction('ping',body)};
+    $('#telegramConnect').onclick=()=>{
+      if(form.busy)return;
+      const apiId=telegramDigits(value('telegramApiId')).trim(),apiHash=value('telegramApiHash').trim();
+      const phone=telegramDigits(value('telegramPhone')).replace(/[\s()\-]/g,'');
+      if(!/^[1-9]\d*$/.test(apiId)||!Number.isSafeInteger(Number(apiId)))return invalid('Enter a valid numeric API ID from my.telegram.org.');
+      if(!/^[a-fA-F0-9]{32}$/.test(apiHash))return invalid('Enter the 32-character API Hash from my.telegram.org.');
+      if(!/^\+[0-9]{7,16}$/.test(phone))return invalid('Enter your phone number with country code, for example +989123456789.');
+      return telegramAction('login',{api_id:Number(apiId),api_hash:apiHash,phone});
+    };
+    $('#telegramVerify').onclick=()=>{
+      if(form.busy)return;
+      const code=telegramDigits(value('telegramCode')).replace(/[\s-]/g,''),password=value('telegramPassword');
+      if(form.step==='password'&&!password)return invalid('Enter your Telegram two-step password.');
+      if(form.step!=='password'&&!/^\d+$/.test(code))return invalid('Enter the verification code sent by Telegram.');
+      return telegramAction('login',form.step==='password'?{password}:{code});
+    };
+    $('#telegramResume').onclick=()=>telegramAction('login',{resume:true});
+    $('#telegramDisconnect').onclick=()=>telegramAction('disconnect',{revoke:false});
+    $('#telegramRevoke').onclick=async()=>{if(form.busy)return;if(await confirmModal('Log out and remove saved login','This logs LlamaForge out of Telegram and removes the encrypted saved session from this computer.','Log out'))return telegramAction('disconnect',{revoke:true});};
+    updateTelegramControls();
+  }
+
   async function renderAgent(view){
-    let a=App.state?.agent||{},c=App.state?.config||{};
-    try{a=await api('/api/agent/status');if(App.state)App.state.agent=a}catch{}
+    const renderRevision=++App.agentRenderRevision;
+    let a=App.state?.agent||{};
+    if(!App.telegramForm.busy){try{a=await api('/api/agent/status')}catch{}}
+    if(renderRevision!==App.agentRenderRevision||App.route!=='agent')return;
+    if(App.state)App.state.agent=a;
+    // A status request may have started before the user focused an input.
+    // Check again after awaiting it so typing/IME and selection keep their DOM.
+    if(agentInputFocused()){updateTelegramControls();return;}
+    // Autofill may update values without dispatching an input event.
+    telegramFields.forEach(id=>{const el=$('#'+id);if(el)App.telegramForm.values[id]=el.value;});
+    const c={...(App.state?.config||{}),...App.agentDraft};
     const connectors=a.connectors||[],skills=a.skills||[],installer=a.installer||{},catalog=a.skill_catalog||[];
     const remoteInfo=a.remote_apps||{},remoteApps=remoteInfo.apps||[];
+    const telegram=a.telegram||{},tgInstaller=telegram.installer||{};
     const opCount=connectors.reduce((n,x)=>n+(x.operations||[]).length,0);
     const familyDefs={
       web:{title:'Live Web',icon:'globe',desc:'Search, read, check and download current public information.',cats:['web.read','web.search','web.download']},
       calendar:{title:'Time & Calendar',icon:'calendar',desc:'Real local date/time, Jalali conversion, schedules and reminders.',cats:['calendar']},
       files:{title:'Files & Attachments',icon:'files',desc:'Read uploaded files, inspect ZIP projects, save, organize and edit text/code.',cats:['files']},
+      code:{title:'Program Builder',icon:'spark',desc:'Write, edit and run Python or commands; manage packages, logs, input and processes.',cats:['code']},
       browser:{title:'Browser',icon:'panel',desc:'Escalation for JavaScript pages, login, forms, clicks and typing.',cats:['browser.read','browser.interact','browser.session']},
       api:{title:'API',icon:'link',desc:'HTTP endpoints, structured requests and configured service operations.',cats:['api']},
-      extensions:{title:'Extensions',icon:'spark',desc:'OpenAPI connectors and custom declarative skills.',cats:['connector','custom']}
+      telegram:{title:'Telegram',icon:'chat',desc:'Personal account · chats, channels, bots, participant lists, search, message actions and bounded media.',cats:['telegram']},
+      extensions:{title:'Extensions',icon:'spark',desc:'OpenAPI connectors, reusable API skills and permission-gated local command tools.',cats:['connector','custom']}
     };
-    const familyOrder=['web','calendar','files','browser','api','extensions'];
+    const familyOrder=['web','calendar','files','code','telegram','browser','api','extensions'];
+    const operationLabels={now:'Current date & time',convert:'Convert dates',month:'Month view',list:'List',find_free_time:'Find free time',create:'Create event',update:'Update',cancel:'Cancel event',delete:'Delete',search:'Search',global_search:'Search all chats',account_info:'Account details',list_channels:'List channels',list_bots:'List bots',channel_info:'Channel details',bot_info:'Bot details',chat_info:'Chat details',participants:'List participants',messages:'Read messages',my_messages:'Read my messages',send:'Send',reply:'Reply',forward:'Forward message',edit:'Edit message',delete_message:'Delete message',pin:'Pin message',unpin:'Unpin message',mark_read:'Mark read',react:'React with emoji',download_media:'Download media to File Manager',send_file:'Send a File Manager file',metadata:'File details',probe:'Identify / list archive',read_content:'Read selected content',store_attachment:'Save attachment',archive_extract:'Safely extract archive',write_text:'Create / edit text',append_text:'Append text',replace_text:'Replace text',copy:'Copy file',mkdir:'Create folder',move:'Move',rename:'Rename',trash:'Move to trash',restore:'Restore'};
+    const operationTree=x=>{
+      const ops=Object.entries(x.contract?.operations||{});if(!ops.length)return '';
+      return `<details class="skill-operations"><summary>${ops.length} reusable operations</summary>${ops.map(([op,p])=>{
+        const fileAccess=['download_media','send_file'].includes(op);
+        const allowed=x.available&&(p.permission!=='local_workspace'||c.agent_allow_workspace_write!==false)&&(p.permission!=='external_website'||!!c.agent_allow_write)&&(p.permission!=='telegram_read'||!!c.agent_allow_telegram_read)&&(p.permission!=='telegram_write'||!!c.agent_allow_telegram_write)&&(!fileAccess||c.agent_allow_workspace_write!==false);
+        const label=op==='download_media'?'Telegram read + local file':op==='send_file'?'Telegram message + local file':p.permission==='local_workspace'?'Local change':p.permission==='external_website'?'Website change':p.permission==='telegram_write'?'Telegram message':p.permission==='telegram_read'?'Telegram read':p.read_only?'Read only':'Browser session';
+        return `<div class="skill-operation"><span>${escapeHtml(operationLabels[op]||op)}</span><small>${escapeHtml(label)} · ${allowed?'Ready':'Disabled'}</small></div>`;
+      }).join('')}</details>`;
+    };
+
     const skillCatalogHTML=familyOrder.map(key=>{
       const f=familyDefs[key],rows=catalog.filter(x=>f.cats.includes(x.category||'custom'));
       const available=rows.filter(x=>x.available).length;
       const state=rows.length?(available===rows.length?'Ready':available?'Partial':'Unavailable'):'Not configured';
-      const detailRows=rows.length?rows.map(x=>`<div class="skill-leaf ${x.available?'available':'unavailable'}"><div><strong>${escapeHtml(x.title||x.name)}</strong><code>${escapeHtml(x.name)}</code></div><div class="skill-leaf-meta"><span class="skill-risk ${escapeHtml(x.risk||'read')}">${escapeHtml(x.risk||'read')}</span><span class="skill-dot ${x.available?'on':'off'}"></span></div>${x.available?'':`<small>${escapeHtml(x.unavailable_reason||'Unavailable')}</small>`}</div>`).join(''):'<div class="skill-empty">No extra setup required yet.</div>';
+      const detailRows=rows.length?rows.map(x=>`<div class="skill-leaf ${x.available?'available':'unavailable'}"><div><strong>${escapeHtml(x.title||x.name)}</strong><code>${escapeHtml(x.name)}</code></div><div class="skill-leaf-meta"><span class="skill-risk ${escapeHtml(x.risk||'read')}">${escapeHtml(x.risk||'read')}</span><span class="skill-dot ${x.available?'on':'off'}"></span></div>${x.available?'':`<small>${escapeHtml(x.unavailable_reason||'Unavailable')}</small>`}${operationTree(x)}</div>`).join(''):'<div class="skill-empty">No extra setup required yet.</div>';
       return `<details class="skill-family-card family-${key}" ${key==='calendar'||key==='files'?'open':''}><summary><span class="skill-family-icon">${icon(f.icon)}</span><span class="skill-family-copy"><strong>${escapeHtml(f.title)}</strong><small>${escapeHtml(f.desc)}</small></span><span class="skill-family-state ${state.toLowerCase().replace(' ','-')}">${escapeHtml(state)}</span><span class="skill-family-count">${available}/${rows.length}</span>${icon('down')}</summary><div class="skill-leaves">${detailRows}</div></details>`;
     }).join('');
     view.innerHTML=`<div class="page agent-page">${pageTitle('LOCAL AGENT','Smart Skills','The model chooses broad capabilities automatically: live web, calendar/time, files, APIs and browser actions. Local files and calendar stay on this LlamaForge workspace.')}
@@ -1181,8 +1740,14 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
           <label class="check-row"><input id="agentWrite" type="checkbox" ${c.agent_allow_write?'checked':''}><span><strong>Allow external site actions</strong><small>Separate higher-risk permission for POST/PUT/DELETE, browser clicks, typing and form submission on remote sites.</small></span></label>
           <label class="check-row"><input id="agentPrivate" type="checkbox" ${c.agent_allow_private_network?'checked':''}><span><strong>Allow localhost/private network</strong><small>Needed only for LAN services or local APIs. Public internet works without it.</small></span></label>
           <label class="check-row"><input id="agentHeadless" type="checkbox" ${c.agent_browser_headless?'checked':''}><span><strong>Hide Agent browser window</strong><small>Off is easier to inspect: you can watch Chrome interact with the site.</small></span></label>
-          <div class="field" style="margin-top:12px"><label>Maximum tool steps per message</label><input id="agentSteps" type="number" min="1" max="16" value="${Number(c.agent_max_steps||8)}"></div>
-          <div class="inline-actions" style="margin-top:14px"><button id="saveAgentSettings" class="primary-button">Save Agent settings</button></div>
+          <label class="check-row"><input id="agentTelegramRead" type="checkbox" ${c.agent_allow_telegram_read?'checked':''}><span><strong>Allow Telegram reads</strong><small>Read only the selected chats and a limited message context.</small></span></label>
+          <label class="check-row"><input id="agentTelegramWrite" type="checkbox" ${c.agent_allow_telegram_write?'checked':''}><span><strong>Allow Telegram messages</strong><small>Send and reply through the connected personal account.</small></span></label>
+          <label class="check-row"><input id="agentCreateTools" type="checkbox" ${c.agent_allow_tool_creation?'checked':''}><span><strong>Allow the model to create tools</strong><small>Creates HTTPS API skills or reusable local command wrappers. Local wrappers also require System commands and run without a shell; they do not load Python code.</small></span></label>
+          <label class="check-row"><input id="agentSystemCommands" type="checkbox" ${c.agent_allow_system_commands?'checked':''}><span><strong>Allow local system commands</strong><small>Powerful access to programs and files. Off by default; only available in local chats, not tasks from connected websites.</small></span></label>
+          <label class="check-row"><input id="agentCodeExecution" type="checkbox" ${c.agent_allow_code_execution?'checked':''}><span><strong>Allow the model to build and run programs</strong><small>Local chats only. Creates and edits Python projects, installs packages into each project's virtual environment, runs programs, reads logs, sends input and stops them. Code runs with your computer account's access. Turning this off stops running Agent programs.</small></span></label>
+          <div class="field"><label>Skill profile</label><select id="agentSkillProfile"><option value="all">All families</option><option value="telegram_only">Telegram only</option></select></div>
+          <div class="field" style="margin-top:12px"><label>Maximum tool steps per message</label><input id="agentSteps" type="number" min="1" max="24" value="${Number(c.agent_max_steps||16)}"><small>Program building and debugging may require 12–16 steps.</small></div>
+          <div class="inline-actions" style="margin-top:14px"><button id="saveAgentSettings" class="primary-button">Save Agent settings</button><button id="enableAgentPermissions" class="secondary-button">Enable all permissions</button></div>
         </div>
         <div class="detail-card"><h3>Browser skill</h3><p style="color:var(--muted);font-size:10.5px;line-height:1.55">For normal pages the Agent uses lightweight HTTP tools. For JavaScript apps, forms and buttons it can drive Chrome with Selenium.</p>
           <div class="detail-row"><span>Python browser package</span><strong>${a.browser_available?'Installed':'Not installed'}</strong></div><div class="detail-row"><span>Browser session</span><strong>${a.browser_running?'Running':'Closed'}</strong></div>
@@ -1190,6 +1755,26 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
           ${installer.error?`<p class="agent-error">${escapeHtml(installer.error)}</p>`:''}<small style="display:block;margin-top:10px">Chrome uses a separate persistent LlamaForge profile, so logins/cookies can survive between Agent sessions.</small>
         </div>
       </div>
+      <section class="section"><div class="detail-card"><h3>Agent programs</h3><p>Ask the Agent to write, debug, interact with, or stop a program. Each job has its own Python environment.</p><div style="max-height:220px;overflow:auto">${(a.code_jobs?.jobs||[]).slice(0,15).map(j=>`<div class="detail-row"><span>${escapeHtml(j.name||j.job_id)} <small>${escapeHtml(j.job_id)}</small></span><strong>${escapeHtml(j.status||'')}</strong><button class="secondary-button code-job-log" data-job-id="${escapeHtml(j.job_id)}">Logs</button>${j.status==='running'?`<button class="secondary-button code-job-stop" data-job-id="${escapeHtml(j.job_id)}">Stop</button>`:''}</div>`).join('')||'<small>No programs yet.</small>'}</div><pre id="codeJobOutput" style="white-space:pre-wrap;max-height:240px;overflow:auto"></pre><small>Running programs stop when LlamaForge closes.</small></div></section>
+      <section class="section"><div class="detail-card"><h3>Local voice · FFmpeg + Vosk</h3><p>Microphone audio stays on this LlamaForge server. FFmpeg decodes the recording, Vosk transcribes it offline, and the transcript is sent to the currently selected model. Original recordings and transcript files are saved locally.</p>
+        <div class="detail-row"><span>Current status</span><strong id="voiceReadyStatus">${App.state?.voice?.ready?'Ready':App.state?.voice?.vosk_installed?'Set the FFmpeg and Vosk model paths':'Vosk not installed'}</strong></div>
+        <div class="form-grid"><div class="field"><label for="audioFfmpegPath">FFmpeg executable path</label><input id="audioFfmpegPath" dir="ltr" value="${escapeHtml(c.audio_ffmpeg_path||'')}" placeholder="C:\\ffmpeg\\bin\\ffmpeg.exe or /usr/bin/ffmpeg"></div><div class="field"><label for="audioVoskModelPath">Vosk model folder path</label><input id="audioVoskModelPath" dir="ltr" value="${escapeHtml(c.audio_vosk_model_path||'')}" placeholder="Path to vosk-model-fa folder"></div></div>
+        <div class="inline-actions"><button id="saveVoiceSettings" class="primary-button">Save voice settings</button><small>Install local Python dependency with <code>requirements-audio.txt</code>. No model files are downloaded by LlamaForge.</small></div>
+      </div></section>
+      <section class="section"><div class="detail-card"><h3>نسخهٔ 0.36.3 · ساخت و اجرای برنامه</h3><p>مدل در گفت‌وگوی محلی می‌تواند یک پروژه بسازد، کد Python بنویسد یا ویرایش کند، پیش‌نیازها را در محیط جدا نصب کند، برنامه را اجرا کند، خروجی و خطا را بخواند، ورودی بفرستد و فرایند خودش را متوقف کند. برای برنامه‌های مختلف به ابزار اختصاصی نیاز نیست. این دسترسی از کلید مستقل بالا فعال می‌شود.</p><small>جزئیات و محدودیت‌ها در UPGRADE_NOTES_FA.md آمده است.</small></div></section>
+      <section class="section"><div class="detail-card"><h3>تغییرات نسخهٔ 0.36.2</h3><ul style="color:var(--muted);font-size:11px;line-height:1.8;padding-inline-start:22px"><li>صفحهٔ تلگرام اکنون متن و رسانه را نمایش می‌دهد، فایل را با انتخاب شما دانلود می‌کند و ارسال متن/فایل، پاسخ، ویرایش، حذف، واکنش، فوروارد، سنجاق و پیمایش دستی پیام‌های قدیمی‌تر دارد.</li><li>چهار ارائه‌دهندهٔ API شامل Cerebras، Groq، Mistral و Alibaba به OpenAI و Gemini اضافه شدند؛ Syntax خروجی برای هر مدل جداست.</li><li>درخت مهارت‌های تلگرام، فایل و تقویم گسترش یافته؛ دانلود رسانهٔ تلگرام تا ۲۰ مگابایت به File Manager می‌رود.</li><li>ساخت ابزار API یا پوشش فرمان محلی با کلیدهای جدا کنترل می‌شود؛ دسترسی فرمان سیستم خاموشِ پیش‌فرض است.</li><li>ضبط، تبدیل FFmpeg و Vosk، ذخیرهٔ فایل صوتی و متن، و لغو پردازش به‌صورت محلی انجام می‌شود.</li><li>تبدیل صدا متن را در گفت‌وگوی اولیه نگه می‌دارد؛ تقویم شلوغ و بستهٔ به‌روزرسان Bridge هم اصلاح شده‌اند.</li></ul><small>جزئیات و محدودیت هر قابلیت در فایل <code>UPGRADE_NOTES_FA.md</code> پوشهٔ برنامه نوشته شده است.</small></div></section>
+      <section class="section"><div class="detail-card telegram-account"><h3>Telegram · حساب شخصی</h3><p>Connect your account using the verification code sent by Telegram. Credentials stay in your computer's OS vault. The Agent sees only the chat context it requests.</p>
+        <div class="detail-row"><span>Account</span><strong id="telegramAccountStatus">${telegram.connected?escapeHtml(telegram.account?.name||'Connected'):telegram.paused?'Disconnected':telegram.saved_session?'Saved session':'Not connected'} ${telegram.account?.username?'@'+escapeHtml(telegram.account.username):''}</strong></div>
+        <div class="detail-row"><span>Network</span><strong>${telegram.proxy?.detected?`Proxy · ${escapeHtml(telegram.proxy.type||'')} ${escapeHtml(telegram.proxy.host||'')}:${Number(telegram.proxy.port||0)}`:'Direct / no system proxy detected'}</strong></div>
+        ${!telegram.installed||!telegram.vault_installed?`<button id="installTelegram" class="primary-button" ${tgInstaller.state==='running'?'disabled':''}>${tgInstaller.state==='running'?'Installing…':'Install Telegram support'}</button><small>Telethon 1.45.0 + OS keyring + python-socks proxy support. No additional model is loaded.</small>`:''}
+        ${tgInstaller.error?`<p class="agent-error">${escapeHtml(tgInstaller.error)}</p>`:''}
+        <div class="form-grid"><div class="field"><label for="telegramApiId">API ID</label><input id="telegramApiId" dir="ltr" inputmode="numeric" autocomplete="off"></div><div class="field"><label for="telegramApiHash">API Hash</label><input id="telegramApiHash" dir="ltr" type="password" autocomplete="new-password"></div><div class="field"><label for="telegramPhone">Phone (+country code)</label><input id="telegramPhone" dir="ltr" type="tel" autocomplete="off" placeholder="+989123456789"></div></div>
+        <small>Get your API ID and API Hash from <a href="https://my.telegram.org" target="_blank" rel="noopener noreferrer">my.telegram.org</a>. Do not paste them into chat.</small>
+        <div class="inline-actions"><button id="telegramConnect" class="primary-button" ${telegram.connected?'disabled':''}>Send login code</button><button id="telegramResume" class="secondary-button">Reconnect saved session</button><button id="telegramPing" class="secondary-button">Ping Telegram</button></div>
+        <div class="form-grid"><div class="field"><label for="telegramCode">Verification code</label><input id="telegramCode" dir="ltr" autocomplete="one-time-code" inputmode="numeric"></div><div class="field"><label for="telegramPassword">Two-step password (if requested)</label><input id="telegramPassword" dir="ltr" type="password" autocomplete="new-password"></div></div>
+        <div class="inline-actions"><button id="telegramVerify" class="primary-button">Verify login</button><button id="telegramDisconnect" class="secondary-button">Disconnect · keep saved login</button><button id="telegramRevoke" class="secondary-button">Log out · remove saved login</button></div>
+        <p id="telegramLoginStatus" role="status"></p><small>LlamaForge automatically detects the current Windows/Psiphon system proxy each time it connects. Ping Telegram tests MTProto transport and, when API ID/API Hash are filled in, a real unauthenticated Telegram RPC round-trip; it does not send a login code or message. Reads default to 5 messages from one selected chat (maximum 15).</small>
+      </div></section>
       <section class="section"><div class="detail-card"><h3>Connected websites / apps</h3><p style="color:var(--muted);font-size:10.5px;line-height:1.65">Paste the <b>LlamaForge Connection URL</b> generated by your website/app. Once connected, LlamaForge watches it in the background while a local model is ready, runs the normal Agent + Skill system for incoming tasks, and sends live execution activity plus the final answer back to the website.</p>
         <div class="form-grid agent-connector-form"><div class="field"><label>Connection URL</label><input id="remoteAppUrl" placeholder="https://example.com/ai/connect.php?token=..."></div><div class="field"><label>Token (optional)</label><input id="remoteAppToken" type="password" placeholder="Leave blank when token is inside URL"></div></div>
         <div class="inline-actions" style="margin-top:12px"><button id="addRemoteApp" class="primary-button">${icon('plus')} Connect website/app</button><button id="refreshRemoteApps" class="secondary-button">Refresh status</button></div>
@@ -1203,8 +1788,15 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       <section class="section"><div class="detail-card smart-skill-tree"><div class="skill-tree-head"><div><span class="eyebrow">AUTO CAPABILITY ROUTER</span><h3>Smart Skill Tree</h3><p>The model thinks in broad capabilities instead of memorizing one skill for every question. High-confidence guards stop small models from saying “no access” when Calendar, Files or Web are actually available.</p></div><span class="skill-auto-badge">Auto</span></div><div class="skill-flow"><span><b>1</b> Understand</span><i>→</i><span><b>2</b> Choose capability</span><i>→</i><span><b>3</b> Use minimum tool</span><i>→</i><span><b>4</b> Verify</span></div><div class="skill-family-grid">${skillCatalogHTML||'<div class="empty-state">No skill catalog available.</div>'}</div></div></section>
       <section class="section"><div class="detail-grid"><div class="detail-card"><h3>Custom skills v2</h3><div class="detail-row"><span>Folder</span><span style="max-width:72%;overflow-wrap:anywhere">${escapeHtml(a.skills_dir||'')}</span></div><p style="color:var(--muted);font-size:10.5px;line-height:1.55">Drop declarative <code>.json</code> skills here. v2 supports request headers/query/JSON body, required arguments, timeout, retries, response format and dot-path extraction. A README with examples is generated automatically.</p>${skills.length?`<div class="tag-row">${skills.map(x=>`<span class="tag">skill_${escapeHtml(x.name)} · ${escapeHtml(x.method||'GET')}</span>`).join('')}</div>`:''}</div><div class="detail-card"><h3>Agent downloads</h3><div class="detail-row"><span>Folder</span><span style="max-width:72%;overflow-wrap:anywhere">${escapeHtml(a.downloads_dir||'')}</span></div><p style="color:var(--muted);font-size:10.5px;line-height:1.55">The <code>download_file</code> skill stores explicitly requested downloads here with a configurable size limit.</p></div></div></section>
     </div>`;
+    bindTelegramControls();
+    $$('.code-job-log').forEach(button=>button.onclick=async()=>{try{const r=await api('/api/agent/code-job',{method:'POST',body:{operation:'logs',job_id:button.dataset.jobId}});$('#codeJobOutput').textContent=r.result?.output||'(no output yet)'}catch(e){toast('Could not read program log',e.message,'error')}});
+    $$('.code-job-stop').forEach(button=>button.onclick=async()=>{try{await api('/api/agent/code-job',{method:'POST',body:{operation:'stop',job_id:button.dataset.jobId}});await renderAgent(view);toast('Program stopped')}catch(e){toast('Could not stop program',e.message,'error')}});
     $('#agentOpenChat').onclick=()=>{setAgentEnabled(true);setRoute('chat')};
-    $('#saveAgentSettings').onclick=async()=>{try{await api('/api/settings',{method:'POST',body:{agent_enabled_default:$('#agentDefault').checked,agent_allow_workspace_write:$('#agentWorkspaceWrite').checked,agent_allow_write:$('#agentWrite').checked,agent_allow_private_network:$('#agentPrivate').checked,agent_browser_headless:$('#agentHeadless').checked,agent_max_steps:Number($('#agentSteps').value)}});await refreshState(true);toast('Agent settings saved')}catch(e){toast('Could not save Agent settings',e.message,'error')}};
+    const controls={agentDefault:'agent_enabled_default',agentWorkspaceWrite:'agent_allow_workspace_write',agentWrite:'agent_allow_write',agentPrivate:'agent_allow_private_network',agentHeadless:'agent_browser_headless',agentTelegramRead:'agent_allow_telegram_read',agentTelegramWrite:'agent_allow_telegram_write',agentCreateTools:'agent_allow_tool_creation',agentSystemCommands:'agent_allow_system_commands',agentCodeExecution:'agent_allow_code_execution',agentSteps:'agent_max_steps',agentSkillProfile:'agent_skill_profile'};
+    Object.entries(controls).forEach(([id,key])=>{const el=$('#'+id);if(!el)return;const number=id==='agentSteps',select=id==='agentSkillProfile';if(number)el.value=Number(c[key]||16);else if(select)el.value=c[key]||'all';else el.checked=!!c[key];el.onchange=()=>{App.agentDraft={...App.agentDraft,[key]:number?Number(el.value):select?el.value:el.checked};App.agentRevision++;};if(number)el.oninput=el.onchange;});
+    $('#saveAgentSettings').onclick=async()=>{if(App.agentBusy)return;const revision=App.agentRevision,payload={};Object.entries(controls).forEach(([id,key])=>{const el=$('#'+id);if(el)payload[key]=id==='agentSteps'?Number(el.value):id==='agentSkillProfile'?el.value:el.checked;});App.agentBusy=true;try{await api('/api/settings',{method:'POST',body:payload});if(App.agentRevision===revision)App.agentDraft={};if(App.state)App.state.config={...App.state.config,...payload};await refreshState(true);toast('Agent settings saved')}catch(e){toast('Could not save Agent settings',e.message,'error')}finally{App.agentBusy=false}};
+    $('#enableAgentPermissions').onclick=()=>{['agentWorkspaceWrite','agentWrite','agentPrivate','agentTelegramRead','agentTelegramWrite'].forEach(id=>{const el=$('#'+id);if(el){el.checked=true;el.onchange();}});};
+    if($('#saveVoiceSettings'))$('#saveVoiceSettings').onclick=async()=>{const payload={audio_ffmpeg_path:$('#audioFfmpegPath')?.value.trim()||'',audio_vosk_model_path:$('#audioVoskModelPath')?.value.trim()||''};try{await api('/api/settings',{method:'POST',body:payload});await refreshState(true);const status=await api('/api/voice/status');if(App.state)App.state.voice=status;toast(status.ready?'Local voice is ready':'Voice paths saved',status.ready?`Recordings will be saved in ${status.recordings_dir}`:'Check the FFmpeg path, Vosk package and model folder.','info',6500);if(App.route==='agent')renderAgent($('#view'));}catch(e){toast('Could not save voice settings',e.message,'error')}};
     if($('#installAgentBrowser'))$('#installAgentBrowser').onclick=async()=>{try{await api('/api/agent/browser/install',{method:'POST',body:{}});toast('Browser skill installation started','Selenium will use Chrome and manage its driver automatically.','info',5200);setTimeout(()=>refreshState(true),1200)}catch(e){toast('Could not install browser skill',e.message,'error')}};
     if($('#closeAgentBrowser'))$('#closeAgentBrowser').onclick=async()=>{try{await api('/api/agent/browser/close',{method:'POST',body:{}});await refreshState(true);toast('Agent browser closed')}catch(e){toast('Could not close browser',e.message,'error')}};
     $('#addRemoteApp').onclick=async()=>{const connect_url=($('#remoteAppUrl').value||'').trim();if(!connect_url){toast('Connection URL is required','','error');return}try{await api('/api/agent/app/add',{method:'POST',body:{connect_url,token:($('#remoteAppToken').value||'').trim()}});await refreshState(true);await renderAgent(view);toast('Website connected','LlamaForge will now watch it whenever the local model is ready.','ok',5200)}catch(e){toast('Could not connect website',e.message,'error',8000)}};
@@ -1218,13 +1810,232 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     $$('.remove-connector').forEach(b=>b.onclick=async()=>{try{await api('/api/agent/connector/remove',{method:'POST',body:{id:b.dataset.id}});await refreshState(true);toast('Connector removed')}catch(e){toast('Could not remove connector',e.message,'error')}});
   }
 
+  function telegramMediaKey(chatRef,messageId){return `${chatRef}:${Number(messageId)}`;}
+  function telegramClearPreviews(){
+    const page=App.telegramPage;
+    for(const item of Object.values(page.media||{}))if(item.previewUrl)URL.revokeObjectURL(item.previewUrl);
+    page.media={};
+  }
+  function telegramMessageHTML(m,page,canWrite){
+    const id=Number(m.message_id||0),key=telegramMediaKey(page.selected,id),saved=page.media[key];
+    const media=m.media||{},kind=String(media.kind||'file'),name=String(media.name||(`${kind} · message ${id}`));
+    const downloadable=['photo','video','audio','sticker','file'].includes(kind);
+    const safePreview=saved?.previewUrl&&['photo','sticker','video','audio'].includes(kind);
+    const preview=safePreview?(['photo','sticker'].includes(kind)?`<img loading="lazy" src="${escapeHtml(saved.previewUrl)}" alt="${escapeHtml(name)}">`:kind==='video'?`<video controls preload="none" src="${escapeHtml(saved.previewUrl)}"></video>`:`<audio controls preload="none" src="${escapeHtml(saved.previewUrl)}"></audio>`):'';
+    return `<article class="telegram-message ${m.outgoing?'outgoing':'incoming'}">${m.sender_name?`<strong class="telegram-sender">${escapeHtml(m.sender_name)}</strong>`:''}<div>${escapeHtml(m.text||'')}</div>${m.has_media?`<div class="telegram-media"><strong>${escapeHtml(kind)} · ${escapeHtml(name)}</strong><small>${Number.isFinite(Number(media.size))&&media.size!=null?formatBytes(Number(media.size)):''} ${escapeHtml(media.mime_type||'')}</small>${preview}${downloadable?`<span class="inline-actions">${saved?`<a class="secondary-button" href="/api/workspace/download?id=${encodeURIComponent(saved.id)}">${icon('download')} Download</a>`:`<button class="secondary-button" data-tg-media="${id}" ${page.busy||Number(media.size)>20*1024*1024?'disabled':''}>${icon('download')} ${Number(media.size)>20*1024*1024?'Over 20 MB limit':'Load & download'}</button>`}</span>`:''}</div>`:''}<small>${m.date?escapeHtml(new Date(m.date).toLocaleString()):''}${m.reply_to_message_id?` · reply to #${Number(m.reply_to_message_id)}`:''}${m.reactions?.length?` · ${m.reactions.map(r=>escapeHtml(`${r.emoji||'reaction'} ${r.count}`)).join(' ' )}`:''}</small>${canWrite&&id?`<span class="telegram-message-actions"><button data-tg-reply="${id}">Reply</button><button data-tg-react="${id}">👍</button>${m.outgoing?`<button data-tg-edit="${id}">Edit</button>`:''}<button data-tg-forward="${id}">Forward</button><button data-tg-pin="${id}">Pin</button><button data-tg-unpin="${id}">Unpin</button><button data-tg-delete="${id}">Delete</button></span>`:''}</article>`;
+  }
+
+  function telegramPageShell(view){
+    const page=App.telegramPage,tg=App.state?.agent?.telegram||{},data=page.data||{};
+    const account=data.account||tg.account||{};
+    const dialogs=data.dialogs||[];
+    const visibleDialogs=page.filter==='all'?dialogs:dialogs.filter(d=>d.kind===page.filter);
+    const selected=dialogs.find(x=>x.chat_ref===page.selected)||null;
+    const messages=(page.messages||[]).slice().reverse();
+    const canWrite=!!App.state?.config?.agent_allow_telegram_write;
+    const canTransfer=!!App.state?.config?.agent_allow_workspace_write;
+    const statusText=tg.connected?'Connected':tg.saved_session?(tg.paused?'Saved session · disconnected':'Saved session · reconnecting available'):'Not connected';
+    view.innerHTML=`<div class="page telegram-page">${pageTitle('TELEGRAM','Telegram','Browse dialogs, media and files. Send messages and attachments after enabling Telegram write access in Agent settings.')}
+      <section class="telegram-top-card"><div class="telegram-account-orb">${icon('telegram')}</div><div class="telegram-account-copy"><h3>${escapeHtml(account.name||'Telegram account')}</h3><p>${account.username?'@'+escapeHtml(account.username)+' · ':''}${escapeHtml(statusText)}${account.id?` · ID ${Number(account.id)}`:''}</p></div><div class="inline-actions"><button id="telegramPageRefresh" class="secondary-button" ${page.loading||page.busy?'disabled':''}>${icon('refresh')} ${page.loading?'Refreshing…':'Refresh'}</button><button id="telegramPageSettings" class="secondary-button">Settings</button></div></section>
+      ${page.error?`<div class="telegram-page-error">${escapeHtml(page.error)}</div>`:''}
+      ${!tg.installed?`<section class="detail-card"><h3>Telegram support is not installed</h3><p>Open Agent settings and install Telegram support first.</p><button id="telegramPageOpenAgent" class="primary-button">Open Agent settings</button></section>`:
+        !tg.connected?`<section class="detail-card"><h3>${tg.saved_session?'Saved login found':'Telegram is not connected'}</h3><p>${tg.saved_session?'LlamaForge keeps the encrypted session in the OS credential vault. If you previously disconnected it, it stays paused until you press Reconnect saved session; otherwise opening this tab makes one bounded reconnect attempt without requesting a new login code.':'Connect your personal account from Agent settings first.'}</p><div class="inline-actions"><button id="telegramPageReconnect" class="primary-button" ${page.loading||!tg.saved_session?'disabled':''}>Reconnect saved session</button><button id="telegramPageOpenAgent" class="secondary-button">Open Agent settings</button></div></section>`:
+        `<div class="telegram-browser-grid"><section class="detail-card telegram-dialogs"><div class="telegram-panel-head"><div><h3>Chats, channels & bots</h3><small>${dialogs.length} recent dialogs · fetched only when you open/refresh this page</small></div><select id="telegramKindFilter" aria-label="Filter Telegram dialogs"><option value="all">All</option><option value="private">People</option><option value="group">Groups</option><option value="channel">Channels</option><option value="bot">Bots</option></select></div><div class="telegram-global-search"><input id="telegramGlobalSearch" value="${escapeHtml(page.searchQuery||'')}" placeholder="Search messages across accessible chats…"><button id="telegramGlobalSearchButton" class="secondary-button" ${page.searchLoading?'disabled':''}>${page.searchLoading?'Searching…':'Search'}</button></div>${page.searchResults.length?`<div class="telegram-search-results">${page.searchResults.map(m=>`<article class="telegram-message"><div>${escapeHtml(m.text|| (m.has_media?'[media]':''))}</div><small>${m.date?escapeHtml(new Date(m.date).toLocaleString()):''}${m.has_media?' · media':''}</small></article>`).join('')}</div>`:''}<div class="telegram-dialog-list">${page.loading&&!page.loaded?'<div class="empty-state">Loading Telegram…</div>':visibleDialogs.length?visibleDialogs.map(d=>`<button class="telegram-dialog ${page.selected===d.chat_ref?'active':''}" data-tg-chat="${escapeHtml(d.chat_ref)}" ${page.busy?'disabled':''}><span class="telegram-dialog-avatar">${escapeHtml((d.name||'?').trim().slice(0,1).toUpperCase()||'?')}</span><span><strong>${escapeHtml(d.name||'Untitled chat')}</strong><small>${d.username?'@'+escapeHtml(d.username)+' · ':''}${escapeHtml(d.kind||'chat')} · ${escapeHtml(d.preview||'No text preview')}</small></span>${Number(d.unread_count||0)>0?`<b>${Number(d.unread_count)}</b>`:''}</button>`).join(''):'<div class="empty-state">No dialogs in this filter.</div>'}</div></section>
+        <section class="detail-card telegram-messages"><div class="telegram-panel-head"><div><h3>${escapeHtml(selected?.name||'Messages')}</h3><small>${selected?'Last '+(page.messages?.length||0)+' messages · explicit actions only':'Choose a chat to inspect recent messages'}</small></div>${selected?`<span class="inline-actions">${canWrite&&page.messages?.length?`<button id="telegramMarkRead" class="secondary-button" ${page.busy?'disabled':''}>Mark read</button>`:''}<button id="telegramReloadMessages" class="secondary-button" ${page.messageLoading?'disabled':''}>${page.messageLoading?'Loading…':'Reload'}</button></span>`:''}</div><div class="telegram-message-list">${page.messageLoading&&!messages.length?'<div class="empty-state">Loading messages…</div>':messages.length?messages.map(m=>telegramMessageHTML(m,page,canWrite)).join('') :'<div class="empty-state">No messages loaded.</div>'}</div>${selected&&page.hasMore?`<button id="telegramOlderMessages" class="secondary-button" ${page.messageLoading?'disabled':''}>Load older messages</button>`:''}${selected?`<div class="telegram-composer">${canWrite?`${page.replyTo?`<div class="telegram-reply-label">Reply to #${Number(page.replyTo)} <button id="telegramCancelReply">×</button></div>`:''}<textarea id="telegramMessageDraft" placeholder="Message ${escapeHtml(selected.name||'chat')}…" maxlength="4096" dir="auto" ${page.busy?'disabled':''}>${escapeHtml(page.drafts[page.selected]||'')}</textarea><div class="inline-actions"><label class="secondary-button telegram-attach">${icon('plus')} Attach file<input id="telegramFileInput" type="file" hidden ${page.busy||!canTransfer?'disabled':''}></label><button id="telegramSendMessage" class="primary-button" ${page.busy?'disabled':''}>${page.busy?'Working…':page.attachment?'Send file':'Send message'}</button></div>${page.attachment?`<div class="telegram-attachment">${escapeHtml(page.attachment.name)} · ${formatBytes(page.attachment.size)} <button id="telegramClearFile">Remove</button></div>`:''}${!canTransfer?'<small>Enable File Manager write access in Agent settings to send attachments.</small>':''}`:'<small>Enable Telegram messages in Agent settings to compose here.</small>'}</div>`:''}</section></div>`}
+      <section class="telegram-safety-note">Messages and media load on explicit selection. No background polling or automatic resend. Telegram may enforce rate limits; wait when it asks you to.</section>
+    </div>`;
+    $('#telegramPageSettings')?.addEventListener('click',()=>setRoute('agent'));
+    $('#telegramPageOpenAgent')?.addEventListener('click',()=>setRoute('agent'));
+    $('#telegramPageRefresh')?.addEventListener('click',()=>loadTelegramDashboard(true));
+    const kindFilter=$('#telegramKindFilter');if(kindFilter){kindFilter.value=page.filter||'all';kindFilter.onchange=()=>{page.filter=kindFilter.value;telegramPageShell($('#view'));};}
+    const globalSearch=$('#telegramGlobalSearch'),searchButton=$('#telegramGlobalSearchButton');
+    if(globalSearch){globalSearch.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();runTelegramGlobalSearch();}};}
+    if(searchButton)searchButton.onclick=runTelegramGlobalSearch;
+    $('#telegramPageReconnect')?.addEventListener('click',()=>loadTelegramDashboard(true,true));
+    $$('.telegram-dialog').forEach(b=>b.onclick=()=>loadTelegramMessages(b.dataset.tgChat));
+    $('#telegramReloadMessages')?.addEventListener('click',()=>page.selected&&loadTelegramMessages(page.selected));
+    $('#telegramOlderMessages')?.addEventListener('click',loadOlderTelegramMessages);
+    const draft=$('#telegramMessageDraft');
+    if(draft)draft.oninput=()=>{page.drafts[page.selected]=draft.value;};
+    $('#telegramFileInput')?.addEventListener('change',e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>20*1024*1024){toast('Attachment exceeds 20 MB',file.name,'error');return;}page.attachment=file;page.uploadedFile=null;page.drafts[page.selected]=draft?.value||'';telegramPageShell($('#view'));});
+    $('#telegramClearFile')?.addEventListener('click',()=>{page.attachment=null;page.uploadedFile=null;telegramPageShell($('#view'));});
+    $('#telegramCancelReply')?.addEventListener('click',()=>{page.replyTo=null;telegramPageShell($('#view'));});
+    $('#telegramSendMessage')?.addEventListener('click',telegramSendFromPage);
+    $('#telegramMarkRead')?.addEventListener('click',()=>{const latest=page.messages[0];if(latest)telegramPageAction('mark_read',{message_id:Number(latest.message_id)});});
+    $$('[data-tg-media]').forEach(b=>b.onclick=()=>telegramLoadMedia(Number(b.dataset.tgMedia)));
+    $$('[data-tg-reply]').forEach(b=>b.onclick=()=>{if(page.busy)return;page.replyTo=Number(b.dataset.tgReply);telegramPageShell($('#view'));$('#telegramMessageDraft')?.focus();});
+    $$('[data-tg-react]').forEach(b=>b.onclick=()=>telegramPageAction('react',{message_id:Number(b.dataset.tgReact),reaction:'👍'}));
+    $$('[data-tg-pin]').forEach(b=>b.onclick=()=>telegramPageAction('pin',{message_id:Number(b.dataset.tgPin)}));
+    $$('[data-tg-unpin]').forEach(b=>b.onclick=()=>telegramPageAction('unpin',{message_id:Number(b.dataset.tgUnpin)}));
+    $$('[data-tg-edit]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.tgEdit),row=page.messages.find(m=>m.message_id===id);if(page.busy||!row?.outgoing)return;const changed=window.prompt('Edit your Telegram message',row.text||'');if(changed!=null&&changed.trim()&&changed!==row.text)await telegramPageAction('edit',{message_id:id,text:changed});});
+    $$('[data-tg-delete]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.tgDelete);if(await confirmModal('Delete Telegram message',`Delete message #${id} from ${selected?.name||'this chat'}?`,`Delete`,true))await telegramPageAction('delete_message',{message_id:id});});
+    $$('[data-tg-forward]').forEach(b=>b.onclick=()=>telegramForwardMessage(Number(b.dataset.tgForward)));
+  }
+
+  // Telegram viewer is event/user driven: no hidden timer or automatic message polling.
+  async function telegramPageAction(operation,args={},afterSend=false){
+    const page=App.telegramPage,chatRef=page.selected;
+    if(page.busy||!chatRef)return false;
+    if(Date.now()-page.lastActionAt<1200){toast('Please wait','Space out Telegram actions to avoid rate limits.','info');return false;}
+    if(['send','reply','send_file','forward'].includes(operation)&&page.uncertainAction?.chatRef===chatRef){
+      if(!await confirmModal('Check your Telegram chat', 'A previous delivery had an unknown result. Inspect the chat before sending again; continuing may create a duplicate.', 'Send again'))return false;
+    }
+    page.busy=true;page.error='';telegramPageShell($('#view'));
+    try{
+      const result=await api('/api/agent/telegram/action',{method:'POST',body:{operation,chat_ref:chatRef,...args}});
+      page.lastActionAt=Date.now();
+      if(['send','reply','send_file','forward'].includes(operation))page.uncertainAction=null;
+      if(afterSend){page.drafts[chatRef]='';page.attachment=null;page.replyTo=null;}
+      toast('Telegram action completed',result.verification?.verified===false?'Telegram returned a message ID; readback was unavailable. Check the chat before trying again.':'','ok',5000);
+      return true;
+    }catch(e){page.lastActionAt=Date.now();page.error=e.message;if(/unknown|uncertain|timed out/i.test(e.message))page.uncertainAction={chatRef};toast('Telegram action failed',e.message,'error',8000);return false;}
+    finally{page.busy=false;if(App.route==='telegram'){telegramPageShell($('#view'));if(!page.error&&page.selected===chatRef)await loadTelegramMessages(chatRef);}}
+  }
+
+  async function telegramSendFromPage(){
+    const page=App.telegramPage,chatRef=page.selected;
+    if(!chatRef||page.busy)return;
+    if(Date.now()-page.lastActionAt<1200){toast('Please wait','Space out Telegram actions to avoid rate limits.','info');return;}
+    const text=($('#telegramMessageDraft')?.value||page.drafts[chatRef]||'').trim();
+    page.drafts[chatRef]=text;
+    if(!text&&!page.attachment){toast('Message is empty','','error');return;}
+    if(page.attachment){
+      if(text.length>1024){toast('Caption exceeds 1024 characters','','error');return;}
+      const file=page.attachment,replyTo=page.replyTo;
+      if(file.size>20*1024*1024){toast('Attachment exceeds 20 MB','','error');return;}
+      if(page.uncertainAction?.chatRef===chatRef){
+        if(!await confirmModal('Check your Telegram chat', 'A previous delivery had an unknown result. Inspect the chat before sending this file; continuing may create a duplicate.', 'Send again'))return;
+      }
+      page.busy=true;telegramPageShell($('#view'));
+      try{
+        let fileId=page.uploadedFile?.file===file&&page.uploadedFile.chatRef===chatRef?page.uploadedFile.id:null;
+        if(!fileId){
+          const data_url=await readAsDataURL(file);
+          const uploaded=await api('/api/agent/telegram/upload',{method:'POST',body:{name:file.name,data_url}});
+          fileId=uploaded.file.id;page.uploadedFile={file,chatRef,id:fileId};
+        }
+        const result=await api('/api/agent/telegram/action',{method:'POST',body:{operation:'send_file',chat_ref:chatRef,file_id:fileId,caption:text,...(replyTo?{message_id:replyTo}:{})}});
+        page.lastActionAt=Date.now();page.drafts[chatRef]='';page.attachment=null;page.uploadedFile=null;page.replyTo=null;page.error='';page.uncertainAction=null;
+        toast('File sent',result.verification?.verified?'Confirmed in chat':'Telegram returned a message ID; inspect the chat if unsure.','ok',5500);
+      }catch(e){page.lastActionAt=Date.now();page.error=e.message;if(/unknown|uncertain|timed out/i.test(e.message))page.uncertainAction={chatRef};toast('Telegram file send failed',e.message,'error',8000);}
+      finally{page.busy=false;if(App.route==='telegram'){telegramPageShell($('#view'));if(!page.error&&page.selected===chatRef)await loadTelegramMessages(chatRef);}}
+      return;
+    }
+    await telegramPageAction(page.replyTo?'reply':'send',{text,...(page.replyTo?{message_id:page.replyTo}:{})},true);
+  }
+
+  async function telegramLoadMedia(messageId){
+    const page=App.telegramPage,chatRef=page.selected,key=telegramMediaKey(chatRef,messageId);
+    if(page.busy||page.media[key])return;
+    const message=page.messages.find(m=>Number(m.message_id)===messageId);
+    if(!message?.has_media)return;
+    page.busy=true;page.error='';telegramPageShell($('#view'));
+    try{
+      const result=await api('/api/agent/telegram/download',{method:'POST',body:{chat_ref:chatRef,message_id:messageId}});
+      const saved={id:result.file.id};
+      const kind=message.media?.kind,mime=String(message.media?.mime_type||'').toLowerCase();
+      const previewable=(['photo','sticker'].includes(kind)&&(!mime||/^image\/(jpeg|png|webp|gif)$/.test(mime)))||(kind==='video'&&/^video\/(mp4|webm)$/.test(mime))||(kind==='audio'&&/^audio\/(mpeg|mp3|ogg|wav|webm|mp4|x-wav)$/.test(mime));
+      if(previewable){
+        try{const response=await fetch(`/api/workspace/download?id=${encodeURIComponent(saved.id)}`);if(response.ok){const blob=await response.blob();if(blob.size<=20*1024*1024)saved.previewUrl=URL.createObjectURL(new Blob([blob],{type:mime||(kind==='sticker'?'image/webp':'image/jpeg')}));}}catch{}
+      }
+      if(App.route==='telegram'&&page.selected===chatRef){
+        page.media[key]=saved;toast('Media saved to File Manager',result.file.name,'ok');
+        const anchor=document.createElement('a');anchor.href=`/api/workspace/download?id=${encodeURIComponent(saved.id)}`;
+        anchor.download=String(result.file.name||'telegram-file');document.body.appendChild(anchor);anchor.click();anchor.remove();
+      }
+      else if(saved.previewUrl)URL.revokeObjectURL(saved.previewUrl);
+    }catch(e){page.error=e.message;toast('Telegram media download failed',e.message,'error',8000);}
+    finally{page.busy=false;if(App.route==='telegram')telegramPageShell($('#view'));}
+  }
+
+  async function telegramForwardMessage(messageId){
+    const page=App.telegramPage,dialogs=(page.data?.dialogs||[]).filter(d=>d.chat_ref!==page.selected);
+    if(page.busy)return;
+    if(!dialogs.length){toast('No destination dialog','Refresh your recent chats first.','error');return;}
+    const root=$('#modalRoot');
+    root.innerHTML=`<div class="modal-backdrop"><div class="modal"><h3>Forward message #${messageId}</h3><p>Choose a destination from your recent Telegram dialogs.</p><select id="telegramForwardDestination" class="telegram-forward-select"><option value="">Choose destination…</option>${dialogs.map(d=>`<option value="${escapeHtml(d.chat_ref)}">${escapeHtml(d.name||'Unnamed chat')} · ${escapeHtml(d.kind)}</option>`).join('')}</select><div class="inline-actions"><button class="secondary-button" data-no>Cancel</button><button class="primary-button" data-yes>Forward</button></div></div></div>`;
+    $('[data-no]',root).onclick=()=>{root.innerHTML='';};
+    $('[data-yes]',root).onclick=async()=>{const target=$('#telegramForwardDestination')?.value;if(!target){toast('Choose a destination','','error');return;}root.innerHTML='';await telegramPageAction('forward',{message_id:messageId,to_chat_ref:target});};
+  }
+
+  async function runTelegramGlobalSearch(){
+    const page=App.telegramPage,query=($('#telegramGlobalSearch')?.value||page.searchQuery||'').trim();
+    if(page.searchLoading)return;
+    if(!query){toast('Search text required','Enter a word or phrase to search accessible Telegram history.','error');return;}
+    page.searchQuery=query;page.searchLoading=true;page.searchResults=[];telegramPageShell($('#view'));
+    try{const result=await api('/api/agent/telegram/global-search',{method:'POST',body:{query,limit:30}});page.searchResults=result.messages||[];page.error='';}
+    catch(e){page.error=e.message;toast('Telegram search failed',e.message,'error',7000)}
+    finally{page.searchLoading=false;if(App.route==='telegram')telegramPageShell($('#view'));}
+  }
+
+  async function loadTelegramDashboard(force=false,forceReconnect=false){
+    const page=App.telegramPage;if(page.loading)return;
+    page.loading=true;page.error='';telegramPageShell($('#view'));
+    try{
+      const a=await api('/api/agent/status');if(App.state)App.state.agent=a;let tg=a.telegram||{};
+      const shouldResume=!!tg.saved_session&&!tg.connected&&(forceReconnect||(!tg.paused&&!page.autoResumeAttempted));
+      if(shouldResume){
+        page.autoResumeAttempted=true;
+        try{
+          const resumed=await api('/api/agent/telegram/login',{method:'POST',body:{resume:true}});
+          tg={...tg,...resumed};if(App.state?.agent)App.state.agent.telegram=tg;
+        }catch(e){page.error=e.message;}
+      }
+      if(tg.connected){
+        const data=await api('/api/agent/telegram/dashboard',{method:'POST',body:{limit:20}});
+        page.data=data;page.loaded=true;page.error='';
+        if(page.selected&&!data.dialogs?.some(d=>d.chat_ref===page.selected)){page.selected='';page.messages=[];page.hasMore=false;telegramClearPreviews();}
+      }else{
+        page.data=null;page.loaded=true;
+      }
+    }catch(e){page.error=e.message;page.loaded=true;}
+    finally{page.loading=false;if(App.route==='telegram')telegramPageShell($('#view'));}
+  }
+
+  async function loadTelegramMessages(chatRef){
+    const page=App.telegramPage;if(!chatRef)return;
+    if(page.messageLoading){if(chatRef!==page.selected)page.pendingChatRef=chatRef;return;}
+    if(page.selected!==chatRef){telegramClearPreviews();page.replyTo=null;page.attachment=null;page.uploadedFile=null;}
+    page.selected=chatRef;page.messageLoading=true;page.messages=[];page.hasMore=false;
+    const requestId=page.messageRequest=(page.messageRequest||0)+1;
+    telegramPageShell($('#view'));
+    try{
+      const result=await api('/api/agent/telegram/messages',{method:'POST',body:{chat_ref:chatRef,limit:20}});
+      if(requestId===page.messageRequest){page.messages=result.messages||[];page.hasMore=!!result.has_more;}
+    }catch(e){if(requestId===page.messageRequest)page.error=e.message;}
+    finally{if(requestId===page.messageRequest){page.messageLoading=false;if(App.route==='telegram')telegramPageShell($('#view'));if(page.pendingChatRef){const next=page.pendingChatRef;page.pendingChatRef='';if(next!==page.selected)loadTelegramMessages(next);}}}
+  }
+
+  async function loadOlderTelegramMessages(){
+    const page=App.telegramPage,chatRef=page.selected,oldest=page.messages.at(-1)?.message_id;
+    if(page.messageLoading||!page.hasMore||!oldest)return;
+    page.messageLoading=true;
+    const requestId=page.messageRequest=(page.messageRequest||0)+1;
+    telegramPageShell($('#view'));
+    try{
+      const result=await api('/api/agent/telegram/messages',{method:'POST',body:{chat_ref:chatRef,limit:20,before_id:oldest}});
+      if(requestId===page.messageRequest&&page.selected===chatRef){
+        const seen=new Set(page.messages.map(m=>m.message_id));
+        page.messages.push(...(result.messages||[]).filter(m=>!seen.has(m.message_id)));
+        page.hasMore=!!result.has_more&&(result.messages||[]).length>0;
+      }
+    }catch(e){if(requestId===page.messageRequest)page.error=e.message;}
+    finally{if(requestId===page.messageRequest){page.messageLoading=false;if(App.route==='telegram')telegramPageShell($('#view'));if(page.pendingChatRef){const next=page.pendingChatRef;page.pendingChatRef='';if(next!==page.selected)loadTelegramMessages(next);}}}
+  }
+
+  function renderTelegram(view){
+    telegramPageShell(view);
+    const page=App.telegramPage;
+    if(!page.loaded&&!page.loading)queueMicrotask(()=>{if(App.route==='telegram')loadTelegramDashboard(false)});
+  }
+
   // ----- Smart Chat 2.0 -----
   function chatPrefs(){
     return {
       mode:localStorage.getItem('lf.chatMode')||'auto',
       reasoning:localStorage.getItem('lf.reasoning')||'auto',
       reasoningBudget:Number(localStorage.getItem('lf.reasoningBudget')||'-1'),
-      maxTokens:Number(localStorage.getItem('lf.maxTokens')||'4096')
+      maxTokens:Number(App.state?.config?.generation_max_tokens||2048)
     };
   }
   function modeLabel(v){return ({auto:'Auto',general:'General',coding:'Coding',reasoning:'Reasoning',creative:'Creative',precise:'Precise',translation:'Translate'})[v]||'Auto'}
@@ -1233,49 +2044,54 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
   function smartLabel(){const p=lastAssistantProfile();return p?.task?`Auto · ${p.task[0].toUpperCase()+p.task.slice(1)}`:'Auto'}
 
   function renderChat(view){
-    const s=App.state||{}, ss=s.server||{}, m=s.active_model, prefs=chatPrefs(), brain=s.brain||{}, agentOn=agentEnabled();
-    { const stage=brain.job?.stage||''; const running=brain.job?.state==='running'; App.brainSetup=running&&['setup','auto-setup','detect-base','trainer'].includes(stage); App.brainLearning=running&&!App.brainSetup; }
+    const s=App.state||{}, ss=s.server||{}, inf=inferenceInfo(s), ready=!!inf.ready, m=activeDisplayModel(s), prefs=chatPrefs(), brain=s.brain||{}, brainOn=!!brain.enabled&&!inf.external, agentOn=agentEnabled();
+    const voiceLabel=App.voiceRecording?'Stop recording and transcribe':App.voiceBusy?(App.voiceJobId?'Cancel transcription':'Cancel upload'):'Record, transcribe locally and send';
+    const voiceAvailable=App.voiceRecording||App.voiceBusy||(ready&&s.voice?.ready);
+    if(inf.external){App.brainSetup=false;App.brainLearning=false;App.brainTurnPending=false;}else{const activity=LFProtocol.brainActivity(brain,App.brainTurnPending);App.brainSetup=activity.setup;App.brainLearning=activity.learning;App.brainTurnPending=activity.pending;}
     currentThread(true);
     view.className='view chat-route';
     view.innerHTML=`<div class="chat-view studio-chat">
       <header class="chat-header">
-        <div class="chat-header-left">
-          <button id="chatModelButton" class="model-switcher" title="Change model">${m?`<span class="model-led"></span><span class="model-switch-name">${escapeHtml(shortName(m.name,34))}</span><span class="model-switch-quant">${escapeHtml(m.quantization||'GGUF')}</span>`:'<span>Choose model</span>'}${icon('down')}</button>
+        <div class="chat-header-left"><button id="chatNavButton" class="icon-button" aria-label="Open sidebar">${icon('panel')}</button>
+          <button id="chatModelButton" class="model-switcher" title="Change model">${m?`<span class="model-led"></span><span class="model-switch-name">${escapeHtml(shortName(m.name||m.id||'Model',34))}</span><span class="model-switch-quant">${escapeHtml(inf.external?String(inf.backend||m.provider||'API').toUpperCase():(m.quantization||'GGUF'))}</span>`:'<span>Choose model</span>'}${icon('down')}</button>
         </div>
-        <div class="chat-header-center"><button id="smartProfileButton" class="auto-status" title="See how LlamaForge tuned this turn">${icon('spark')}<span>${escapeHtml(smartLabel())}</span></button>${brain.enabled?`<button id="brainStatusButton" class="brain-chat-pill ${brain.adapter_ready?'learned':'armed'} ${App.brainLearning?'learning':''}" title="Personal weight learning">${icon('brain')}<span>${App.brainLearning?'Learning…':brain.setup_ready?(brain.zero_context?'Brain · ready':'Brain on'):'Brain · setup'}</span></button>`:''}</div>
-        <div class="chat-header-right"><span class="local-status ${ss.ready?'ready':''}"><span></span>${ss.ready?'Ready':ss.running?'Loading':'Offline'}</span><button id="newChatTop" class="round-icon" title="New chat">${icon('plus')}</button></div>
+        <div class="chat-header-center"><button id="smartProfileButton" class="auto-status" title="See how LlamaForge tuned this turn">${icon('spark')}<span>${escapeHtml(smartLabel())}</span></button>${brainOn?`<button id="brainStatusButton" class="brain-chat-pill ${brain.adapter_ready?'learned':'armed'} ${App.brainLearning?'learning':''}" title="Personal weight learning">${icon('brain')}<span>${App.brainLearning?'Learning…':brain.setup_ready?(brain.zero_context?'Brain · ready':'Brain on'):'Brain · setup'}</span></button>`:''}</div>
+        <div class="chat-header-right"><span class="local-status ${ready?'ready':''}"><span></span>${ready?(inf.external?`${String(inf.backend).toUpperCase()} API`:'Ready'):(!inf.external&&ss.running?'Loading':'Offline')}</span><button id="newChatTop" class="round-icon" title="New chat">${icon('plus')}</button></div>
       </header>
       <div id="chatScroll" class="chat-scroll studio-scroll"><div id="chatColumn" class="chat-column studio-column"></div><button id="jumpLatest" class="jump-latest hidden">${icon('down')}<span>Latest</span></button></div>
       <div class="composer-zone studio-composer-zone"><div class="composer-wrap studio-composer-wrap">
-        <div class="composer studio-composer ${(ss.ready&&!App.brainLearning)?'':'composer-disabled'}">
+        <div class="composer studio-composer ${(ready&&!App.brainLearning&&!App.brainTurnPending)?'':'composer-disabled'}">
           ${attachmentTrayHTML()}
-          <textarea id="composerInput" rows="1" placeholder="${App.brainLearning?'Learning this turn into weights…':App.brainSetup?'Personal Brain setup is running…':ss.ready?'Message your local model':ss.running?'Model is loading…':'Run a model to start chatting'}" ${(ss.ready&&!App.brainLearning)?'':'disabled'}></textarea>
+          <textarea id="composerInput" dir="auto" aria-label="Message" rows="1" placeholder="${App.brainLearning?'Learning this turn into weights…':App.brainSetup?'Personal Brain setup is running…':ready?(inf.external?'Message your API model':'Message your local model'):(!inf.external&&ss.running?'Model is loading…':'Choose a model to start chatting')}" ${(ready&&!App.brainLearning&&!App.brainTurnPending)?'':'disabled'}></textarea>
           <div class="composer-bottom studio-composer-bottom">
             <div class="composer-controls studio-controls">
-              <button id="attachFiles" class="composer-action" title="Attach any file" ${ss.ready?'':'disabled'}>${icon('plus')}</button>
+              <button id="attachFiles" class="composer-action" title="Attach any file" ${ready?'':'disabled'}>${icon('plus')}</button>
               <input id="chatFileInput" class="chat-file-input" type="file" multiple  tabindex="-1">
               <button id="chatTools" class="composer-action" title="Generation controls">${icon('tune')}</button>
+              <button id="recordVoice" class="composer-action voice-action ${App.voiceRecording?'recording':''}" title="${voiceLabel}" aria-label="${voiceLabel}" ${voiceAvailable?'':'disabled'}>${App.voiceBusy?escapeHtml(voiceLabel):icon(App.voiceRecording?'stop':'mic')}</button>
               <button id="agentToggle" class="composer-mode agent-inline ${agentOn?'on':''}" title="Internet / website Agent">${icon('globe')}<span>${agentOn?'Agent on':'Agent off'}</span></button>
-              <button id="brainInline" class="composer-mode brain-inline ${brain.enabled?'on':''}" title="Personal Brain learning">${icon('brain')}<span>${brain.enabled?(brain.setup_ready?'Learn':'Setup Brain'):'Brain off'}</span></button>
+              <button id="brainInline" class="composer-mode brain-inline ${brainOn?'on':''}" title="Personal Brain learning">${icon('brain')}<span>${brainOn?(brain.setup_ready?'Learn':'Setup Brain'):(inf.external?'Brain local-only':'Brain off')}</span></button>
               <button id="thinkingToggle" class="composer-mode" title="Thinking / reasoning">${icon('spark')}<span>${escapeHtml(reasoningLabel(prefs.reasoning).replace('Thinking ',''))}</span></button>
               <button id="smartProfileInline" class="composer-mode smart-inline" title="Smart generation profile">${icon('spark')}<span>${escapeHtml(smartLabel())}</span></button>
             </div>
             <div class="composer-right">
               <span class="context-mini" title="Context usage"><span id="contextText">${contextLabel()}</span><span class="context-ring" style="--p:${contextPercent()}"></span></span>
-              <button id="sendButton" class="send-button studio-send ${App.streaming?'stop':''}" ${(ss.ready&&!App.brainLearning)||App.streaming?'':'disabled'} aria-label="${App.streaming?'Stop generation':'Send message'}">${App.streaming?icon('stop'):icon('send')}</button>
+              <button id="sendButton" class="send-button studio-send ${App.streaming?'stop':''}" ${(ready&&!App.brainLearning&&!App.brainTurnPending)||App.streaming?'':'disabled'} aria-label="${App.streaming?'Stop generation':'Send message'}">${App.streaming?icon('stop'):icon('send')}</button>
             </div>
           </div>
         </div>
-        <div class="composer-hint studio-hint"><span>${agentOn?'Agent mode: internet + skills enabled · ':''}${brain.enabled&&brain.zero_context?'Brain mode: previous turns are not sent to inference · ':''}Enter to send · Shift+Enter newline · Esc stops</span><span>${App.brainLearning?'Updating personal weights…':App.brainSetup?'Preparing learning engine…':m?`${escapeHtml(m.architecture||'GGUF')}${m.vision_capable?' · Vision':''}`:'No model'}</span></div>
+        <div class="composer-hint studio-hint"><span>${App.brainLearning?'Learning in progress':inf.external?'Cloud API · Check important information':'Local AI · Check important information'}</span><span>${App.brainLearning?'Updating personal weights…':App.brainSetup?'Preparing learning engine…':m?`${escapeHtml(m.architecture||m.provider||'Model')}${inf.external?' · API':(m.vision_capable?' · Vision':'')}`:'No model'}</span></div>
       </div></div>
     </div>`;
     renderMessages();
+    $('#chatNavButton').onclick=()=>{if(window.matchMedia('(max-width: 760px)').matches)document.querySelector('.app-shell').classList.add('mobile-menu');else{App.sidebarCollapsed=!App.sidebarCollapsed;localStorage.setItem('lf.sidebarCollapsed',App.sidebarCollapsed?'1':'0');renderNav()}};
     $('#chatModelButton').onclick=()=>setRoute('models');
     if($('#brainStatusButton'))$('#brainStatusButton').onclick=()=>setRoute('brain');
     if($('#brainInline'))$('#brainInline').onclick=()=>setRoute('brain');
     $('#smartProfileButton').onclick=()=>showSmartProfile();
     $('#smartProfileInline').onclick=()=>showSmartProfile();
     $('#chatTools').onclick=()=>showChatOptions();
+    $('#recordVoice').onclick=toggleVoiceRecording;
     if($('#attachFiles'))$('#attachFiles').onclick=()=>$('#chatFileInput')?.click();
     if($('#chatFileInput'))$('#chatFileInput').onchange=async e=>{await addChatAttachments(e.target.files);e.target.value='';};
     $$('.attachment-remove').forEach(b=>b.onclick=()=>{App.pendingAttachments=App.pendingAttachments.filter(a=>a.id!==b.dataset.id);renderChat($('#view'));});
@@ -1283,7 +2099,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     $('#thinkingToggle').onclick=()=>cycleThinking();
     $('#newChatTop').onclick=newThread;
     const ta=$('#composerInput');
-    if(ta){ta.oninput=autoGrow;ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!App.streaming)sendFromComposer()}else if(e.key==='Escape'&&App.streaming){e.preventDefault();stopGeneration()}};setTimeout(()=>ta.focus(),20)}
+    if(ta){ta.value=App.chatDrafts[App.activeThreadId]||'';autoGrow({currentTarget:ta});ta.oninput=e=>{App.chatDrafts[App.activeThreadId]=ta.value;autoGrow(e)};ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!App.streaming)sendFromComposer()}else if(e.key==='Escape'&&App.streaming){e.preventDefault();stopGeneration()}};setTimeout(()=>ta.focus(),20)}
     $('#sendButton').onclick=()=>App.streaming?stopGeneration():sendFromComposer();
     const sc=$('#chatScroll'), jump=$('#jumpLatest');
     if(sc&&jump){
@@ -1300,10 +2116,12 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
   function fileDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(r.error||new Error('Could not read file'));r.readAsDataURL(file);});}
   async function addChatAttachments(files){
     const list=[...(files||[])].slice(0,8);if(!list.length)return;
+    const threadId=App.activeThreadId,draft=App.pendingAttachments;
+    App.attachmentDrafts[threadId]=draft;
     const maxTotal=24*1024*1024;
     let agentWasEnabled=agentEnabled();
     for(const file of list){
-      const used=App.pendingAttachments.reduce((n,a)=>n+Number(a.size||0),0);
+      const used=draft.reduce((n,a)=>n+Number(a.size||0),0);
       if(used+Number(file.size||0)>maxTotal){toast('Attachment limit reached','Keep the total selected attachments under 24 MB.','error');continue;}
       if(file.size>20*1024*1024){toast('File is too large',`${file.name} exceeds the 20 MB chat-workspace staging limit.`,'error');continue;}
       const id=crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random());
@@ -1312,18 +2130,98 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       // code, ZIPs, Office documents, audio/video and unknown binaries. The
       // workspace exposes metadata first; the model chooses the File skill and
       // reads/inspects content only when the user's instruction actually needs it.
-      App.pendingAttachments.push({id,kind:image?'image':'file',name:file.name,type:file.type||(image?'image/jpeg':'application/octet-stream'),size:file.size,data_url:await fileDataUrl(file)});
+      draft.push({id,kind:image?'image':'file',name:file.name,type:file.type||(image?'image/jpeg':'application/octet-stream'),size:file.size,data_url:await fileDataUrl(file)});
     }
     // Attachments use File Manager first so the model can decide whether content
     // is needed. This keeps store/move operations out of the model context.
-    if(App.pendingAttachments.length&&!agentWasEnabled){setAgentEnabled(true);toast('File Manager Agent enabled','The model will decide whether to inspect the attachment or only organize it.','info',4200);}
-    if(App.pendingAttachments.length>8)App.pendingAttachments=App.pendingAttachments.slice(-8);
+    if(draft.length>8)draft.splice(0,draft.length-8);
+    if(App.activeThreadId!==threadId||App.route!=='chat')return;
+    if(draft.length&&!agentWasEnabled){setAgentEnabled(true);toast('File Manager Agent enabled','The model will decide whether to inspect the attachment or only organize it.','info',4200);}
     renderChat($('#view'));
   }
 
-  function contextLabel(){ const ctx=App.state?.server?.plan?.ctx_size||App.state?.assessment?.recommended_ctx||4096; return App.contextTokens!=null?`${App.contextTokens.toLocaleString()} / ${ctx.toLocaleString()}`:`${ctx.toLocaleString()} ctx`; }
-  function contextPercent(){ const ctx=App.state?.server?.plan?.ctx_size||App.state?.assessment?.recommended_ctx||4096; return App.contextTokens?Math.min(100,App.contextTokens/ctx*100):0; }
+  function chatContextLimit(){const s=App.state||{};return Number(externalInference()?s.config?.default_context_size:(s.server?.ready?s.server?.plan?.ctx_size:s.config?.default_context_size))||4096;}
+  function contextLabel(){ const ctx=chatContextLimit(); return App.contextTokens!=null?`${externalInference()?'~':''}${App.contextTokens.toLocaleString()} / ${ctx.toLocaleString()}${externalInference()?' budget':''}`:`${ctx.toLocaleString()} ${externalInference()?'budget':'ctx'}`; }
+  function contextPercent(){ const ctx=chatContextLimit(); return App.contextTokens?Math.min(100,App.contextTokens/ctx*100):0; }
   function autoGrow(e){ const ta=e.currentTarget; ta.style.height='0px'; ta.style.height=Math.min(210,Math.max(30,ta.scrollHeight))+'px'; }
+
+  async function toggleVoiceRecording(){
+    let button=$('#recordVoice');
+    if(App.voiceBusy){
+      if(App.voiceJobId){
+        if(button){button.disabled=true;button.textContent='Cancelling…';}
+        try{await fetch('/api/voice/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job:App.voiceJobId})});}
+        catch(e){toast('Could not cancel transcription',e.message,'error',6000);}
+      }else if(App.voiceUploadController){App.voiceUploadController.abort();}
+      return;
+    }
+    if(App.voiceRecording){try{App.voiceRecorder?.stop()}catch{};return;}
+    if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){toast('Voice recording unavailable','Open LlamaForge on localhost or HTTPS in a browser with microphone support.','error',7000);return;}
+    const voiceThreadId=App.activeThreadId;
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      if(App.activeThreadId!==voiceThreadId||App.route!=='chat'){
+        stream.getTracks().forEach(t=>t.stop());
+        toast('Voice recording cancelled','The conversation changed before the microphone opened.','info');
+        return;
+      }
+      const mime=['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus'].find(t=>MediaRecorder.isTypeSupported?.(t))||'';
+      const recorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);
+      App.voiceRecorder=recorder;App.voiceChunks=[];App.voiceRecording=true;
+      let recordedBytes=0,tooLarge=false;
+      recorder.ondataavailable=e=>{
+        if(!e.data?.size||tooLarge)return;
+        recordedBytes+=e.data.size;
+        if(recordedBytes>25*1024*1024){tooLarge=true;App.voiceChunks=[];if(recorder.state!=='inactive')recorder.stop();return;}
+        App.voiceChunks.push(e.data);
+      };
+      recorder.onerror=e=>{App.voiceRecording=false;App.voiceRecorder=null;App.voiceChunks=[];stream.getTracks().forEach(t=>t.stop());toast('Voice recording failed',e.error?.message||'Microphone capture failed.','error',7000)};
+      recorder.onstop=async()=>{
+        App.voiceRecording=false;stream.getTracks().forEach(t=>t.stop());
+        if(button){button.classList.remove('recording');button.innerHTML=icon('mic');button.title='Record, transcribe locally and send';}
+        const blob=new Blob(App.voiceChunks,{type:recorder.mimeType||'audio/webm'});App.voiceChunks=[];App.voiceRecorder=null;
+        if(tooLarge){toast('Voice recording too large','Keep a recording under 25 MB.','error');return;}
+        if(!blob.size)return;
+        if(blob.size>(Number(App.state?.voice?.max_upload_bytes)||25*1024*1024)){toast('Voice recording too large','Keep a recording under 25 MB.','error');return;}
+        App.voiceBusy=true;App.voiceUploadController=new AbortController();if(button){button.disabled=false;button.textContent='Cancel upload';button.title='Cancel local voice upload';}
+        try{
+          const ext=blob.type.includes('ogg')?'ogg':blob.type.includes('mp4')?'m4a':blob.type.includes('wav')?'wav':'webm';
+          const response=await fetch('/api/voice/transcribe',{method:'POST',headers:{'Content-Type':blob.type||'application/octet-stream','X-File-Name':encodeURIComponent(`voice-${Date.now()}.${ext}`)},body:blob,signal:App.voiceUploadController.signal});
+          const started=await response.json();if(!response.ok)throw new Error(started.error||`Voice upload failed (${response.status})`);
+          App.voiceUploadController=null;App.voiceJobId=started.job;
+          button=$('#recordVoice');if(button){button.disabled=false;button.textContent='Cancel transcription';button.title='Cancel local transcription';}
+          let job=null;
+          for(let i=0;i<900;i++){
+            await new Promise(resolve=>setTimeout(resolve,800));
+            const poll=await fetch(`/api/voice/job?id=${encodeURIComponent(started.job)}`,{cache:'no-store'});job=await poll.json();
+            if(!poll.ok)throw new Error(job.error||'Voice transcription job disappeared');
+            if(['done','error','cancelled'].includes(job.state))break;
+            button=$('#recordVoice');if(button){button.disabled=false;button.textContent=job.state==='cancelling'?'Cancelling…':'Cancel transcription';button.title=job.state==='transcribing'?'Cancel local FFmpeg + Vosk transcription':'Cancel local transcription';}
+          }
+          if(job?.state==='cancelled')throw new Error('Voice transcription cancelled. The original recording remains saved locally.');
+          if(job?.state==='error')throw new Error(job.error||'Voice transcription failed');
+          if(job?.state!=='done')throw new Error('Voice transcription took too long. The recording is saved locally.');
+          const transcript=String(job.text||'').trim();
+          if(!transcript){toast('No words detected',`Recording saved: ${job.filename}`,'info',6500);return;}
+          if(!App.threads.some(t=>t.id===voiceThreadId)){
+            toast('Voice transcribed and saved',`The original chat was deleted. Recording: ${job.filename}`,'info',6500);return;
+          }
+          const onOriginalChat=App.route==='chat'&&App.activeThreadId===voiceThreadId;
+          const ta=onOriginalChat?$('#composerInput'):null;
+          const existing=String(ta?.value??App.chatDrafts[voiceThreadId]??'');
+          const draft=existing.trim()?`${existing.trimEnd()}\n${transcript}`:transcript;
+          App.chatDrafts[voiceThreadId]=draft;
+          if(ta){ta.value=draft;ta.dispatchEvent(new Event('input',{bubbles:true}));}
+          if(ta&&!existing.trim()&&!App.pendingAttachments.length&&!App.streaming&&!ta.disabled&&inferenceReady()){
+            toast('Voice transcribed locally',`Sending the text to ${activeDisplayModel(App.state||{})?.name||'the selected model'} · saved ${job.filename}`,'info',5000);
+            await sendFromComposer();
+          }else toast('Voice transcribed and saved',onOriginalChat?`Transcript is in this chat draft. Recording: ${job.filename}`:`Transcript is in the original chat draft. Recording: ${job.filename}`,'ok',6500);
+        }catch(e){if(e.name==='AbortError')toast('Voice upload cancelled','The recording was not sent for transcription.','info');else toast('Voice processing failed',e.message,'error',9000)}
+        finally{App.voiceBusy=false;App.voiceJobId=null;App.voiceUploadController=null;const current=$('#recordVoice');if(current){current.disabled=!(inferenceReady()&&App.state?.voice?.ready);current.innerHTML=icon('mic');current.title='Record, transcribe locally and send';}}
+      };
+      recorder.start(1000);if(button){button.classList.add('recording');button.innerHTML=icon('stop');button.title='Stop recording and transcribe';}
+    }catch(e){App.voiceRecording=false;toast('Microphone permission needed',e.message||'Allow microphone access in your browser.','error',7000);}
+  }
 
   function renderMessages(){
     const col=$('#chatColumn'); if(!col)return; const t=currentThread(true), msgs=t.messages||[];
@@ -1331,11 +2229,12 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     if(!msgs.length){
       col.innerHTML=chatEmpty();
       $$('.suggestion',col).forEach(b=>b.onclick=()=>{const ta=$('#composerInput');if(ta&&!ta.disabled){ta.value=b.dataset.prompt;ta.dispatchEvent(new Event('input'));ta.focus()}});
-      const er=$('#emptyRun'); if(er)er.onclick=()=>App.state?.active_model?startOptimized():chooseModel();
+      const er=$('#emptyRun'); if(er)er.onclick=()=>inferenceReady()?setRoute('chat'):(App.state?.active_model?startOptimized():setRoute('models'));
       return;
     }
     col.innerHTML=msgs.map((m,i)=>messageHTML(m,i)).join('');
     bindMessageActions(col);
+    $$('.agent-trace',col).forEach(el=>el.ontoggle=()=>{const i=Number(el.closest('[data-message-index]').dataset.messageIndex);if(t.messages[i])t.messages[i].traceOpen=el.open});
     requestAnimationFrame(()=>{if(!sc)return;if(shouldFollow)sc.scrollTop=sc.scrollHeight;else sc.scrollTop=oldTop});
   }
   function bindMessageActions(col){
@@ -1345,11 +2244,11 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     $$('.copy-code',col).forEach(b=>b.onclick=async()=>{const code=b.closest('.code-block').querySelector('code').textContent;await navigator.clipboard.writeText(code);const old=b.innerHTML;b.innerHTML=`${icon('check')} Copied`;setTimeout(()=>b.innerHTML=old,1200)});
   }
   function chatEmpty(){
-    const ready=App.state?.server?.ready, m=App.state?.active_model;
+    const ready=inferenceReady(App.state||{}), m=activeDisplayModel(App.state||{});
     return `<div class="chat-empty studio-empty">
       <div class="studio-empty-mark"><span></span></div>
-      <h2>${ready?'What are we working on?':'Start a local model'}</h2>
-      <p>${ready?`Using <strong>${escapeHtml(shortName(m?.name||'your local model',32))}</strong>. LlamaForge adapts thinking, sampling and context automatically.`:'Pick a GGUF and LlamaForge will configure llama.cpp for this machine.'}</p>
+      <h2>${ready?'How can I help you?':'Your own AI. On your machine.'}</h2>
+      <p>${ready?`Ask a question, work with a file, or plan your day.`:'Choose a model to start a private conversation.'}</p>
       ${ready?`<div class="suggestion-grid studio-suggestions">
         <button class="suggestion" data-prompt="Review this code carefully. Find the root cause first, then give the smallest safe fix and explain why it works."><span class="suggestion-icon">${icon('terminal')}</span><span><strong>Debug code</strong><small>Root cause → safe fix</small></span></button>
         <button class="suggestion" data-prompt="Analyze this problem carefully. Compare the realistic options, identify the tradeoffs, and recommend one with reasons."><span class="suggestion-icon">${icon('spark')}</span><span><strong>Analyze deeply</strong><small>Compare before answering</small></span></button>
@@ -1370,7 +2269,8 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
       if(ev.event==='direct_complete')return `Direct model response ready${ev.model_seconds!=null?` · ${Number(ev.model_seconds).toFixed(1)}s`:''}`;
       if(ev.event==='phase')return escapeHtml(ev.label||ev.phase||'Agent update');
       if(ev.event==='capabilities')return `Skill family: ${escapeHtml((ev.families||ev.categories||[]).join(', ')||'auto')} · candidates: ${escapeHtml((ev.skills||[]).join(', '))}`;
-      if(ev.event==='thinking')return `Local model planning · step ${Number(ev.step||1)}/${Number(ev.max_steps||1)}`;
+      if(ev.event==='thinking')return `Agent planning · step ${Number(ev.step||1)}/${Number(ev.max_steps||1)}`;
+      if(ev.event==='decision_repair')return `Recovered tool call · ${escapeHtml(ev.repair?.operation||ev.repair?.from||'corrected arguments')}`;
       if(ev.event==='decision'&&ev.action==='tool')return `Plan: ${escapeHtml(ev.summary||'Use a skill')} → ${escapeHtml(ev.skill||'tool')}`;
       if(ev.event==='decision'&&ev.action==='final')return `Enough evidence · ${escapeHtml(ev.summary||'compose final answer')}`;
       if(ev.event==='tool_start')return `Running ${escapeHtml(ev.tool||'tool')}…`;
@@ -1382,7 +2282,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     }).filter(Boolean);
     if(!recent.length)return '';
     const last=recent[recent.length-1]||'Agent activity';
-    return `<details class="agent-trace ${m.streaming?'running':'complete'}" ${m.streaming?'open':''}><summary><span>Agent activity</span><small>${last}</small></summary><div class="agent-trace-list">${recent.map(x=>`<div class="agent-trace-row">${x}</div>`).join('')}</div></details>`;
+    return `<details class="agent-trace ${m.streaming?'running':'complete'}" ${m.traceOpen?'open':''}><summary><span>${m.streaming?'Working…':'Activity'}</span><small>${last}</small></summary><div class="agent-trace-list">${recent.map(x=>`<div class="agent-trace-row">${x}</div>`).join('')}</div></details>`;
   }
 
   function messageHTML(m,i){
@@ -1393,7 +2293,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     const reasoningVisible=!!(reasoning||m.reasoningStreaming);
     const reasoningInner=m.reasoningStreaming?`<span class="stream-text">${escapeHtml(reasoning)}</span>`:renderMarkdown(reasoning||'');
     const reasoningBlock=`<details class="reasoning-panel studio-reasoning ${reasoningVisible?'':'hidden'}" ${m.reasoningStreaming?'open':''}><summary><span class="reasoning-spark">${icon('spark')}</span><span class="reasoning-label">${thoughtLabel}</span>${m.reasoningStreaming?'<span class="reasoning-pulse"></span>':''}<span class="reasoning-chevron">${icon('down')}</span></summary><div class="reasoning-body ${hasRTL(reasoning)?'rtl':''} ${m.reasoningStreaming?'is-streaming':''}">${reasoningInner}</div></details>`;
-    const metaBits=[]; if(m.meta?.agent){const n=(m.meta?.agentEvents||[]).filter(x=>x.event==='tool_start').length;metaBits.push(`agent${n?` · ${n} tool${n===1?'':'s'}`:''}`)} if(profile?.task)metaBits.push(profile.task); if(m.meta?.speed)metaBits.push(`${m.meta.speed} tok/s`); if(m.meta?.elapsed)metaBits.push(`${m.meta.elapsed}s`); if(m.meta?.repaired)metaBits.push('auto repaired');
+    const metaBits=[]; if(m.meta?.agent){const n=(m.meta?.agentEvents||[]).filter(x=>x.event==='tool_start').length;metaBits.push(`agent${n?` · ${n} tool${n===1?'':'s'}`:''}`)} if(profile?.task)metaBits.push(profile.task); if(m.meta?.speed)metaBits.push(`${m.meta.speed} tok/s`); if(m.meta?.elapsed)metaBits.push(`${m.meta.elapsed}s`); if(m.meta?.repaired)metaBits.push('auto repaired'); if(m.meta?.finishReason&&['length','max_tokens','max_output_tokens'].includes(m.meta.finishReason))metaBits.push(`Output limit reached (${m.meta.outputLimit||profile?.max_tokens||'?'} tokens)`); if(m.error)metaBits.push('Generation interrupted');
     const qualityBadge=quality&&!quality.ok?`<button class="quality-warning" title="${escapeHtml((quality.issues||[]).join(', '))}">${icon('spark')} improved automatically</button>`:'';
     const ctxNote=m.meta?.context?.trimmed_turns?`<span class="context-note">Older context compacted</span>`:'';
     return `<article class="message assistant studio-assistant" data-message-index="${i}">
@@ -1422,17 +2322,17 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     }); return html;
   }
   async function copyMessage(i){const m=currentThread().messages[i];if(!m)return;await navigator.clipboard.writeText(m.content);toast('Copied')}
-  async function editUserMessage(i){
+  async function editUserMessage(i){if(App.streaming)stopGeneration();
     const t=currentThread(),m=t.messages[i];if(!m||m.role!=='user')return;const root=$('#modalRoot');
     root.innerHTML=`<div class="modal-backdrop"><div class="modal premium-modal"><div class="modal-kicker">EDIT MESSAGE</div><h3>Edit and retry</h3><textarea id="editMessageText" class="modal-textarea">${escapeHtml(m.content)}</textarea><div class="inline-actions"><button class="secondary-button" data-no>Cancel</button><button class="primary-button" data-yes>Save & retry</button></div></div></div>`;
     $('[data-no]',root).onclick=()=>root.innerHTML='';$('[data-yes]',root).onclick=async()=>{const text=$('#editMessageText').value.trim();if(!text)return;t.messages=t.messages.slice(0,i);t.messages.push({role:'user',content:text});root.innerHTML='';saveThreads();renderMessages();await generateAssistant();};
   }
-  async function regenerateMessage(i){const t=currentThread();let userIndex=-1;for(let j=i-1;j>=0;j--)if(t.messages[j].role==='user'){userIndex=j;break}if(userIndex<0)return;t.messages=t.messages.slice(0,i);saveThreads();renderMessages();await generateAssistant();}
+  async function regenerateMessage(i){if(App.streaming)stopGeneration();const t=currentThread();let userIndex=-1;for(let j=i-1;j>=0;j--)if(t.messages[j].role==='user'){userIndex=j;break}if(userIndex<0)return;t.messages=t.messages.slice(0,i);saveThreads();renderMessages();await generateAssistant();}
   function setStreamingUI(active){
     App.streaming=active;
     document.querySelector('.chat-view')?.classList.toggle('is-streaming',active);
     const btn=$('#sendButton');
-    if(btn){btn.classList.toggle('stop',active);btn.setAttribute('aria-label',active?'Stop generation':'Send message');btn.innerHTML=active?icon('stop'):icon('send');btn.disabled=active?false:(!App.state?.server?.ready||App.brainLearning);}
+    if(btn){btn.classList.toggle('stop',active);btn.setAttribute('aria-label',active?'Stop generation':'Send message');btn.innerHTML=active?icon('stop'):icon('send');btn.disabled=active?false:(!inferenceReady()||App.brainLearning);}
   }
   function finalizeAssistantRow(target=null){
     const t=currentThread(false);if(!t)return;const i=target?t.messages.indexOf(target):t.messages.length-1;if(i<0)return;const m=t.messages[i];if(!m||m.role!=='assistant')return;
@@ -1449,14 +2349,11 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     const brain=App.state?.brain||{};
     if(!brain.enabled||brain.setup_ready)return true;
     // Chat must stay usable while the trainable source/toolchain is prepared.
-    // The completed turn is held by learnTurnIfNeeded and trained as soon as
-    // setup becomes ready, so the first correction is not silently lost.
-    if(!['running','cancelling'].includes(brain.job?.state)){
-      try{const st=await api('/api/brain/autosetup',{method:'POST',body:{}});if(App.state)App.state.brain=st;patchBrainChatState(st);toast('Preparing learning in the background','You can chat now. This turn will be trained after setup finishes.','info',5200)}catch(e){toast('Personal Brain needs attention',e.message,'error',7500)}
-    }
+    // Inspect the completed turn before preparing multi-GB training dependencies.
+    // A greeting or an ordinary recall question must not start setup.
     return true;
   }
-  async function sendFromComposer(){const ta=$('#composerInput'),text=(ta?.value||'').trim(),attachments=App.pendingAttachments.map(a=>({...a}));if((!text&&!attachments.length)||App.streaming)return;if(App.brainLearning){toast('Brain is still learning','Wait for the current weight update and model reload to finish.','info');return;}if(!(await ensureBrainReadyBeforeSend()))return;const t=currentThread();t.messages.push({role:'user',content:text,attachments});if(t.title==='New chat')t.title=titleFromPrompt(text||attachments[0]?.name||'Attachment');t.updated=Date.now();App.pendingAttachments=[];saveThreads();ta.value='';ta.style.height='';App.chatFollowTail=true;await generateAssistant();}
+  async function sendFromComposer(){const ta=$('#composerInput'),text=(ta?.value||'').trim(),attachments=App.pendingAttachments.map(a=>({...a}));if((!text&&!attachments.length)||App.streaming)return;if(App.brainLearning){toast('Brain is still learning','Wait for the current weight update and model reload to finish.','info');return;}if(!(await ensureBrainReadyBeforeSend()))return;const t=currentThread();t.messages.push({role:'user',content:text,attachments});if(t.title==='New chat')t.title=titleFromPrompt(text||attachments[0]?.name||'Attachment');t.updated=Date.now();App.pendingAttachments=[];App.attachmentDrafts[t.id]=[];App.chatDrafts[t.id]='';saveThreads();ta.value='';ta.style.height='';App.chatFollowTail=true;await generateAssistant();}
   function patchBrainPageState(brain){
     if(!brain||App.route!=='brain')return;
     const power=$('#brainPower');
@@ -1466,17 +2363,24 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     if(card){card.className=`brain-job ${j.state||''}`;card.dataset.brainJobState=j.state||'';const msg=$('[data-brain-job-message]',card),stage=$('[data-brain-job-stage]',card),per=$('[data-brain-job-percent]',card),bar=$('[data-brain-job-progress]',card),transfer=$('[data-brain-transfer]',card);if(msg)msg.textContent=j.message||j.state||'';if(stage)stage.textContent=(j.stage||'brain').toUpperCase();if(per)per.textContent=`${Math.round(pct)}%`;if(bar)bar.style.width=`${pct}%`;if(transfer){const total=Number(j.total||0);transfer.hidden=!(total>0);if(total>0)transfer.innerHTML=`<span>${formatBytes(j.done||0)} / ${formatBytes(total)}</span>${Number(j.bytes_per_sec||0)>0?`<span>${formatBytes(j.bytes_per_sec)}/s</span>`:''}${j.eta_seconds!=null?`<span>ETA ${formatEta(j.eta_seconds)}</span>`:''}`}}
   }
   function patchBrainChatState(brain){
-    if(!brain)return;if(App.state)App.state.brain=brain;{const stage=brain.job?.stage||'';const running=brain.job?.state==='running';App.brainSetup=running&&['setup','auto-setup','detect-base','trainer'].includes(stage);App.brainLearning=running&&!App.brainSetup;}
-    const ta=$('#composerInput'),btn=$('#sendButton'),turnLocked=App.brainLearning||App.brainTurnPending;
-    if(ta){ta.disabled=turnLocked||!App.state?.server?.ready;ta.placeholder=App.brainTurnPending?'Saving this turn into model weights…':App.brainLearning?'Learning this turn into weights…':App.brainSetup?'Learning setup is running in the background…':App.state?.server?.ready?'Message your local model…':'Model is reloading…'}
-    if(btn&&!App.streaming)btn.disabled=turnLocked||!App.state?.server?.ready;
+    if(!brain)return;if(App.state)App.state.brain=brain;if(externalInference()){App.brainSetup=false;App.brainLearning=false;App.brainTurnPending=false;return;}
+    const activity=LFProtocol.brainActivity(brain,App.brainTurnPending);
+    App.brainSetup=activity.setup;App.brainLearning=activity.learning;App.brainTurnPending=activity.pending;
+    const ta=$('#composerInput'),btn=$('#sendButton'),turnLocked=activity.locked;
+    if(ta){ta.disabled=turnLocked||!inferenceReady();ta.placeholder=App.brainTurnPending?'Saving this turn into model weights…':App.brainLearning?'Learning this turn into weights…':App.brainSetup?'Learning setup is running in the background…':inferenceReady()?'Message your local model…':'Model is reloading…'}
+    if(btn&&!App.streaming)btn.disabled=turnLocked||!inferenceReady();
     const pill=$('#brainStatusButton');if(pill){pill.classList.toggle('learning',App.brainLearning);const sp=$('span',pill);if(sp)sp.textContent=App.brainLearning?'Learning…':brain.setup_ready?(brain.zero_context?'Brain · ready':'Brain on'):'Brain · setup'}
     const inline=$('#brainInline span');if(inline)inline.textContent=App.brainLearning?'Learning…':brain.enabled?(brain.setup_ready?'Learn':'Setup Brain'):'Brain off';
   }
-  async function learnTurnIfNeeded(assistant){
+  async function learnTurnIfNeeded(assistant,thread=null){
+    if(externalInference())return;
     const brain=App.state?.brain||{};if(!brain.enabled||!assistant||assistant.error)return;
-    const t=currentThread(false);if(!t)return;const ai=t.messages.indexOf(assistant);let user=null;for(let i=ai-1;i>=0;i--){if(t.messages[i].role==='user'){user=t.messages[i];break}}
+    const t=thread||currentThread(false);if(!t)return;const ai=t.messages.indexOf(assistant);let user=null;for(let i=ai-1;i>=0;i--){if(t.messages[i].role==='user'){user=t.messages[i];break}}
     if(!user?.content||!assistant.content)return;
+    let lesson;
+    try{lesson=await api('/api/brain/preview',{method:'POST',body:{user:user.content,precheck:true}})}
+    catch(e){toast('Could not check this lesson',e.message,'error');return}
+    if(!lesson.should_learn)return;
     if(!brain.setup_ready){
       App.brainTurnPending=true;patchBrainChatState(brain);
       try{
@@ -1494,8 +2398,8 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     }
     try{
       App.brainTurnPending=true;patchBrainChatState(App.state?.brain||brain);
-      const st=await api('/api/brain/learn',{method:'POST',body:{user:user.content,assistant:assistant.content}});patchBrainChatState(st);
-      if(!brain.strict_learning){toast('Learning started','The model will reload when the personal weights are updated.','info');return;}
+      const st=await api('/api/brain/learn',{method:'POST',body:{user:user.content,mode:lesson.compiled?'compiled':'automatic',examples:lesson.examples,model_key:lesson.model_key}});patchBrainChatState(st);
+      if(!brain.strict_learning){App.brainTurnPending=false;patchBrainChatState(st);toast('Learning started','The model will reload when the personal weights are updated.','info');return;}
       App.brainLearning=true;patchBrainChatState(st);
       const started=Date.now();
       while(Date.now()-started<60*60*1000){
@@ -1516,33 +2420,140 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     }catch(e){App.brainLearning=false;App.brainTurnPending=false;toast('Brain learning failed',e.message,'error',8000);try{await refreshState(false)}catch{}}
   }
 
-  async function generateAssistant(opts={}){
-    const repair=!!opts.repair,t=currentThread();if(!App.state?.server?.ready){toast('Model is not ready','Run the selected model first.','info');return;}
-    const prefs=chatPrefs(),assistant={role:'assistant',content:'',reasoning:'',reasoningStreaming:false,streaming:true,meta:{repaired:repair,repairIssues:opts.issues||[]}};t.messages.push(assistant);saveThreads();setStreamingUI(true);renderMessages();
-    const started=performance.now();let first=0,reasoningStarted=0,chars=0,quality=null;App.chatAbort=new AbortController();
+  const programAction={new:'Project created',write:'Code written',replace:'Code edited',read:'File inspected',files:'Project files',check_packages:'Packages checked',install:'Installing packages',run:'Running program',status:'Checking status',wait:'Waiting for process',logs:'Reading output',input:'Input sent',stop:'Stopping program'};
+  function programMonitorStep(message,error=false){
+    const m=App.programMonitor;m.steps.push({message:String(message).slice(0,240),error});m.steps=m.steps.slice(-35);
+    const list=$('#programMonitorSteps');if(list){list.innerHTML=m.steps.map(x=>`<div class="program-monitor-step ${x.error?'error':''}">${escapeHtml(x.message)}</div>`).join('');list.scrollTop=list.scrollHeight;}
+  }
+  const programProcessStates=new Set(['running','finished','failed','timed_out','interrupted','stopped']);
+  function programMonitorStatus(status){
+    const m=App.programMonitor;
+    // Keep the process lifecycle separate from a single Agent action. A failed
+    // read/input/repeated-run call must not turn an already-running GUI into a
+    // fake "failed" process in the monitor.
+    if(programProcessStates.has(status))m.processStatus=status;
+    if(status==='starting'&&m.processStatus==='running')status='running';
+    m.status=status;
+    const label=$('#programMonitorStatus');if(label)label.textContent=status||'Preparing…';
+    const job=$('#programMonitorJob');if(job)job.textContent=m.jobId||'Waiting for project…';
+    const active=!!m.jobId&&m.processStatus==='running';
+    if($('#programMonitorStop'))$('#programMonitorStop').disabled=!active;
+    if($('#programMonitorSend'))$('#programMonitorSend').disabled=!active;
+    if($('#programMonitorInput'))$('#programMonitorInput').disabled=!active;
+  }
+  function programMonitorHide(){
+    const m=App.programMonitor;m.visible=false;m.token++;if(m.timer)clearTimeout(m.timer);if(m.closeTimer)clearTimeout(m.closeTimer);
+    m.timer=null;m.closeTimer=null;const root=$('#programMonitor');if(root)root.hidden=true;
+  }
+  function programMonitorAutoClose(){
+    const m=App.programMonitor;if(m.closeTimer)clearTimeout(m.closeTimer);
+    if(m.visible&&!m.streaming&&!['running','failed','timed_out','interrupted'].includes(m.status))m.closeTimer=setTimeout(()=>{if(!m.streaming&&!['running','failed','timed_out','interrupted'].includes(m.status))programMonitorHide()},7000);
+  }
+  async function programMonitorPoll(){
+    const m=App.programMonitor;if(!m.visible||!m.jobId||(m.polling&&m.pollingToken===m.token))return;
+    const jobId=m.jobId,token=m.token;m.polling=true;m.pollingToken=token;
     try{
-      const payload={messages:t.messages.filter(m=>!m.streaming).map(({role,content,attachments})=>({role,content,attachments})),mode:prefs.mode,reasoning:prefs.reasoning,reasoning_budget:prefs.reasoningBudget,max_tokens:prefs.maxTokens,repair,repair_issues:opts.issues||[],agent:agentEnabled()};
-      const res=await fetch('/api/chat/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:App.chatAbort.signal});if(!res.ok)throw new Error(`Chat failed (${res.status})`);
-      const reader=res.body.getReader(),decoder=new TextDecoder();let buf='';
-      while(true){const {value,done}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});const parts=buf.split('\n\n');buf=parts.pop()||'';for(const part of parts){const line=part.split('\n').find(x=>x.startsWith('data:'));if(!line)continue;const data=line.slice(5).trim();if(data==='[DONE]')continue;let obj;try{obj=JSON.parse(data)}catch{continue}if(obj.error)throw new Error(obj.error);
+      const row=await api('/api/agent/code-job',{method:'POST',body:{operation:'logs',job_id:jobId}});
+      if(token!==m.token||jobId!==m.jobId||!m.visible)return;
+      const result=row.result||{};if($('#programMonitorOutput'))$('#programMonitorOutput').textContent=result.output||'';
+      const previous=m.status;if(result.status)programMonitorStatus(result.status);
+      if(previous==='running'&&result.status&&result.status!=='running')programMonitorStep(`Process ${result.status}${result.exit_code==null?'':` · exit ${result.exit_code}`}`,result.status!=='finished');
+      programMonitorAutoClose();
+    }catch(e){if(token===m.token&&m.visible)programMonitorStep(`Log update failed: ${e.message}`,true)}
+    finally{
+      if(token===m.pollingToken)m.polling=false;
+      if(m.visible&&token===m.token&&m.processStatus==='running')m.timer=setTimeout(programMonitorPoll,900);
+    }
+  }
+  function programMonitorEvent(event){
+    if(event?.tool!=='code_job'||!['tool_start','tool_result'].includes(event.event))return;
+    const m=App.programMonitor,op=String(event.arguments?.operation||event.code_job?.operation||'');
+    if(m.dismissed)return;
+    if(event.event==='tool_start'&&op==='new'){
+      m.steps=[];m.jobId='';m.status='';m.processStatus='';m.token++;if(m.timer)clearTimeout(m.timer);
+      if($('#programMonitorOutput'))$('#programMonitorOutput').textContent='';
+      if($('#programMonitorCode'))$('#programMonitorCode').textContent='';
+      if($('#programMonitorSteps'))$('#programMonitorSteps').innerHTML='';
+    }
+    m.visible=true;m.streaming=true;const root=$('#programMonitor');if(root)root.hidden=false;
+    if(m.closeTimer){clearTimeout(m.closeTimer);m.closeTimer=null}
+    if(event.event==='tool_start'){
+      const a=event.arguments||{};if(a.job_id&&a.job_id!==m.jobId){m.jobId=String(a.job_id);m.token++;}
+      const target=a.path||a.name||(Array.isArray(a.packages)?a.packages.join(', '):'');
+      programMonitorStep(`${programAction[op]||op||'Agent action'}${target?` · ${String(target).slice(0,120)}`:''}`);
+      if($('#programMonitorCode')){
+        const preview=op==='write'?a.content:op==='replace'?`Replace:\n${a.old_text||''}\n\nWith:\n${a.new_text||''}`:op==='run'?(a.command?JSON.stringify(a.command):`Python: ${a.path||'main.py'}`):op==='install'?`pip install ${(a.packages||[]).join(' ')}`:null;
+        if(preview!=null)$('#programMonitorCode').textContent=String(preview).slice(0,12000);
+      }
+      if(op==='run'||op==='install')programMonitorStatus('starting');
+      else if(!m.processStatus)programMonitorStatus('preparing');
+    }else{
+      const detail=event.code_job||{};if(detail.job_id&&detail.job_id!==m.jobId){m.jobId=detail.job_id;m.token++;}
+      if(detail.output&&$('#programMonitorOutput'))$('#programMonitorOutput').textContent=detail.output;
+      if(!event.ok)programMonitorStep(`${programAction[op]||op||'Action'} failed · ${event.error_preview||'See Agent activity'}`,true);
+      else programMonitorStep(`${programAction[op]||op||'Action'} completed${detail.status?` · ${detail.status}`:''}`);
+      const authoritative=programProcessStates.has(String(detail.status||''));
+      if(authoritative)programMonitorStatus(String(detail.status));
+      else if(!event.ok){
+        // The tool action failed, not necessarily the program. Preserve a live
+        // process and re-read its real state instead of showing a false failure.
+        if(m.processStatus==='running'){programMonitorStatus('running');programMonitorPoll();}
+        else programMonitorStatus('action_error');
+      }else programMonitorStatus(m.processStatus||detail.status||'ready');
+      if(m.processStatus==='running')programMonitorPoll();else programMonitorAutoClose();
+    }
+  }
+  function programMonitorFinish(){
+    const m=App.programMonitor;m.streaming=false;if(m.visible&&m.processStatus==='running')programMonitorPoll();else programMonitorAutoClose();
+  }
+  $('#programMonitorClose').onclick=()=>{App.programMonitor.dismissed=true;programMonitorHide()};
+  $('#programMonitorPopout').onclick=()=>{
+    const jobId=App.programMonitor.jobId;
+    if(!jobId){programMonitorStep('The separate window is available once the project has been created.');return}
+    const popup=window.open('/program-monitor.html?job='+encodeURIComponent(jobId),'LlamaForgeProgram_'+jobId,'popup,width=720,height=650');
+    if(!popup)programMonitorStep('Browser blocked a separate window; this monitor remains open.',true);
+  };
+  $('#programMonitorStop').onclick=async()=>{const m=App.programMonitor;if(!m.jobId)return;try{const r=await api('/api/agent/code-job',{method:'POST',body:{operation:'stop',job_id:m.jobId}});programMonitorStep('Stop requested');programMonitorStatus(r.result?.status||'stopped');programMonitorPoll()}catch(e){programMonitorStep(`Stop failed: ${e.message}`,true)}};
+  $('#programMonitorSend').onclick=async()=>{const m=App.programMonitor,input=$('#programMonitorInput');if(!m.jobId||!input?.value)return;try{await api('/api/agent/code-job',{method:'POST',body:{operation:'input',job_id:m.jobId,content:input.value}});programMonitorStep('Input queued');input.value=''}catch(e){programMonitorStep(`Input failed: ${e.message}`,true)}};
+  $('#programMonitorInput').onkeydown=e=>{if(e.key==='Enter'){$('#programMonitorSend').click();e.preventDefault()}};
+
+  async function generateAssistant(opts={}){
+    App.programMonitor.dismissed=false;
+    const repair=!!opts.repair,t=currentThread();if(!inferenceReady()){const external=externalInference();toast(external?'API model is not ready':'Model is not ready',external?'Choose and activate an API model before chatting.':'Run the selected local model first.','info');return;}
+    const prefs=chatPrefs(),assistant={role:'assistant',content:'',reasoning:'',reasoningStreaming:false,streaming:true,meta:{repaired:repair,repairIssues:opts.issues||[]}};t.messages.push(assistant);saveThreads();setStreamingUI(true);renderMessages();
+    const started=performance.now();let first=0,reasoningStarted=0,chars=0,quality=null;const controller=new AbortController();App.chatAbort=controller;App.generationThreadId=t.id;
+    const requestId=crypto.randomUUID?crypto.randomUUID():String(Date.now());
+    App.generationId=requestId;
+    controller.signal.addEventListener('abort',()=>{fetch('/api/chat/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:requestId}),keepalive:true}).catch(()=>{});},{once:true});
+    try{
+      const payload={request_id:requestId,messages:t.messages.filter(m=>!m.streaming).map(({role,content,attachments})=>({role,content,attachments})),mode:prefs.mode,reasoning:prefs.reasoning,reasoning_budget:prefs.reasoningBudget,max_tokens:prefs.maxTokens,repair,repair_issues:opts.issues||[],agent:agentEnabled()};
+      const res=await fetch('/api/chat/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});if(!res.ok)throw new Error(`Chat failed (${res.status})`);
+      const reader=res.body.getReader(),decoder=new TextDecoder(),protocol=new LFProtocol.SSEDecoder();
+      while(true){const {value,done}=await reader.read();if(controller.signal.aborted)throw new DOMException('Cancelled','AbortError');if(done)break;for(const obj of protocol.push(decoder.decode(value,{stream:true}))){if(obj.error)throw new Error(obj.error);
         if(obj.type==='profile'&&obj.profile){assistant.meta.profile=obj.profile;updateStreamingAssistant();updateSmartLabels(obj.profile);}
         else if(obj.type==='reasoning'&&obj.delta){if(!reasoningStarted)reasoningStarted=performance.now();assistant.reasoningStreaming=true;assistant.reasoning+=obj.delta;updateStreamingAssistant();}
         else if((obj.type==='text'||obj.delta)&&obj.delta){assistant.reasoningStreaming=false;if(!first){first=performance.now();if(reasoningStarted)assistant.meta.thinkingTime=((first-reasoningStarted)/1000).toFixed(1)}assistant.content+=obj.delta;chars+=obj.delta.length;updateStreamingAssistant();}
-        else if(obj.type==='agent'){assistant.meta.agent=true;assistant.meta.agentEvents=assistant.meta.agentEvents||[];assistant.meta.agentEvents.push(obj);if(obj.event==='tool_start'){assistant.meta.agentTool=obj.tool||'tool';toast('Agent tool',obj.tool||'Running tool','info',1800)}renderMessages();const sc=$('#chatScroll');if(sc&&App.chatFollowTail)sc.scrollTop=sc.scrollHeight;}
+        else if(obj.type==='attachments'){for(const row of obj.messages||[]){const message=t.messages[row.index];if(!message)continue;for(const receipt of row.attachments||[]){const attachment=(message.attachments||[]).find(x=>x.id===receipt.client_id||x.attachment_id===receipt.attachment_id);if(attachment){Object.assign(attachment,receipt,{unavailable:false});delete attachment.data_url;delete attachment.text;}}}saveThreads();}
+        else if(obj.type==='agent'){assistant.meta.agent=true;assistant.meta.agentEvents=assistant.meta.agentEvents||[];assistant.meta.agentEvents.push(obj);if(obj.event==='tool_start')assistant.meta.agentTool=obj.tool||'tool';programMonitorEvent(obj);renderMessages();const sc=$('#chatScroll');if(sc&&App.chatFollowTail)sc.scrollTop=sc.scrollHeight;}
         else if(obj.type==='quality'&&obj.quality){quality=obj.quality;assistant.meta.quality=quality;}
+        else if(obj.type==='meta'&&obj.trace){assistant.meta.trace=obj.trace;}
         else if(obj.type==='meta'&&obj.usage){assistant.meta.usage=obj.usage;}
+        else if(obj.type==='meta'&&obj.finish_reason){assistant.meta.finishReason=String(obj.finish_reason);assistant.meta.outputLimit=Number(obj.output_limit||assistant.meta.profile?.max_tokens||0);}
         else if(obj.type==='meta'&&obj.context){assistant.meta.context=obj.context;if(obj.context.trimmed_turns)toast('Context managed',`${obj.context.trimmed_turns} older turn${obj.context.trimmed_turns===1?'':'s'} removed to stay inside the model context.`,'info',3600);}
       }}
-      assistant.streaming=false;assistant.reasoningStreaming=false;const elapsed=(performance.now()-started)/1000;assistant.meta.elapsed=elapsed.toFixed(1);if(first)assistant.meta.ttft=((first-started)/1000).toFixed(1);assistant.meta.speed=(chars/4/Math.max(.2,elapsed)).toFixed(1);t.updated=Date.now();saveThreads();await updateContextCount();
+      if(controller.signal.aborted)throw new DOMException('Cancelled','AbortError');
+      if(!protocol.done)throw new Error('Connection ended before the final marker');
+      if(['length','max_tokens','max_output_tokens'].includes(assistant.meta.finishReason))toast('Output limit reached',`This response reached the ${assistant.meta.outputLimit||'configured'} token limit. Change Context & output in Settings if you need a longer answer.`,'info',6500);
+      assistant.streaming=false;assistant.reasoningStreaming=false;const elapsed=(performance.now()-started)/1000;assistant.meta.elapsed=elapsed.toFixed(1);if(first)assistant.meta.ttft=((first-started)/1000).toFixed(1);if(first&&assistant.meta.usage?.completion_tokens)assistant.meta.speed=(Number(assistant.meta.usage.completion_tokens)/Math.max(.2,(performance.now()-first)/1000)).toFixed(1);t.updated=Date.now();saveThreads();await updateContextCount();
       const repairable=['echo','empty','repetition','wrong_language','too_short','template_leak'];
-      if(!repair&&quality&&!quality.ok&&(quality.issues||[]).some(x=>repairable.includes(x))){
+      if(App.activeThreadId===t.id&&!repair&&quality&&!quality.ok&&(quality.issues||[]).some(x=>repairable.includes(x))){
         const issues=quality.issues||[];t.messages.pop();saveThreads();App.streaming=false;App.chatAbort=null;toast('Auto repair',humanizeIssues(issues),'info',4200);return await generateAssistant({repair:true,issues});
       }
       // Do not train on a failed first attempt. Only the final accepted response is learned.
-      setStreamingUI(false);finalizeAssistantRow(assistant);
-      await learnTurnIfNeeded(assistant);
-    }catch(e){assistant.streaming=false;assistant.reasoningStreaming=false;if(e.name==='AbortError'){if(!assistant.content&&!assistant.reasoning)t.messages.pop()}else{assistant.content=assistant.content||`Generation failed: ${e.message}`;assistant.error=true;toast('Generation failed',e.message,'error',6500)}saveThreads();}
-    finally{App.chatAbort=null;setStreamingUI(false);if(App.route==='chat'){finalizeAssistantRow(assistant);updateContextUI();}}
+      setStreamingUI(false);programMonitorFinish();finalizeAssistantRow(assistant);
+      if(!controller.signal.aborted)await learnTurnIfNeeded(assistant,t);
+    }catch(e){assistant.streaming=false;assistant.reasoningStreaming=false;if(e.name==='AbortError'){if(!assistant.content&&!assistant.reasoning){const index=t.messages.indexOf(assistant);if(index>=0)t.messages.splice(index,1)}}else{assistant.content=assistant.content||`Generation failed: ${e.message}`;assistant.error=true;toast('Generation failed',e.message,'error',6500)}saveThreads();}
+    finally{if(App.generationId===requestId){programMonitorFinish();App.chatAbort=null;App.generationId=null;App.generationThreadId=null;setStreamingUI(false);if(App.route==='chat'&&App.activeThreadId===t.id){finalizeAssistantRow(assistant);updateContextUI();}}}
   }
   function humanizeIssues(issues){const names={echo:'The model echoed your prompt',empty:'The model returned an empty answer',repetition:'The model fell into a repetition loop',wrong_language:'The answer came back in the wrong language',too_short:'The answer was suspiciously incomplete',template_leak:'The model exposed chat-template tokens'};return (issues||[]).map(x=>names[x]||x).join(' · ')+' — retrying once with a targeted recovery.'}
   function updateSmartLabels(profile){const txt=profile?.task?`Auto · ${profile.task[0].toUpperCase()+profile.task.slice(1)}`:'Auto';$$('#smartProfileButton span, #smartProfileInline span').forEach(el=>el.textContent=txt)}
@@ -1550,7 +2561,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
   function updateStreamingAssistant(){
     if(streamRAF||streamPaintTimer)return;
     const paint=()=>{
-      streamRAF=0;streamPaintTimer=0;if(App.route!=='chat')return;
+      streamRAF=0;streamPaintTimer=0;if(App.route!=='chat'||App.generationThreadId!==App.activeThreadId)return;
       const t=currentThread(),i=t.messages.length-1,m=t.messages[i],row=document.querySelector(`[data-message-index="${i}"]`);if(!row){renderMessages();return}
       const content=$('.assistant-content',row);if(content){content.classList.add('is-streaming');let text=$('.stream-text',content);if(!text){content.innerHTML='<span class="stream-text"></span><span class="typing-cursor"></span>';text=$('.stream-text',content)}text.textContent=m.content||''}
       const panel=$('.reasoning-panel',row);if(panel){const visible=!!(m.reasoning||m.reasoningStreaming);panel.classList.toggle('hidden',!visible);if(m.reasoningStreaming)panel.open=true;const label=$('.reasoning-label',panel);if(label)label.textContent=m.reasoningStreaming?'Thinking…':m.meta?.thinkingTime?`Thought for ${m.meta.thinkingTime}s`:'Thinking';const body=$('.reasoning-body',panel);if(body){body.classList.add('is-streaming');let text=$('.stream-text',body);if(!text){body.innerHTML='<span class="stream-text"></span>';text=$('.stream-text',body)}text.textContent=m.reasoning||''}}
@@ -1567,19 +2578,29 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     root.innerHTML=`<div class="modal-backdrop"><div class="modal premium-modal smart-profile-modal"><div class="modal-kicker">SMART GENERATION</div><h3>${profile?`${escapeHtml(profile.family)} · ${escapeHtml(profile.task)}`:'Automatic tuning'}</h3><p>Auto adapts this turn using model metadata, architecture, language and intent. It also decides whether thinking is useful instead of forcing it on every prompt.</p>${profile?`<div class="confidence-row"><span>Decision confidence</span><strong>${profile.confidence||0}%</strong></div><div class="tuning-grid"><div><span>Temperature</span><strong>${profile.temperature}</strong></div><div><span>Top P</span><strong>${profile.top_p}</strong></div><div><span>Top K</span><strong>${profile.top_k}</strong></div><div><span>Repeat</span><strong>${profile.repeat_penalty}</strong></div><div><span>Thinking</span><strong>${escapeHtml(profile.effective_reasoning||profile.reasoning)}</strong></div><div><span>Output cap</span><strong>${profile.max_tokens}</strong></div></div><div class="smart-notes">${(profile.notes||[]).map(n=>`<div>${icon('check')}<span>${escapeHtml(n)}</span></div>`).join('')}</div>`:''}<div class="inline-actions"><button class="primary-button" data-yes>Done</button></div></div></div>`;$('[data-yes]',root).onclick=()=>root.innerHTML='';
   }
   function showChatOptions(){
-    const p=chatPrefs(),root=$('#modalRoot');root.innerHTML=`<div class="modal-backdrop"><div class="modal premium-modal"><div class="modal-kicker">GENERATION CONTROLS</div><h3>Automatic by default</h3><p>Most models work best when LlamaForge chooses settings per turn. Manual controls are here for experiments, not as a requirement.</p><div class="form-grid modal-form"><div class="field"><label>Mode</label><select id="chatMode"><option value="auto">Auto</option><option value="general">General</option><option value="coding">Coding</option><option value="reasoning">Reasoning</option><option value="creative">Creative</option><option value="precise">Precise</option><option value="translation">Translation</option></select></div><div class="field"><label>Thinking</label><select id="reasoningMode"><option value="auto">Auto per request</option><option value="on">Always on</option><option value="off">Always off</option></select></div><div class="field"><label>Thinking budget</label><input id="reasoningBudget" type="number" min="-1" max="32768" value="${p.reasoningBudget}"><small>-1 = model default</small></div><div class="field"><label>Maximum new tokens</label><input id="maxTokens" type="number" min="16" max="32768" value="${p.maxTokens}"></div></div><div class="inline-actions"><button class="secondary-button" data-no>Cancel</button><button class="primary-button" data-yes>Save</button></div></div></div>`;
-    $('#chatMode').value=p.mode;$('#reasoningMode').value=p.reasoning;$('[data-no]',root).onclick=()=>root.innerHTML='';$('[data-yes]',root).onclick=()=>{localStorage.setItem('lf.chatMode',$('#chatMode').value);localStorage.setItem('lf.reasoning',$('#reasoningMode').value);localStorage.setItem('lf.reasoningBudget',$('#reasoningBudget').value);localStorage.setItem('lf.maxTokens',$('#maxTokens').value);root.innerHTML='';renderChat($('#view'));toast('Generation controls saved')};
+    const p=chatPrefs(),root=$('#modalRoot');root.innerHTML=`<div class="modal-backdrop"><div class="modal premium-modal"><div class="modal-kicker">GENERATION CONTROLS</div><h3>Automatic by default</h3><p>Context and maximum answer tokens are shared across local and API models in Settings. Current output limit: ${p.maxTokens.toLocaleString()} tokens.</p><div class="form-grid modal-form"><div class="field"><label>Mode</label><select id="chatMode"><option value="auto">Auto</option><option value="general">General</option><option value="coding">Coding</option><option value="reasoning">Reasoning</option><option value="creative">Creative</option><option value="precise">Precise</option><option value="translation">Translation</option></select></div><div class="field"><label>Thinking</label><select id="reasoningMode"><option value="auto">Auto per request</option><option value="on">Always on</option><option value="off">Always off</option></select></div><div class="field"><label>Thinking budget</label><input id="reasoningBudget" type="number" min="-1" max="32768" value="${p.reasoningBudget}"><small>-1 = model default</small></div></div><div class="inline-actions"><button class="secondary-button" data-settings>Context & output settings</button><button class="secondary-button" data-no>Cancel</button><button class="primary-button" data-yes>Save</button></div></div></div>`;
+    $('#chatMode').value=p.mode;$('#reasoningMode').value=p.reasoning;$('[data-no]',root).onclick=()=>root.innerHTML='';$('[data-settings]',root).onclick=()=>{root.innerHTML='';setRoute('settings')};$('[data-yes]',root).onclick=()=>{localStorage.setItem('lf.chatMode',$('#chatMode').value);localStorage.setItem('lf.reasoning',$('#reasoningMode').value);localStorage.setItem('lf.reasoningBudget',$('#reasoningBudget').value);localStorage.removeItem('lf.maxTokens');root.innerHTML='';renderChat($('#view'));toast('Generation controls saved')};
   }
 
   async function refreshState(forceRender=false){
     try{
-      const next=await api('/api/state'); App.state=next; App.lastStateError='';
+      const telegramRevision=App.telegramRevision;
+      const next=await api('/api/state');
+      if(telegramRevision!==App.telegramRevision&&next.agent&&App.state?.agent?.telegram)next.agent.telegram=App.state.agent.telegram;
+      App.state=next; App.lastStateError='';
+      updateTelegramControls();
       if(!(App.route==='chat'&&App.streaming))updateChrome();
       const key=stateRenderKey(next);
+      // Do not destroy/recreate interactive forms while the user is entering data.
+      // API provider cards start the guard on pointer-down (before focus), because
+      // a backend event can otherwise rebuild the DOM between mouse-down and focus.
       // Do not destroy/recreate the Settings controls while a memory-mode choice
       // is pending. Replacing that DOM node was the reason the selector appeared
       // to "jump" back to Hybrid before the user could apply it.
-      if(App.route==='settings'&&(App.settingsMemoryDirty||App.settingsFormDirty)&&!forceRender){
+      const protectedForm=(App.route==='settings'&&(App.settingsMemoryDirty||App.settingsFormDirty))||(App.route==='agent'&&(Object.keys(App.agentDraft).length||App.agentBusy||App.telegramForm.busy||agentInputFocused()))||(App.route==='models'&&apiProviderEditing());
+      const transientInteraction=uiInteractionActive();
+      if(protectedForm||transientInteraction){
+        if(key!==App.renderKey)App.uiDeferredRender=true;
         updateLiveMetrics(next.live,next.performance||next.server?.performance);
       }else if(forceRender || key!==App.renderKey){App.renderKey=key;if(App.route==='chat'&&$('#chatScroll'))updateChatStateOnly();else render();}
       else updateLiveMetrics(next.live,next.performance||next.server?.performance);
@@ -1609,24 +2630,32 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
   }
   function connectEvents(){
     if(App.eventSource)try{App.eventSource.close()}catch{}
-    const es=new EventSource('/api/events'); App.eventSource=es;
-    es.onmessage=e=>{
-      let ev;try{ev=JSON.parse(e.data)}catch{return}
+    const cursor=new LFProtocol.EventCursor();let live=false,polling=false;
+    const receive=ev=>{
+      if(!cursor.accept(ev))return;
       if(ev.type==='metrics'){updateLiveMetrics(ev.live||{},ev.performance||{});return}
       if(ev.type==='log'){
         if(App.route==='logs'){const out=$('#logOutput');if(out){const near=out.scrollTop+out.clientHeight>=out.scrollHeight-80;out.textContent+=(out.textContent?'\n':'')+(ev.line||'');const count=$('#logCount');if(count)count.textContent=`${out.textContent?out.textContent.split('\n').length:0} lines`;if(near)out.scrollTop=out.scrollHeight;}}
         return;
       }
       if(ev.type==='brain'){if(ev.brain){const before=brainStructuralKey(App.state?.brain||{});if(App.state)App.state.brain=ev.brain;patchBrainChatState(ev.brain);patchBrainPageState(ev.brain);if(App.route==='brain'&&brainStructuralKey(ev.brain)!==before)scheduleStateRefresh();}return;}
-      if(['state','models','job','connected'].includes(ev.type))scheduleStateRefresh();
+      if(['state','models','job','connected','resync'].includes(ev.type))scheduleStateRefresh();
     };
-    es.onerror=()=>{ /* EventSource reconnects automatically; never rebuild the UI here. */ };
+    const poll=async()=>{
+      if(polling)return;polling=true;
+      try{while(!live){try{const result=await api('/api/events/poll?after='+cursor.revision);for(const ev of result.events||[])receive(ev)}catch{await sleep(1500)}}}finally{polling=false}
+    };
+    if(!window.EventSource){poll();return;}
+    const es=new EventSource('/api/events');App.eventSource=es;
+    es.onopen=()=>{live=true};
+    es.onmessage=e=>{let ev;try{ev=JSON.parse(e.data)}catch{return}receive(ev)};
+    es.onerror=()=>{live=false;poll()};
   }
   function updateChatStateOnly(){
-    updateChrome();const ss=App.state?.server||{},m=App.state?.active_model;
-    const brain=App.state?.brain||{};App.brainLearning=brain.job?.state==='running'&&brain.job?.stage!=='setup';const ta=$('#composerInput'),send=$('#sendButton');if(ta){ta.disabled=!ss.ready||App.brainLearning;ta.placeholder=App.brainLearning?'Learning this turn into weights…':ss.ready?'Message your local model…':ss.running?'Model is loading…':'Load a model to start chatting'}if(send&&!App.streaming)send.disabled=!ss.ready||App.brainLearning;
-    const status=$('.local-status');if(status){status.classList.toggle('ready',!!ss.ready);status.innerHTML=`<span></span>${ss.ready?'Ready':ss.running?'Loading':'Offline'}`}
-    const mb=$('#chatModelButton');if(mb&&m){const name=$('.model-switch-name',mb),quant=$('.model-switch-quant',mb);if(name)name.textContent=shortName(m.name,34);if(quant)quant.textContent=m.quantization||'GGUF'}
+    updateChrome();const ss=App.state?.server||{},inf=inferenceInfo(App.state||{}),m=activeDisplayModel(App.state||{});
+    patchBrainChatState(App.state?.brain||{});
+    const status=$('.local-status');if(status){status.classList.toggle('ready',!!inf.ready);status.innerHTML=`<span></span>${inf.ready?(inf.external?'API Ready':'Ready'):(inf.backend==='local'&&ss.running)?'Loading':'Offline'}`}
+    const mb=$('#chatModelButton');if(mb&&m){const name=$('.model-switch-name',mb),quant=$('.model-switch-quant',mb);if(name)name.textContent=shortName(m.name||m.id||'',34);if(quant)quant.textContent=inf.external?String(inf.backend||'API').toUpperCase():(m.quantization||'GGUF')}
     updateContextUI();
   }
 
@@ -1655,7 +2684,24 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
     paint();setTimeout(()=>input.focus(),10);
   }
 
+  // Keep live backend refreshes from replacing controls between pointer-down,
+  // focus, typing, IME composition, selection changes and the matching click.
+  // This is intentionally generic so every current/future form gets the same
+  // stability guarantee instead of accumulating route-specific UI hotfixes.
+  if(document.addEventListener){
+    document.addEventListener('pointerdown',e=>{if(interactiveUIControl(e.target)){holdUIInteraction(950);scheduleDeferredUIRender(1020)}},true);
+    document.addEventListener('mousedown',e=>{if(interactiveUIControl(e.target)){holdUIInteraction(950);scheduleDeferredUIRender(1020)}},true);
+    document.addEventListener('focusin',e=>{if(editableUIControl(e.target))holdUIInteraction(500)},true);
+    document.addEventListener('input',e=>{if(editableUIControl(e.target))holdUIInteraction(900)},true);
+    document.addEventListener('change',e=>{if(editableUIControl(e.target)){holdUIInteraction(700);scheduleDeferredUIRender(760)}},true);
+    document.addEventListener('focusout',e=>{if(editableUIControl(e.target))scheduleDeferredUIRender(180)},true);
+    document.addEventListener('pointerup',e=>{if(interactiveUIControl(e.target))scheduleDeferredUIRender(980)},true);
+  }
+
   // shell events
+  $('#historySearch').oninput=e=>{App.historyQuery=e.target.value;renderRecent()};
+  $('#sidebarBackdrop').onclick=()=>document.querySelector('.app-shell').classList.remove('mobile-menu');
+
   $('#newChatButton').onclick=newThread; if($('#clearLocalChats'))$('#clearLocalChats').onclick=clearAllThreads;
   $('#openSettings').onclick=()=>setRoute('settings');
   $('#modelPill').onclick=()=>setRoute('models');
@@ -1663,7 +2709,7 @@ You choose the model once. Chat can start as soon as the GGUF is ready; learning
   $('#collapseSidebar').onclick=()=>{App.sidebarCollapsed=!App.sidebarCollapsed;localStorage.setItem('lf.sidebarCollapsed',App.sidebarCollapsed?'1':'0');renderNav()};
   $('#mobileNavButton').onclick=()=>document.querySelector('.app-shell').classList.add('mobile-menu');
   $('#sidebarToggle').onclick=()=>document.querySelector('.app-shell').classList.remove('mobile-menu');
-  window.addEventListener('hashchange',()=>{const r=location.hash.slice(1);if(r&&r!==App.route){App.route=r;renderNav();render()}});
+  window.addEventListener('hashchange',()=>{const r=location.hash.slice(1);if(r&&r!==App.route){App.route=routes.some(x=>x[0]===r)?r:'models';App.routeEpoch++;App.uiDeferredRender=false;cancelUIDeferredTimer();renderNav();render()}});
   window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();showCommandPalette()}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='n'){e.preventDefault();newThread()}if(e.key==='Escape'&&App.streaming){e.preventDefault();stopGeneration()}});
 
   // first paint

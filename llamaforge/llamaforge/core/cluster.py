@@ -23,6 +23,7 @@ from dataclasses import asdict, dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
+from .network_policy import direct_urlopen
 
 from .config import APP_DIR
 from .hardware import HardwareInfo, detect_hardware
@@ -39,6 +40,28 @@ DISCOVERY_MAGIC = "LLAMAFORGE_CLUSTER_V1"
 CLUSTER_PATH = APP_DIR / "cluster.json"
 PROFILE_PATH = APP_DIR / "cluster-profiles.json"
 GB = 1024 ** 3
+CLUSTER_KEYRING_SERVICE = "LlamaForge.Cluster"
+
+
+def _cluster_token_get(node_id: str) -> str:
+    try:
+        import keyring
+        return str(keyring.get_password(CLUSTER_KEYRING_SERVICE, str(node_id)) or "")
+    except Exception:
+        return ""
+
+
+def _cluster_token_set(node_id: str, token: str) -> bool:
+    try:
+        import keyring
+        if token:
+            keyring.set_password(CLUSTER_KEYRING_SERVICE, str(node_id), str(token))
+        else:
+            try: keyring.delete_password(CLUSTER_KEYRING_SERVICE, str(node_id))
+            except Exception: pass
+        return True
+    except Exception:
+        return False
 
 
 def _now() -> float:
@@ -517,7 +540,10 @@ class WorkerService:
         self.stop_event = threading.Event()
         self.rpc_process = ManagedProcess()
         self.rpc_port = int(manager.config.get("worker_rpc_port", DEFAULT_RPC_PORT) or DEFAULT_RPC_PORT)
-        self.pairing_code = f"{random.randint(0, 999999):06d}"
+        self.pairing_code = f"{secrets.randbelow(1_000_000):06d}"
+        self.pairing_expires_at = _now() + 300.0
+        self.pair_failures = 0
+        self.pair_block_until = 0.0
         self.current_limits = NodeLimits(**manager.config.get("worker_limits", {})) if isinstance(manager.config.get("worker_limits"), dict) else NodeLimits()
         self.current_task = ""
         self.last_master = ""
@@ -539,8 +565,24 @@ class WorkerService:
         wanted = self._token_hash(token)
         return any(hmac.compare_digest(wanted, str(v)) for v in self._trusted().values())
 
+    def _rotate_pairing_code(self) -> None:
+        self.pairing_code = f"{secrets.randbelow(1_000_000):06d}"
+        self.pairing_expires_at = _now() + 300.0
+
     def pair(self, master_id: str, master_name: str, code: str) -> dict[str, Any]:
-        if str(code).strip() != self.pairing_code:
+        now = _now()
+        if now < self.pair_block_until:
+            raise PermissionError(f"Too many incorrect pairing attempts; try again in {max(1, int(self.pair_block_until-now))} seconds")
+        if now >= self.pairing_expires_at:
+            self._rotate_pairing_code()
+            self.pair_failures = 0
+            raise PermissionError("Pairing code expired; use the new code shown on the Worker")
+        if not hmac.compare_digest(str(code).strip(), self.pairing_code):
+            self.pair_failures += 1
+            if self.pair_failures >= 5:
+                self.pair_block_until = now + 60.0
+                self.pair_failures = 0
+                self._rotate_pairing_code()
             raise PermissionError("Pairing code is incorrect")
         if not master_id:
             raise ValueError("master_id is required")
@@ -550,8 +592,9 @@ class WorkerService:
         if isinstance(names, dict):
             names[master_id] = str(master_name or master_id)
         self.manager.save()
-        # Rotate the visible code after every successful pairing.
-        self.pairing_code = f"{random.randint(0, 999999):06d}"
+        self.pair_failures = 0
+        self.pair_block_until = 0.0
+        self._rotate_pairing_code()
         return {"ok": True, "token": token, "node_id": self.manager.node_id, "hostname": socket.gethostname()}
 
     def capabilities(self) -> dict[str, Any]:
@@ -825,25 +868,36 @@ class ClusterManager:
             # Persist master tokens and user limits, never transient online/load data.
             known: dict[str, Any] = {}
             for node_id, n in self.nodes.items():
+                if n.token:
+                    _cluster_token_set(node_id, n.token)
                 known[node_id] = {
                     "node_id": n.node_id, "hostname": n.hostname, "ip": n.ip,
                     "control_port": n.control_port, "rpc_port": n.rpc_port, "version": n.version,
-                    "paired": n.paired, "token": n.token, "limits": asdict(n.limits), "benchmark": asdict(n.benchmark),
+                    "paired": bool(n.paired and n.token), "limits": asdict(n.limits), "benchmark": asdict(n.benchmark),
                 }
             self.config["known_nodes"] = known
             _json_save(CLUSTER_PATH, self.config)
 
     def _load_known_nodes(self) -> None:
         raw = self.config.get("known_nodes") if isinstance(self.config.get("known_nodes"), dict) else {}
+        migrated = False
         for node_id, item in raw.items():
             if not isinstance(item, dict): continue
             limits = NodeLimits(**item.get("limits", {})) if isinstance(item.get("limits"), dict) else NodeLimits()
             bench = NodeBenchmark(**item.get("benchmark", {})) if isinstance(item.get("benchmark"), dict) else NodeBenchmark()
+            legacy_token = str(item.get("token") or "")
+            if legacy_token:
+                _cluster_token_set(str(node_id), legacy_token)
+                item.pop("token", None)
+                migrated = True
+            secure_token = _cluster_token_get(str(node_id)) or legacy_token
             self.nodes[str(node_id)] = ClusterNode(
                 node_id=str(node_id), hostname=str(item.get("hostname") or node_id), ip=str(item.get("ip") or ""),
                 control_port=_safe_int(item.get("control_port"), CONTROL_PORT), rpc_port=_safe_int(item.get("rpc_port"), DEFAULT_RPC_PORT),
-                version=str(item.get("version") or ""), paired=bool(item.get("paired")), token=str(item.get("token") or ""), limits=limits, benchmark=bench,
+                version=str(item.get("version") or ""), paired=bool(item.get("paired") and secure_token), token=secure_token, limits=limits, benchmark=bench,
             )
+        if migrated:
+            _json_save(CLUSTER_PATH, self.config)
 
     @property
     def role(self) -> str:
@@ -980,7 +1034,7 @@ class ClusterManager:
         if auth: headers["Authorization"] = "Bearer " + auth
         req = urllib.request.Request(self._worker_url(node, path), data=payload, headers=headers, method=method)
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
+            with direct_urlopen(req, timeout=timeout) as r:
                 data = json.loads(r.read().decode("utf-8", errors="replace") or "{}")
                 if isinstance(data, dict) and data.get("error"): raise RuntimeError(str(data.get("error")))
                 return data if isinstance(data, dict) else {}
@@ -1025,7 +1079,7 @@ class ClusterManager:
                 size = 2 * 1024 * 1024
                 req = urllib.request.Request(self._worker_url(node, f"/v1/network-test?size={size}"), headers={"Authorization":"Bearer "+node.token, "User-Agent":"LlamaForge-Cluster/1"})
                 t0 = time.perf_counter()
-                with urllib.request.urlopen(req, timeout=6.0) as r: blob = r.read(size + 1024)
+                with direct_urlopen(req, timeout=6.0) as r: blob = r.read(size + 1024)
                 dt = max(0.001, time.perf_counter() - t0)
                 node.network_mbps = round(len(blob) * 8 / dt / 1_000_000, 1)
             except Exception: pass

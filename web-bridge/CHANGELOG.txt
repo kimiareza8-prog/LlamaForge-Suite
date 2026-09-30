@@ -1,4 +1,9 @@
-3.9.0-live-stream-files
+3.10.1-updater-reliability
+- The bundled updater now fails if a required package source file is missing, so rollback can handle a partial activation.
+
+3.10.0-api-models
+- External OpenAI/Gemini API models published by LlamaForge can be selected from the Web model picker.
+- API model entries are labeled by provider and do not expose the local Unload action.
 - Added live SSE chat-state streaming for partial Agent/final answers, with automatic long-poll fallback when hosting buffers SSE.
 - Accepts arbitrary attachment types and sends non-image files as opaque staged attachments for metadata-first Skill routing.
 - Raised safe Bridge payload allowance for staged files while retaining local workspace size limits.

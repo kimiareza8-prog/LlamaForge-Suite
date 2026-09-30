@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
-  <meta name="theme-color" content="#1f2024" />
+  <meta name="theme-color" content="#212121" />
   <title>LlamaForge — Local AI Studio</title>
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/macos.css" />
@@ -26,6 +26,7 @@
       <nav id="nav" class="nav-list" aria-label="Main navigation"></nav>
 
       <div class="sidebar-section chats-section">
+        <label class="history-search"><input id="historySearch" type="search" placeholder="Search chats" aria-label="Search chats"></label>
         <div class="section-label nav-label chats-label-row"><span>Recent</span><button id="clearLocalChats" class="clear-chats-button" type="button" title="Clear chat history">Clear</button></div>
         <div id="recentChats" class="recent-chats"></div>
       </div>
@@ -40,6 +41,7 @@
       </div>
     </aside>
 
+    <button id="sidebarBackdrop" class="sidebar-backdrop" aria-label="Close navigation" tabindex="-1"></button>
     <main class="main-shell">
       <header class="topbar">
         <div class="topbar-left">
@@ -56,7 +58,14 @@
   </div>
 
   <div id="toastStack" class="toast-stack" aria-live="polite"></div>
+  <section id="programMonitor" class="program-monitor" role="region" aria-label="Agent program monitor" hidden>
+    <header class="program-monitor-head"><span class="program-monitor-light" aria-hidden="true"></span><strong>Agent · Program window</strong><span id="programMonitorStatus">Preparing…</span><button id="programMonitorPopout" type="button" title="Open a separate window">↗</button><button id="programMonitorClose" type="button" title="Hide monitor">×</button></header>
+    <div class="program-monitor-body"><div id="programMonitorSteps" class="program-monitor-steps" aria-live="polite"></div><div class="program-monitor-label">Code / action</div><pre id="programMonitorCode" class="program-monitor-code"></pre><div class="program-monitor-label">Live output</div><pre id="programMonitorOutput" class="program-monitor-output" aria-live="polite"></pre></div>
+    <footer class="program-monitor-foot"><span id="programMonitorJob">Waiting for project…</span><input id="programMonitorInput" type="text" placeholder="Input for the running program" aria-label="Program input"><button id="programMonitorSend" type="button">Send</button><button id="programMonitorStop" type="button" disabled>Stop</button></footer>
+  </section>
   <div id="modalRoot"></div>
+  <script src="/stream_protocol.js"></script>
+  <script src="/workspace_ui.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

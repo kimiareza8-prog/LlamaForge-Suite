@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Agent program · LlamaForge</title>
+<style>
+  :root{color-scheme:dark}body{margin:0;background:#101820;color:#e7f1f6;font:13px/1.5 system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}header{padding:16px 18px;background:#213a4c;border-bottom:1px solid #47677b;display:flex;align-items:center;gap:12px}header strong{font-size:17px}#status{margin-left:auto;color:#a6d6eb}main{display:flex;flex-direction:column;gap:13px;min-height:0;flex:1;padding:16px}h2{font-size:12px;color:#aac7d7;margin:0}pre{white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto;background:#121f29;border:1px solid #395263;border-radius:10px;margin:0;padding:12px;flex:1;font:12px/1.5 ui-monospace,Consolas,monospace;color:#d2f1d9}footer{display:flex;gap:8px;padding:12px 16px;border-top:1px solid #395263}input{flex:1;min-width:0;background:#101820;border:1px solid #49677a;border-radius:7px;color:#fff;padding:9px}button{background:#31566c;border:1px solid #62859a;border-radius:7px;color:#fff;padding:8px 12px;cursor:pointer}button:disabled{opacity:.4;cursor:default}#stop{background:#60353e}small{color:#a7b9c3}
+</style></head><body><header><strong>Agent · Program window</strong><span id="status">Connecting…</span></header>
+<main><small id="job"></small><h2>Live output</h2><pre id="output" aria-live="polite"></pre><small>Graphical programs open their own desktop window when the generated code creates one.</small></main>
+<footer><input id="input" placeholder="Input for the running program" aria-label="Program input"><button id="send">Send</button><button id="stop">Stop</button></footer>
+<script>
+(()=>{'use strict';
+  const job=new URLSearchParams(location.search).get('job')||'';
+  const $=id=>document.getElementById(id);$('job').textContent=job;
+  if(!/^job_[0-9a-f]{16}$/.test(job)){$('status').textContent='Invalid program';return}
+  let active=false,closed=false,closeTimer=null;
+  async function call(operation,content){
+    const res=await fetch('/api/agent/code-job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operation,job_id:job,content})});
+    const data=await res.json();if(!res.ok||!data.ok)throw Error(data.error||'Request failed');return data.result||{};
+  }
+  async function refresh(){
+    if(closed)return;
+    try{
+      const result=await call('logs');$('output').textContent=result.output||'';
+      $('status').textContent=result.status||'unknown';active=result.status==='running';
+      $('send').disabled=!active;$('stop').disabled=!active;$('input').disabled=!active;
+      if(result.status==='finished'&&!closeTimer&&window.opener)closeTimer=setTimeout(()=>window.close(),7000);
+      if(result.status!=='finished'&&closeTimer){clearTimeout(closeTimer);closeTimer=null}
+    }catch(e){$('status').textContent=e.message}
+    setTimeout(refresh,1000);
+  }
+  $('send').onclick=async()=>{if(!active||!$('input').value)return;try{await call('input',$('input').value);$('input').value=''}catch(e){$('status').textContent=e.message}};
+  $('input').onkeydown=e=>{if(e.key==='Enter'){$('send').click();e.preventDefault()}};
+  $('stop').onclick=async()=>{try{await call('stop');await refresh()}catch(e){$('status').textContent=e.message}};
+  window.addEventListener('beforeunload',()=>{closed=true});refresh();
+})();
+</script></body></html>

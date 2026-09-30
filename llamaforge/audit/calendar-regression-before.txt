@@ -1,0 +1,86 @@
+FFFFF                                                                    [100%]
+=================================== FAILURES ===================================
+_______ test_multiday_event_spans_visible_days_and_excludes_midnight_end _______
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_multiday_event_spans_visi0')
+
+    def test_multiday_event_spans_visible_days_and_excludes_midnight_end(tmp_path):
+        cal = CalendarStore(tmp_path)
+        event = cal.write('create', {'title': 'سفر', 'start': '2026-09-24T10:00', 'end': '2026-09-27T00:00'})
+        month = cal.month(1405, 7)
+        occupied = [d['gregorian'] for d in month['days'] if any(e['id'] == event['id'] for e in d['events'])]
+>       assert occupied == ['2026-09-24', '2026-09-25', '2026-09-26']
+E       AssertionError: assert ['2026-09-24'] == ['2026-09-24'... '2026-09-26']
+E         
+E         Right contains 2 more items, first extra item: '2026-09-25'
+E         Use -v to get more diff
+
+tests/test_calendar_ui.py:12: AssertionError
+__ test_month_clips_long_event_and_reports_overflow_without_losing_edit_data ___
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_month_clips_long_event_an0')
+
+    def test_month_clips_long_event_and_reports_overflow_without_losing_edit_data(tmp_path):
+        cal = CalendarStore(tmp_path)
+        for i in range(10):
+            cal.write('create', {'title': str(i), 'start': '2026-09-01T10:00', 'end': '2026-11-01T00:00'})
+        month = cal.month(1405, 7)
+>       assert len(month['events']) == 10
+                   ^^^^^^^^^^^^^^^
+E       KeyError: 'events'
+
+tests/test_calendar_ui.py:21: KeyError
+_________ test_calendar_rejects_blank_title_and_zero_duration[create] __________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_calendar_rejects_blank_ti0')
+operation = 'create'
+
+    @pytest.mark.parametrize('operation', ['create', 'update'])
+    def test_calendar_rejects_blank_title_and_zero_duration(tmp_path, operation):
+        cal = CalendarStore(tmp_path)
+        original = cal.write('create', {'title': 'جلسه', 'start': '2026-09-25T10:00'})
+        with pytest.raises(ValueError, match='title'):
+            cal.write(operation, {'id': original['id'], 'title': '  ', 'start': '2026-09-25T10:00'})
+>       with pytest.raises(ValueError, match='after start'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_calendar_ui.py:32: Failed
+_________ test_calendar_rejects_blank_title_and_zero_duration[update] __________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_calendar_rejects_blank_ti1')
+operation = 'update'
+
+    @pytest.mark.parametrize('operation', ['create', 'update'])
+    def test_calendar_rejects_blank_title_and_zero_duration(tmp_path, operation):
+        cal = CalendarStore(tmp_path)
+        original = cal.write('create', {'title': 'جلسه', 'start': '2026-09-25T10:00'})
+>       with pytest.raises(ValueError, match='title'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_calendar_ui.py:30: Failed
+_________________ test_imported_offsets_are_sorted_by_instant __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_imported_offsets_are_sort0')
+
+    def test_imported_offsets_are_sorted_by_instant(tmp_path):
+        cal = CalendarStore(tmp_path)
+        cal.import_snapshot({'events': [
+            {'id': 'later', 'title': 'later', 'start': '2026-09-25T07:00+00:00'},
+            {'id': 'earlier', 'title': 'earlier', 'start': '2026-09-25T10:00+04:00'},
+        ]})
+>       assert [e['id'] for e in cal.list_events()] == ['earlier', 'later']
+E       AssertionError: assert ['later', 'earlier'] == ['earlier', 'later']
+E         
+E         At index 0 diff: 'later' != 'earlier'
+E         Use -v to get more diff
+
+tests/test_calendar_ui.py:43: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_calendar_ui.py::test_multiday_event_spans_visible_days_and_excludes_midnight_end
+FAILED tests/test_calendar_ui.py::test_month_clips_long_event_and_reports_overflow_without_losing_edit_data
+FAILED tests/test_calendar_ui.py::test_calendar_rejects_blank_title_and_zero_duration[create]
+FAILED tests/test_calendar_ui.py::test_calendar_rejects_blank_title_and_zero_duration[update]
+FAILED tests/test_calendar_ui.py::test_imported_offsets_are_sorted_by_instant
+5 failed in 0.05s

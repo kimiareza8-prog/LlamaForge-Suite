@@ -1,0 +1,14 @@
+✔ composer text survives attachment/options rerender and returning to its thread (22.912709ms)
+✔ changing thread cancels the original stream before switching (3.273595ms)
+✔ calendar payload keeps server wall time when browser uses another timezone (1.814037ms)
+✔ late cancelled stream cannot delete or unlock the next response (13.732426ms)
+✔ agenda overlap excludes midnight end and includes the following occupied day (0.329207ms)
+✔ attachment finishing after navigation stays in its original conversation (3.895596ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 135.772749

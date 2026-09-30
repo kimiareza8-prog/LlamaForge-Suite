@@ -1,0 +1,32 @@
+✔ composer text survives attachment/options rerender and returning to its thread (24.115825ms)
+✔ changing thread cancels the original stream before switching (5.155186ms)
+✔ calendar payload keeps server wall time when browser uses another timezone (1.758687ms)
+✖ late cancelled stream cannot delete or unlock the next response (14.632155ms)
+✔ agenda overlap excludes midnight end and includes the following occupied day (1.219031ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 144.567396
+
+✖ failing tests:
+
+test at tests/test_workspace_ui.cjs:60:1
+✖ late cancelled stream cannot delete or unlock the next response (14.632155ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(App.threads[0].messages.includes(next))
+  
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:69:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

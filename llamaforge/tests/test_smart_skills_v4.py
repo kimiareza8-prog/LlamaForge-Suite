@@ -33,8 +33,8 @@ def test_calendar_and_files_remain_visible_when_external_write_is_off(tmp_path, 
     files = reg.shortlist("این فایل را بخوان", ["files"], limit=5)
     assert "calendar" in {x["name"] for x in cal}
     assert "workspace_files" in {x["name"] for x in files}
-    assert reg.validate_call("calendar", {"operation": "create"})[0] is True
-    assert reg.validate_call("workspace_files", {"operation": "write_text"})[0] is True
+    assert reg.validate_call("calendar", {"operation": "create", "title": "Meeting", "relative_date": "tomorrow", "time": "10:00"})[0] is True
+    assert reg.validate_call("workspace_files", {"operation": "write_text", "name": "note.txt", "text": ""})[0] is True
 
 
 def test_local_workspace_writes_are_separate_from_remote_site_writes(tmp_path, monkeypatch):

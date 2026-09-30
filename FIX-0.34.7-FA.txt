@@ -1,0 +1,21 @@
+LlamaForge 0.34.7-telegram-safe
+
+این نسخه مستقیماً از 0.34.5-telegram-fix ساخته شده است.
+
+اصلاحات ایمنی اصلی:
+1) رفع خاموش‌شدن اشتباه Backend هنگام reuse شدن Process مرورگر Edge/Chrome با ui-profile مشترک.
+2) جلوگیری از اجرای همزمان چند Control Plane روی state مشترک ~/.llamaforge.
+3) تشخیص نسخه‌های قدیمی LlamaForge که هنوز روی پورت‌های 8765 تا 8795 فعال هستند.
+4) نوشتن اتمیک config.json و نگهداری config.json.bak برای بازیابی تنظیمات.
+5) جلوگیری از rewrite بی‌دلیل config در هر startup مدل‌اسکن.
+6) اتصال llama-server ویندوز به Job Object با Kill-on-close تا در crash به صورت process یتیم باقی نماند.
+7) نصب وابستگی‌های Telegram داخل همان پوشه استخراج‌شده (.telegram-deps)، نه Python سراسری سیستم.
+8) تشخیص Windows System Proxy/Psiphon برای Telethon و fallback به اتصال مستقیم.
+9) دکمه Ping Telegram برای تست مسیر واقعی MTProto بدون نیاز به خواندن پیام‌ها.
+
+روش تست پیشنهادی:
+- همه پنجره‌های LlamaForge را ببندید.
+- این نسخه را اجرا کنید.
+- اگر پیام "Another LlamaForge control plane is still running" دیدید، یک نسخه قدیمی هنوز در پس‌زمینه فعال است؛ همان را Exit & unload کنید و دوباره این نسخه را اجرا کنید.
+- ابتدا مطمئن شوید مدل‌ها مثل قبل دیده و Load می‌شوند.
+- سپس Psiphon را Connected کنید و در Agent > Telegram روی Install Telegram support و بعد Ping Telegram بزنید.

@@ -1,0 +1,42 @@
+✔ composer text survives attachment/options rerender and returning to its thread (18.077386ms)
+✔ changing thread cancels the original stream before switching (2.038746ms)
+✔ calendar payload keeps server wall time when browser uses another timezone (0.786567ms)
+✔ late cancelled stream cannot delete or unlock the next response (7.262708ms)
+✔ agenda overlap excludes midnight end and includes the following occupied day (0.495968ms)
+✔ attachment finishing after navigation stays in its original conversation (2.365579ms)
+✔ background Brain auto-setup keeps chat usable on render and refresh (3.010072ms)
+✔ background Brain download-base keeps chat usable on render and refresh (1.539253ms)
+✔ background Brain detect-base keeps chat usable on render and refresh (1.652073ms)
+✔ background Brain trainer keeps chat usable on render and refresh (1.501295ms)
+✔ background Brain doctor keeps chat usable on render and refresh (2.043623ms)
+✔ typing a date invalidates an older conversion response before blur (1.86929ms)
+✔ calendar search ignores stale responses and escapes titles (2.059327ms)
+✔ composer rerender preserves a pending strict lesson lock (1.578903ms)
+✔ request trace timeline ignores stale detail and escapes event text (2.373492ms)
+✔ trace picker escapes prompt previews and excludes invalid identifiers (1.395546ms)
+✖ agent permission draft survives background refresh and revisiting page (2.610909ms)
+✖ agent save retains a newer edit while request is in flight (5.398285ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 16
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 125.98556
+
+✖ failing tests:
+
+test at tests/test_workspace_ui.cjs:150:1
+✖ agent permission draft survives background refresh and revisiting page (2.610909ms)
+  TypeError: Cannot read properties of undefined (reading 'agent_allow_write')
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:158:31)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/test_workspace_ui.cjs:160:1
+✖ agent save retains a newer edit while request is in flight (5.398285ms)
+  TypeError: Cannot read properties of undefined (reading 'agent_allow_write')
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:167:76)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)

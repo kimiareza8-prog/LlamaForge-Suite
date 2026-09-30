@@ -1,0 +1,17 @@
+LlamaForge 0.35.8-ui-stability
+
+این نسخه ظاهر UI را تغییر نمی‌دهد. اصلاحات فقط برای پایداری تعاملات هستند:
+
+- محافظ عمومی برای تمام input/textarea/select و کنترل‌های تعاملی در برابر refresh زنده backend.
+- refresh دیگر نمی‌تواند بین pointer-down و focus/click، DOM کنترل را تعویض کند.
+- وقتی کاربر در حال تایپ/انتخاب است، state جدید ذخیره می‌شود ولی render کامل تا پایان تعامل عقب می‌افتد.
+- پس از پایان تعامل، آخرین state به‌صورت deferred اعمال می‌شود.
+- فرم اختصاصی OpenAI/Gemini همچنان Draft و Secure Store قبلی را حفظ می‌کند.
+- label فیلد API key مستقیماً به input متصل شده است.
+- نتیجه‌های async قدیمی در Cluster و Files بعد از تغییر route یا درخواست جدید دیگر اجازه ندارند UI تازه را overwrite کنند.
+- route epoch برای جلوگیری از نوشتن نتیجه‌ی صفحه قبلی روی صفحه جدید اضافه شده است.
+- API inputs/buttons صریحاً pointer-events فعال دارند؛ بدون تغییر ظاهری.
+
+Regression tests:
+- 448 pytest tests passed.
+- 32 workspace UI/JavaScript tests passed.

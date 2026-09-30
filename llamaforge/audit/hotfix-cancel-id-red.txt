@@ -1,0 +1,94 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_generated_http_request_id_is_shared_with_stream_and_cancel ________
+
+payload = {'messages': [{'role': 'user', 'content': 'hello'}], '_cancel': <threading.Event at 0x7f97de08f860: set>}
+
+    def stream(payload):
+        request_id=payload.get('request_id')
+        observed.append(request_id)
+>       assert request_id in state.chat_cancellations
+E       AssertionError: assert None in {'req_62b7940e98454e7bac38a166e9d12b87': <threading.Event at 0x7f97de08f860: unset>}
+E        +  where {'req_62b7940e98454e7bac38a166e9d12b87': <threading.Event at 0x7f97de08f860: unset>} = namespace(chat_cancellations={'req_62b7940e98454e7bac38a166e9d12b87': <threading.Event at 0x7f97de08f860: unset>}, log...at_stream=<function test_generated_http_request_id_is_shared_with_stream_and_cancel.<locals>.stream at 0x7f97de0ab100>).chat_cancellations
+
+tests/test_diagnostics_hotfix.py:153: AssertionError
+
+During handling of the above exception, another exception occurred:
+
+    def test_generated_http_request_id_is_shared_with_stream_and_cancel():
+        from llamaforge.web.server import Handler
+        state=NS(chat_cancellations={},log=lambda *_:None)
+        observed=[]
+        def stream(payload):
+            request_id=payload.get('request_id')
+            observed.append(request_id)
+            assert request_id in state.chat_cancellations
+            assert payload['_cancel'] is state.chat_cancellations[request_id]
+            yield {'type':'text','delta':'ok'}
+        state.chat_stream=stream
+        handler=object.__new__(Handler);handler.server=NS(state=state)
+        handler._read_json=lambda:{'messages':[{'role':'user','content':'hello'}]}
+        handler.send_response=lambda *_:None;handler.send_header=lambda *_:None;handler.end_headers=lambda:None
+        handler.wfile=io.BytesIO();handler._send_json=lambda *_:None
+>       handler._chat_stream()
+
+tests/test_diagnostics_hotfix.py:161:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <llamaforge.web.server.Handler object at 0x7f97de08f9b0>
+
+    def _chat_stream(self):
+        headers_sent = False
+        iterator = None
+        cancel = threading.Event()
+        active = getattr(self.state, "chat_cancellations", {})
+        request_id = ""
+        registered = False
+        try:
+            body = self._read_json()
+            request_id = str(body.get("request_id") or "req_" + uuid.uuid4().hex)
+            if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", request_id):
+                raise ValueError("Invalid request_id")
+            if request_id in active:
+                raise RuntimeError("Request is already running")
+            active[request_id] = cancel
+            registered = True
+            body["_cancel"] = cancel
+            iterator = self.state.chat_stream(body)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache, no-transform")
+            self.send_header("Connection", "close")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            headers_sent = True
+            for sequence, event in enumerate(iterator, 1):
+                if cancel.is_set():
+                    raise RuntimeError("Generation cancelled")
+                chunk = json.dumps(event if isinstance(event, dict) else {"type": "text", "delta": str(event)}, ensure_ascii=False)
+                self.wfile.write((f"id: {sequence}\n" + "data: " + chunk + "\n\n").encode("utf-8"))
+                self.wfile.flush()
+            self.wfile.write(b"data: [DONE]\n\n")
+            self.wfile.flush()
+        except Exception as exc:
+            if _expected_client_disconnect(exc):
+                return
+            try:
+                if not headers_sent:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                    self.end_headers()
+                msg = json.dumps({"type": "error", "error": str(exc)}, ensure_ascii=False)
+                self.wfile.write(("data: " + msg + "\n\ndata: [DONE]\n\n").encode("utf-8"))
+                self.wfile.flush()
+            except Exception:
+                pass
+            if not cancel.is_set():
+>               self.state.log_exception("chat", exc)
+                ^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: 'types.SimpleNamespace' object has no attribute 'log_exception'
+
+llamaforge/web/server.py:3515: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_diagnostics_hotfix.py::test_generated_http_request_id_is_shared_with_stream_and_cancel
+1 failed, 14 deselected in 0.22s

@@ -8,6 +8,7 @@ import threading
 from collections import deque
 from dataclasses import dataclass
 from typing import Callable
+from .network_policy import direct_subprocess_env
 
 
 @dataclass(frozen=True)
@@ -67,9 +68,14 @@ class ManagedProcess:
             return False
 
     def _apply_hard_memory_limit(self, proc: subprocess.Popen, limit_mb: int) -> bool:
-        if int(limit_mb or 0) <= 0:
-            return True
-        limit_bytes = int(limit_mb) * 1024 * 1024
+        """Attach the child to a Windows kill-on-close job and apply RAM cap.
+
+        The job object is useful even when no memory cap is requested: if the
+        windowed Python control plane crashes or is terminated, Windows closes
+        the job handle and kills the owned llama-server instead of leaving an
+        invisible orphan that blocks the next LlamaForge instance on port 8080.
+        """
+        limit_bytes = max(0, int(limit_mb or 0)) * 1024 * 1024
         if os.name == "nt":
             try:
                 wintypes = ctypes.wintypes
@@ -90,8 +96,12 @@ class ManagedProcess:
             if not job:
                 return False
             info = EXT_LIMIT()
-            info.BasicLimitInformation.LimitFlags = 0x00000100  # JOB_OBJECT_LIMIT_PROCESS_MEMORY
-            info.ProcessMemoryLimit = limit_bytes
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
+            JOB_OBJECT_LIMIT_PROCESS_MEMORY = 0x00000100
+            info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+            if limit_bytes > 0:
+                info.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_PROCESS_MEMORY
+                info.ProcessMemoryLimit = limit_bytes
             if not k32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)):
                 k32.CloseHandle(job); return False
             PROCESS_SET_QUOTA = 0x0100
@@ -106,6 +116,8 @@ class ManagedProcess:
             finally:
                 k32.CloseHandle(ph)
             self._job_handle = job
+            return True
+        if limit_bytes <= 0:
             return True
         try:
             import resource
@@ -163,6 +175,10 @@ class ManagedProcess:
         with self._lock:
             if self.running:
                 raise RuntimeError("Process already running")
+            if self._job_handle and os.name == "nt":
+                try: ctypes.windll.kernel32.CloseHandle(self._job_handle)
+                except Exception: pass
+                self._job_handle = None
             self._tail.clear()
             self.last_exit_code = None
             self._stop_requested = False
@@ -176,6 +192,7 @@ class ManagedProcess:
                 encoding="utf-8",
                 errors="replace",
                 bufsize=1,
+                env=direct_subprocess_env(),
             )
             if os.name == "nt":
                 kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)

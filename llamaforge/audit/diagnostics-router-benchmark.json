@@ -1,0 +1,12 @@
+{
+  "metric": "router instruction Unicode characters, empty conversation; not a token/s benchmark",
+  "before_0341": 2216,
+  "after_0342": 1365,
+  "reduction_percent": 38.4,
+  "greeting_model_calls": 1,
+  "valid_family_routing_calls": 1,
+  "clear_intent_guard_extra_family_calls": {
+    "before": 1,
+    "after": 0
+  }
+}

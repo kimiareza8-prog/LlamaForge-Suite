@@ -1,0 +1,12 @@
+LlamaForge 0.36.5 - API/Stream Stability Fix
+
+اصلاحات:
+- Retry محدود برای خطاهای موقت API: HTTP 408/425/429/500/502/503/504
+- Retry برای RemoteDisconnected / ConnectionReset / IncompleteRead و خطاهای مشابه شبکه
+- Retry در شروع stream قبل از دریافت خروجی
+- تشخیص محلی operation=write/replace برای code_job در حالت بدون operation و ورودی غیرمبهم
+- ارسال و flush جداگانه خطای SSE و [DONE] برای نمایش خطای واقعی به UI
+- حفظ اصلاح قبلی Telegram Forward (اجرای handler فقط بعد از کلیک)
+
+تست‌های مرتبط Python: 73 passed
+تست‌های JS: stream protocol passed + workspace UI 48/48 passed

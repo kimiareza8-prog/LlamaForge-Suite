@@ -1,6 +1,9 @@
 from __future__ import annotations
+from .request_tracing import record, current_trace
+from contextvars import copy_context
 
 import hashlib
+import ipaddress
 import io
 import json
 import re
@@ -50,6 +53,15 @@ def _clean_connect_url(url: str) -> tuple[str, str]:
     parsed = urllib.parse.urlsplit(raw)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise ValueError("Connection URL must be an http:// or https:// URL")
+    # Tokens must never cross a real network in clear text.  Plain HTTP remains
+    # available only for loopback development bridges.
+    if parsed.scheme == "http":
+        host = str(parsed.hostname or "").strip().lower()
+        loopback = host == "localhost"
+        try: loopback = loopback or ipaddress.ip_address(host).is_loopback
+        except ValueError: pass
+        if not loopback:
+            raise ValueError("Remote app connections outside this computer require https://")
     pairs = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
     token = ""
     kept = []
@@ -60,6 +72,32 @@ def _clean_connect_url(url: str) -> tuple[str, str]:
             kept.append((key, value))
     clean = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urllib.parse.urlencode(kept), parsed.fragment))
     return clean, token
+
+
+def _same_origin_endpoint(connect_url: str, endpoint: str) -> str:
+    """Normalize a descriptor endpoint and keep credentials on one origin."""
+    base = urllib.parse.urlsplit(connect_url)
+    absolute = urllib.parse.urljoin(connect_url, str(endpoint or ""))
+    target = urllib.parse.urlsplit(absolute)
+    def port(parsed):
+        return parsed.port or (443 if parsed.scheme == "https" else 80)
+    if (target.scheme.lower(), (target.hostname or "").lower(), port(target)) != (base.scheme.lower(), (base.hostname or "").lower(), port(base)):
+        raise RuntimeError("Remote app descriptor attempted to use a cross-origin endpoint")
+    return absolute
+
+
+def _same_origin_opener(url: str) -> urllib.request.OpenerDirector:
+    base = urllib.parse.urlsplit(url)
+    def origin(parsed):
+        return (parsed.scheme.lower(), (parsed.hostname or "").lower(), parsed.port or (443 if parsed.scheme.lower() == "https" else 80))
+    wanted = origin(base)
+    class GuardedRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            target = urllib.parse.urlsplit(urllib.parse.urljoin(req.full_url, newurl))
+            if origin(target) != wanted:
+                raise RuntimeError("Remote app redirect attempted to leave its trusted origin")
+            return super().redirect_request(req, fp, code, msg, headers, urllib.parse.urljoin(req.full_url, newurl))
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}), GuardedRedirect())
 
 
 def _public_text(value: Any, limit: int = 320) -> str:
@@ -92,7 +130,9 @@ class RemoteAppManager:
         workspace_exporter: Callable[[str], dict[str, Any]] | None = None,
         log: Callable[[str], None] | None = None,
         app_version: str = "0.33.0-adaptive-engine",
+        request_traces=None,
     ):
+        self.request_traces = request_traces
         self.task_runner = task_runner
         self.runtime_info = runtime_info
         self.control_handler = control_handler
@@ -106,9 +146,11 @@ class RemoteAppManager:
         self.live: dict[str, dict[str, Any]] = {}
         self.workspace_revisions: dict[str, int] = {}
         self.workspace_last_sync: dict[str, float] = {}
+        self._memory_tokens: dict[str, str] = {}
         REMOTE_APPS_PATH.parent.mkdir(parents=True, exist_ok=True)
         if not REMOTE_APPS_PATH.exists():
             REMOTE_APPS_PATH.write_text("[]", encoding="utf-8")
+        self._migrate_plaintext_tokens()
         self.supervisor = threading.Thread(target=self._supervisor_loop, name="remote-app-supervisor", daemon=True)
         self.supervisor.start()
 
@@ -124,9 +166,23 @@ class RemoteAppManager:
         tmp.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(REMOTE_APPS_PATH)
 
+    def _migrate_plaintext_tokens(self) -> None:
+        rows = self._load(); changed = False
+        for row in rows:
+            if not isinstance(row, dict): continue
+            token = str(row.get("token_fallback") or "")
+            if not token: continue
+            app_id = str(row.get("id") or "")
+            if app_id and not _keyring_set(app_id, token):
+                self._memory_tokens[app_id] = token
+            row["token_fallback"] = ""
+            changed = True
+        if changed:
+            self._save(rows)
+
     def _token(self, row: dict[str, Any]) -> str:
         app_id = str(row.get("id") or "")
-        return str(_keyring_get(app_id) or row.get("token_fallback") or "")
+        return str(_keyring_get(app_id) or self._memory_tokens.get(app_id) or row.get("token_fallback") or "")
 
     def _public(self, row: dict[str, Any]) -> dict[str, Any]:
         app_id = str(row.get("id") or "")
@@ -181,7 +237,7 @@ class RemoteAppManager:
             data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=headers, method=method.upper())
         try:
-            with urllib.request.urlopen(req, timeout=max(2.0, min(float(timeout), 45.0))) as resp:
+            with _same_origin_opener(url).open(req, timeout=max(2.0, min(float(timeout), 45.0))) as resp:
                 limit = max(1024, min(int(max_bytes or 2_000_000), 100_000_000))
                 raw = resp.read(limit + 1)
                 if len(raw) > limit:
@@ -219,7 +275,7 @@ class RemoteAppManager:
         request_headers.update(headers or {})
         req = urllib.request.Request(url, data=data, headers=request_headers, method=method.upper())
         try:
-            with urllib.request.urlopen(req, timeout=max(3.0, min(float(timeout), 90.0))) as resp:
+            with _same_origin_opener(url).open(req, timeout=max(3.0, min(float(timeout), 90.0))) as resp:
                 raw = resp.read(2_000_000)
                 obj = json.loads(raw.decode("utf-8", errors="replace") or "{}")
                 if not isinstance(obj, dict):
@@ -319,6 +375,7 @@ class RemoteAppManager:
         if missing:
             raise RuntimeError("Connection descriptor is missing endpoints: " + ", ".join(missing))
         app_id = str(app.get("id") or ("remote_" + uuid.uuid4().hex[:16]))
+        safe_endpoints = {str(k): _same_origin_endpoint(clean_url, str(v)) for k, v in endpoints.items() if str(v or "").strip()}
         row = {
             "id": app_id,
             "name": str(app.get("name") or "Connected website"),
@@ -329,13 +386,14 @@ class RemoteAppManager:
             "protocol_version": str(desc.get("protocol_version") or ""),
             "remote_version": str(app.get("version") or ""),
             "capabilities": desc.get("capabilities") if isinstance(desc.get("capabilities"), dict) else {},
-            "endpoints": {str(k): str(v) for k, v in endpoints.items()},
+            "endpoints": safe_endpoints,
             "enabled": True,
             "added_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "token_fallback": "",
         }
-        if not _keyring_set(app_id, token):
-            row["token_fallback"] = token
+        if token and not _keyring_set(app_id, token):
+            self._memory_tokens[app_id] = token
+            self.log("[remote-app] secure credential vault unavailable; token kept in memory only")
         with self.lock:
             rows = [r for r in self._load() if str(r.get("id") or "") != app_id]
             rows.append(row)
@@ -355,6 +413,7 @@ class RemoteAppManager:
             self._save(new_rows)
             self.live.pop(app_id, None)
         _keyring_set(app_id, "")
+        self._memory_tokens.pop(app_id, None)
         self.log(f"[remote-app] removed {app_id}")
         return True
 
@@ -394,7 +453,7 @@ class RemoteAppManager:
                     saved["protocol_version"] = str(desc.get("protocol_version") or saved.get("protocol_version") or "")
                     saved["capabilities"] = desc.get("capabilities") if isinstance(desc.get("capabilities"), dict) else saved.get("capabilities", {})
                     if endpoints:
-                        saved["endpoints"] = {str(k): str(v) for k, v in endpoints.items()}
+                        saved["endpoints"] = {str(k): _same_origin_endpoint(str(saved.get("connect_url") or row.get("connect_url") or ""), str(v)) for k, v in endpoints.items() if str(v or "").strip()}
                     row = saved
                     break
             self._save(rows)
@@ -598,6 +657,9 @@ class RemoteAppManager:
 
     @staticmethod
     def _activity_from_event(event: dict[str, Any]) -> dict[str, Any] | None:
+        if event.get("type") == "meta" and isinstance(event.get("trace"),dict):
+            return {"type":"phase","phase":"diagnostic","label":"گزارش عیب‌یابی این درخواست در Logs برنامه ذخیره می‌شود",
+                    "detail":str(event["trace"].get("id") or ""),"status":"done"}
         kind = str(event.get("event") or "")
         if event.get("type") != "agent":
             return None
@@ -721,6 +783,7 @@ class RemoteAppManager:
         snapshot = result.get("snapshot") if isinstance(result.get("snapshot"), dict) else None
         if snapshot is None:
             raise RuntimeError("Workspace sync returned no snapshot")
+        record("workspace.sync_pull", scope=scope, revision=result.get("revision"), snapshot=snapshot)
         self.workspace_importer(scope, snapshot)
         rev = int(result.get("revision") or revision or 0)
         self.workspace_revisions[key] = rev
@@ -733,6 +796,7 @@ class RemoteAppManager:
         if not endpoint or not self.workspace_exporter or not re.fullmatch(r"[a-f0-9]{64}", owner):
             return expected_revision
         snapshot = self.workspace_exporter(scope)
+        record("workspace.sync_push",scope=scope,expected_revision=expected_revision,snapshot=snapshot)
         result = self._request_json(endpoint, self._token(row), method="POST", payload={"action":"push","owner_hash":owner,"expected_revision":int(expected_revision or 0),"snapshot":snapshot}, timeout=90, max_bytes=2_000_000)
         rev = int(result.get("revision") or expected_revision or 0)
         key = str(row.get("id") or "") + ":" + owner
@@ -761,6 +825,16 @@ class RemoteAppManager:
                     self.log(f"[remote-workspace:pull] app={app_id} owner={owner[:8]} error={exc}")
 
     def _run_task(self, row: dict[str, Any], item: dict[str, Any]) -> None:
+        store=getattr(self,"request_traces",None)
+        if store is None:
+            return self._run_task_impl(row,item)
+        messages=list(item.get("conversation_history") or [])
+        messages.append({"role":"user","content":item.get("user_message",""),"attachments":item.get("attachments",[])})
+        with store.request(origin="remote", app_id=str(row.get("id") or ""), message_id=str(item.get("message_id") or ""),
+                           messages=messages, requested_model_id=item.get("requested_model_id"), version=self.app_version):
+            return self._run_task_impl(row,item)
+
+    def _run_task_impl(self, row: dict[str, Any], item: dict[str, Any]) -> None:
         app_id = str(row.get("id") or "")
         message_id = str(item.get("message_id") or "")
         owner_hash = str(item.get("workspace_owner") or "").strip().lower()
@@ -770,21 +844,28 @@ class RemoteAppManager:
             try:
                 workspace_scope, workspace_revision = self._workspace_pull(row, owner_hash, force=True)
             except Exception as exc:
+                record("workspace.sync_error",phase="before",error=str(exc))
                 self.log(f"[remote-workspace:pre-task] app={app_id} owner={owner_hash[:8]} error={exc}")
         item = dict(item)
         item["workspace_scope"] = workspace_scope
         self._set_live(app_id, state="working", active_message_id=message_id, last_error="")
         self._post_activity(row, message_id, {"type": "phase", "phase": "received", "label": "درخواست به LlamaForge رسید", "status": "done", "ok": True})
         lease_stop = threading.Event()
+        task_cancel = threading.Event()
+        item["_cancel"] = task_cancel
 
         def lease_loop():
             while not lease_stop.wait(18.0):
                 try:
                     self._post_activity(row, message_id, {"type": "heartbeat", "label": "working"}, visible=False)
+                except RemoteTaskCancelled:
+                    task_cancel.set()
+                    record("remote.cancel", source="heartbeat")
+                    return
                 except Exception:
                     pass
 
-        lease_thread = threading.Thread(target=lease_loop, name=f"remote-lease-{message_id[-6:]}", daemon=True)
+        lease_thread = threading.Thread(target=copy_context().run, args=(lease_loop,), name=f"remote-lease-{message_id[-6:]}", daemon=True)
         lease_thread.start()
         answer = ""
         last_typing = 0.0
@@ -826,17 +907,23 @@ class RemoteAppManager:
                 except Exception as exc:
                     # Never discard the user's answer because a sync transport failed;
                     # the owner-scoped local copy remains available for the next retry.
+                    record("workspace.sync_error",phase="after",error=str(exc))
                     self.log(f"[remote-workspace:post-task] app={app_id} owner={owner_hash[:8]} error={exc}")
             self._post_typing(row, message_id, answer)
             self._post_reply(row, message_id, answer)
+            record("remote.delivery", message_id=message_id, status="delivered", answer=answer)
             current = int((self.live.get(app_id) or {}).get("tasks_completed") or 0) + 1
             self._set_live(app_id, state="connected", active_message_id=None, tasks_completed=current, last_error="")
             self.log(f"[remote-app] completed app={app_id} message={message_id}")
         except RemoteTaskCancelled as exc:
+            if current_trace(): current_trace().meta.update(outcome="cancelled",error=str(exc))
+            record("remote.cancel", error=str(exc))
             self.log(f"[remote-app:cancel] app={app_id} message={message_id} reason={exc}")
             self._set_live(app_id, state="connected", active_message_id=None, last_error="")
         except Exception as exc:
             error = str(exc)
+            if current_trace(): current_trace().meta.update(outcome="error",error=error)
+            record("remote.error",error=error)
             self.log(f"[remote-app:error] app={app_id} message={message_id} error={error}")
             try:
                 self._post_activity(row, message_id, {"type": "error", "phase": "error", "label": "اجرای Agent متوقف شد", "error": error[:280], "status": "error", "ok": False})
@@ -846,6 +933,7 @@ class RemoteAppManager:
             self._set_live(app_id, state="error", active_message_id=None, last_error=error[:500])
         finally:
             lease_stop.set()
+            task_cancel.set()
 
     def _worker_loop(self, app_id: str) -> None:
         backoff = 1.0

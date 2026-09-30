@@ -1,0 +1,316 @@
+FF.FFFFFF                                                                [100%]
+=================================== FAILURES ===================================
+____________________ test_cpu_adaptive_keeps_memory_guards _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-5/test_cpu_adaptive_keeps_memory0')
+
+    def test_cpu_adaptive_keeps_memory_guards(tmp_path):
+        plan = make_plan(fixture_model(tmp_path), hardware(), accelerator_mode="adaptive", requested_ctx=8192)
+>       assert plan.adaptive and plan.cpu_only
+E       AssertionError: assert (False)
+E        +  where False = LaunchPlan(profile='Balanced', cpu_only=True, threads=2, threads_batch=3, ctx_size=8192, batch_size=256, ubatch_size=1...Hot pages can stay in RAM while cold pages remain SSD-backed; generation can slow down when pages must be read again.').adaptive
+
+tests/test_adaptive_audit.py:27: AssertionError
+_____________ test_adaptive_preserves_explicit_threads[heuristic] ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-5/test_adaptive_preserves_explic0')
+source = 'heuristic'
+
+    @pytest.mark.parametrize("source", ["heuristic", "llama-bench"])
+    def test_adaptive_preserves_explicit_threads(tmp_path, source):
+        plan = make_plan(fixture_model(tmp_path, 2), hardware(True), accelerator_mode="adaptive",
+                         thread_mode="manual", threads_override=1, threads_batch_override=2, tuning_source=source)
+>       assert (plan.threads, plan.threads_batch) == (1, 2)
+E       assert (4, 4) == (1, 2)
+E         
+E         At index 0 diff: 4 != 1
+E         Use -v to get more diff
+
+tests/test_adaptive_audit.py:36: AssertionError
+______ test_slots_and_speculation_require_evidence_or_explicit_selection _______
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-5/test_slots_and_speculation_req0')
+
+    def test_slots_and_speculation_require_evidence_or_explicit_selection(tmp_path):
+        plan = make_plan(fixture_model(tmp_path, 1), hardware(True), accelerator_mode="adaptive", requested_ctx=2048)
+>       assert plan.parallel == 1
+E       AssertionError: assert 2 == 1
+E        +  where 2 = LaunchPlan(profile='Balanced', cpu_only=False, threads=4, threads_batch=4, ctx_size=2048, batch_size=256, ubatch_size=... budget. The process working set plus shared GPU memory should now track model residency more closely than mmap mode.').parallel
+
+tests/test_adaptive_audit.py:41: AssertionError
+______________________ test_parallel_context_is_per_slot _______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-5/test_parallel_context_is_per_s0')
+
+    def test_parallel_context_is_per_slot(tmp_path):
+        plan = make_plan(fixture_model(tmp_path, 1), hardware(True), accelerator_mode="adaptive",
+                         requested_ctx=1024, parallel_override=2)
+        args = server_args("m", plan, "localhost", 8080, {"--parallel"})
+>       assert args[args.index("--ctx-size") + 1] == str(plan.ctx_size * plan.parallel)
+E       AssertionError: assert '1024' == '2048'
+E         
+E         - 2048
+E         + 1024
+
+tests/test_adaptive_audit.py:50: AssertionError
+____________ test_score_requires_both_phases_and_uses_repeat_median ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-5/test_score_requires_both_phase0')
+
+    def test_score_requires_both_phases_and_uses_repeat_median(tmp_path):
+        data = rows()
+        data[1].update(avg_ts=340, samples_ts=[9, 10, 1000])
+        data += rows(t=4, speeds=(5000, 0))[:1]
+        got = AdaptiveTuner._summarize(data, fixture_model(tmp_path))
+>       assert len(got) == 1 and got[0]["tg"] == 10
+E       AssertionError: assert (2 == 1)
+E        +  where 2 = len([{'threads': 2, 'gpu_layers': 0, 'batch_size': 128, 'ubatch_size': 64, ...}, {'threads': 4, 'gpu_layers': 0, 'batch_size': 128, 'ubatch_size': 64, ...}])
+
+tests/test_adaptive_audit.py:64: AssertionError
+______ test_cache_is_bound_to_runtime_hardware_profile_and_model_content _______
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-5/test_cache_is_bound_to_runtime0')
+
+    def test_cache_is_bound_to_runtime_hardware_profile_and_model_content(tmp_path):
+        model = fixture_model(tmp_path)
+        bench = tmp_path / "llama-bench.exe"
+        bench.write_bytes(b"build1")
+        tuner = AdaptiveTuner(tmp_path / "tune.json")
+>       env = tuner.environment(hardware(True), str(bench), "vulkan", context=4096, load_mode="hybrid")
+              ^^^^^^^^^^^^^^^^^
+E       AttributeError: 'AdaptiveTuner' object has no attribute 'environment'
+
+tests/test_adaptive_audit.py:73: AttributeError
+_____________ test_search_is_staged_repeated_and_failure_tolerant ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-5/test_search_is_staged_repeated0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fb9f87a3710>
+
+    def test_search_is_staged_repeated_and_failure_tolerant(tmp_path, monkeypatch):
+        tuner = AdaptiveTuner(tmp_path / "tune.json")
+        bench = tmp_path / "bench"
+        bench.touch()
+        calls = []
+        def run(cmd, cancel=None, timeout=900):
+            calls.append(cmd)
+            t, gpu, b, ub = (int(cmd[cmd.index(flag) + 1]) for flag in ("-t", "-ngl", "-b", "-ub"))
+            assert int(cmd[cmd.index("-p") + 1]) >= b
+            assert int(cmd[cmd.index("-r") + 1]) >= 3
+            if gpu != 0:
+                raise RuntimeError("Vulkan failed")
+            return rows(t, gpu, b, ub, speeds=(100 + b / 10, 20 if t == 2 else 10))
+        monkeypatch.setattr(tuner, "_run_candidate", run, raising=False)
+>       result = tuner.benchmark(fixture_model(tmp_path, 2), hardware(True), str(bench))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_adaptive_audit.py:102: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/autotune.py:248: in benchmark
+    proc = subprocess.Popen(cmd, stdout=out_f, stderr=err_f, text=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py:1026: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: 255 args: ['/tmp/pytest-of-root/pytest-5/test_search_is_...>
+args = ['/tmp/pytest-of-root/pytest-5/test_search_is_staged_repeated0/bench', '-m', '/tmp/pytest-of-root/pytest-5/test_search_is_staged_repeated0/model.gguf', '-p', '64', '-n', ...]
+executable = b'/tmp/pytest-of-root/pytest-5/test_search_is_staged_repeated0/bench'
+preexec_fn = None, close_fds = True, pass_fds = (), cwd = None, env = None
+startupinfo = None, creationflags = 0, shell = False, p2cread = -1
+p2cwrite = -1, c2pread = -1, c2pwrite = 11, errread = -1, errwrite = 12
+restore_signals = True, gid = None, gids = None, uid = None, umask = -1
+start_new_session = False, process_group = -1
+
+    def _execute_child(self, args, executable, preexec_fn, close_fds,
+                       pass_fds, cwd, env,
+                       startupinfo, creationflags, shell,
+                       p2cread, p2cwrite,
+                       c2pread, c2pwrite,
+                       errread, errwrite,
+                       restore_signals,
+                       gid, gids, uid, umask,
+                       start_new_session, process_group):
+        """Execute program (POSIX version)"""
+    
+        if isinstance(args, (str, bytes)):
+            args = [args]
+        elif isinstance(args, os.PathLike):
+            if shell:
+                raise TypeError('path-like args is not allowed when '
+                                'shell is true')
+            args = [args]
+        else:
+            args = list(args)
+    
+        if shell:
+            # On Android the default shell is at '/system/bin/sh'.
+            unix_shell = ('/system/bin/sh' if
+                      hasattr(sys, 'getandroidapilevel') else '/bin/sh')
+            args = [unix_shell, "-c"] + args
+            if executable:
+                args[0] = executable
+    
+        if executable is None:
+            executable = args[0]
+    
+        sys.audit("subprocess.Popen", executable, args, cwd, env)
+    
+        if (_USE_POSIX_SPAWN
+                and os.path.dirname(executable)
+                and preexec_fn is None
+                and not close_fds
+                and not pass_fds
+                and cwd is None
+                and (p2cread == -1 or p2cread > 2)
+                and (c2pwrite == -1 or c2pwrite > 2)
+                and (errwrite == -1 or errwrite > 2)
+                and not start_new_session
+                and process_group == -1
+                and gid is None
+                and gids is None
+                and uid is None
+                and umask < 0):
+            self._posix_spawn(args, executable, env, restore_signals,
+                              p2cread, p2cwrite,
+                              c2pread, c2pwrite,
+                              errread, errwrite)
+            return
+    
+        orig_executable = executable
+    
+        # For transferring possible exec failure from child to parent.
+        # Data format: "exception name:hex errno:description"
+        # Pickle is not used; it is complex and involves memory allocation.
+        errpipe_read, errpipe_write = os.pipe()
+        # errpipe_write must not be in the standard io 0, 1, or 2 fd range.
+        low_fds_to_close = []
+        while errpipe_write < 3:
+            low_fds_to_close.append(errpipe_write)
+            errpipe_write = os.dup(errpipe_write)
+        for low_fd in low_fds_to_close:
+            os.close(low_fd)
+        try:
+            try:
+                # We must avoid complex work that could involve
+                # malloc or free in the child process to avoid
+                # potential deadlocks, thus we do all this here.
+                # and pass it to fork_exec()
+    
+                if env is not None:
+                    env_list = []
+                    for k, v in env.items():
+                        k = os.fsencode(k)
+                        if b'=' in k:
+                            raise ValueError("illegal environment variable name")
+                        env_list.append(k + b'=' + os.fsencode(v))
+                else:
+                    env_list = None  # Use execv instead of execve.
+                executable = os.fsencode(executable)
+                if os.path.dirname(executable):
+                    executable_list = (executable,)
+                else:
+                    # This matches the behavior of os._execvpe().
+                    executable_list = tuple(
+                        os.path.join(os.fsencode(dir), executable)
+                        for dir in os.get_exec_path(env))
+                fds_to_keep = set(pass_fds)
+                fds_to_keep.add(errpipe_write)
+                self.pid = _fork_exec(
+                        args, executable_list,
+                        close_fds, tuple(sorted(map(int, fds_to_keep))),
+                        cwd, env_list,
+                        p2cread, p2cwrite, c2pread, c2pwrite,
+                        errread, errwrite,
+                        errpipe_read, errpipe_write,
+                        restore_signals, start_new_session,
+                        process_group, gid, gids, uid, umask,
+                        preexec_fn, _USE_VFORK)
+                self._child_created = True
+            finally:
+                # be sure the FD is closed no matter what
+                os.close(errpipe_write)
+    
+            self._close_pipe_fds(p2cread, p2cwrite,
+                                 c2pread, c2pwrite,
+                                 errread, errwrite)
+    
+            # Wait for exec to fail or succeed; possibly raising an
+            # exception (limited in size)
+            errpipe_data = bytearray()
+            while True:
+                part = os.read(errpipe_read, 50000)
+                errpipe_data += part
+                if not part or len(errpipe_data) > 50000:
+                    break
+        finally:
+            # be sure the FD is closed no matter what
+            os.close(errpipe_read)
+    
+        if errpipe_data:
+            try:
+                pid, sts = os.waitpid(self.pid, 0)
+                if pid == self.pid:
+                    self._handle_exitstatus(sts)
+                else:
+                    self.returncode = sys.maxsize
+            except ChildProcessError:
+                pass
+    
+            try:
+                exception_name, hex_errno, err_msg = (
+                        errpipe_data.split(b':', 2))
+                # The encoding here should match the encoding
+                # written in by the subprocess implementations
+                # like _posixsubprocess
+                err_msg = err_msg.decode()
+            except ValueError:
+                exception_name = b'SubprocessError'
+                hex_errno = b'0'
+                err_msg = 'Bad exception data from child: {!r}'.format(
+                              bytes(errpipe_data))
+            child_exception_type = getattr(
+                    builtins, exception_name.decode('ascii'),
+                    SubprocessError)
+            if issubclass(child_exception_type, OSError) and hex_errno:
+                errno_num = int(hex_errno, 16)
+                if err_msg == "noexec:chdir":
+                    err_msg = ""
+                    # The error must be from chdir(cwd).
+                    err_filename = cwd
+                elif err_msg == "noexec":
+                    err_msg = ""
+                    err_filename = None
+                else:
+                    err_filename = orig_executable
+                if errno_num != 0:
+                    err_msg = os.strerror(errno_num)
+                if err_filename is not None:
+>                   raise child_exception_type(errno_num, err_msg, err_filename)
+E                   PermissionError: [Errno 13] Permission denied: '/tmp/pytest-of-root/pytest-5/test_search_is_staged_repeated0/bench'
+
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py:1955: PermissionError
+_____________________ test_candidate_cancel_does_not_spawn _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-5/test_candidate_cancel_does_not0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fb9f87a2c90>
+
+    def test_candidate_cancel_does_not_spawn(tmp_path, monkeypatch):
+        cancel = threading.Event()
+        cancel.set()
+        monkeypatch.setattr("subprocess.Popen", lambda *a, **k: pytest.fail("spawned after cancel"))
+        with pytest.raises(RuntimeError, match="cancel"):
+>           AdaptiveTuner._run_candidate(["bench"], cancel=cancel)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: type object 'AdaptiveTuner' has no attribute '_run_candidate'. Did you mean: '_gpu_candidates'?
+
+tests/test_adaptive_audit.py:116: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_adaptive_audit.py::test_cpu_adaptive_keeps_memory_guards - ...
+FAILED tests/test_adaptive_audit.py::test_adaptive_preserves_explicit_threads[heuristic]
+FAILED tests/test_adaptive_audit.py::test_slots_and_speculation_require_evidence_or_explicit_selection
+FAILED tests/test_adaptive_audit.py::test_parallel_context_is_per_slot - Asse...
+FAILED tests/test_adaptive_audit.py::test_score_requires_both_phases_and_uses_repeat_median
+FAILED tests/test_adaptive_audit.py::test_cache_is_bound_to_runtime_hardware_profile_and_model_content
+FAILED tests/test_adaptive_audit.py::test_search_is_staged_repeated_and_failure_tolerant
+FAILED tests/test_adaptive_audit.py::test_candidate_cancel_does_not_spawn - A...
+8 failed, 1 passed in 0.11s

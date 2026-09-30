@@ -65,7 +65,7 @@ function aib_update_copy(string $src, string $dst): void {
 
 function aib_update_atomic_copy_file(string $src, string $dst): void {
     if (is_link($src)) throw new RuntimeException('Symlinks are not allowed in bridge packages');
-    if (!is_file($src)) return;
+    if (!is_file($src)) throw new RuntimeException('Bridge package source file is missing: ' . basename($src));
     aib_update_mkdir(dirname($dst));
     $suffix = '.aib-new-' . substr(bin2hex(random_bytes(6)), 0, 12);
     $tmp = $dst . $suffix;

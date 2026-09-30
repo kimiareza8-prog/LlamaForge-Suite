@@ -1,0 +1,21 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_failed_connect_can_be_retried_without_stale_client ____________
+
+service = (<llamaforge.core.telegram_skill.TelegramService object at 0x7fc91b802690>, <test_telegram_skill.FakeClient object at 0x7fc91b800800>, <test_telegram_skill.MemoryVault object at 0x7fc91b8025a0>)
+
+    def test_failed_connect_can_be_retried_without_stale_client(service):
+        svc,client,_=service;calls=[]
+        async def connect():
+            calls.append('connect')
+            if len(calls)==1: raise OSError('network unavailable')
+        client.connect=connect
+        with pytest.raises(RuntimeError):svc.tool({'operation':'recent_chats'},AgentPermissions())
+>       assert svc.client is None and not svc.connected
+E       assert (<test_telegram_skill.FakeClient object at 0x7fc91b800800> is None)
+E        +  where <test_telegram_skill.FakeClient object at 0x7fc91b800800> = <llamaforge.core.telegram_skill.TelegramService object at 0x7fc91b802690>.client
+
+tests/test_telegram_skill.py:149: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_telegram_skill.py::test_failed_connect_can_be_retried_without_stale_client
+1 failed, 11 deselected in 0.06s

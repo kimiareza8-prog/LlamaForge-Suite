@@ -1,0 +1,319 @@
+FFFFFFF.F...FFFFFF.FFFFFF                                                [100%]
+=================================== FAILURES ===================================
+_ test_questions_and_quoted_instructions_are_not_identity_targets[\u0627\u0633\u0645 \u0645\u0646 \u0686\u06cc\u0647\u061f] _
+
+text = 'اسم من چیه؟'
+
+    @pytest.mark.parametrize("text", ["اسم من چیه؟", "اسمم چیست؟", "اسم من چی بود؟", "My name is what?",
+        "آیا اسم من رضا است؟", "ترجمه کن: my name is Reza", "اگر اسم من رضا باشد چه؟"])
+    def test_questions_and_quoted_instructions_are_not_identity_targets(text):
+>       assert PersonalBrain.deterministic_examples(text) == []
+E       AssertionError: assert [{'user': 'اس...: 'identity'}] == []
+E         
+E         Left contains 4 more items, first extra item: {'user': 'اسم من چیه؟', 'assistant': 'چی', 'kind': 'identity'}
+E         Use -v to get more diff
+
+tests/test_brain_rewrite.py:20: AssertionError
+_ test_questions_and_quoted_instructions_are_not_identity_targets[\u0627\u0633\u0645\u0645 \u0686\u06cc\u0633\u062a\u061f] _
+
+text = 'اسمم چیست؟'
+
+    @pytest.mark.parametrize("text", ["اسم من چیه؟", "اسمم چیست؟", "اسم من چی بود؟", "My name is what?",
+        "آیا اسم من رضا است؟", "ترجمه کن: my name is Reza", "اگر اسم من رضا باشد چه؟"])
+    def test_questions_and_quoted_instructions_are_not_identity_targets(text):
+>       assert PersonalBrain.deterministic_examples(text) == []
+E       AssertionError: assert [{'user': 'اس...: 'identity'}] == []
+E         
+E         Left contains 4 more items, first extra item: {'user': 'اسم من چیه؟', 'assistant': 'چی', 'kind': 'identity'}
+E         Use -v to get more diff
+
+tests/test_brain_rewrite.py:20: AssertionError
+_ test_questions_and_quoted_instructions_are_not_identity_targets[\u0627\u0633\u0645 \u0645\u0646 \u0686\u06cc \u0628\u0648\u062f\u061f] _
+
+text = 'اسم من چی بود؟'
+
+    @pytest.mark.parametrize("text", ["اسم من چیه؟", "اسمم چیست؟", "اسم من چی بود؟", "My name is what?",
+        "آیا اسم من رضا است؟", "ترجمه کن: my name is Reza", "اگر اسم من رضا باشد چه؟"])
+    def test_questions_and_quoted_instructions_are_not_identity_targets(text):
+>       assert PersonalBrain.deterministic_examples(text) == []
+E       AssertionError: assert [{'user': 'اس...: 'identity'}] == []
+E         
+E         Left contains 4 more items, first extra item: {'user': 'اسم من چیه؟', 'assistant': 'چی بود', 'kind': 'identity'}
+E         Use -v to get more diff
+
+tests/test_brain_rewrite.py:20: AssertionError
+_ test_questions_and_quoted_instructions_are_not_identity_targets[My name is what?] _
+
+text = 'My name is what?'
+
+    @pytest.mark.parametrize("text", ["اسم من چیه؟", "اسمم چیست؟", "اسم من چی بود؟", "My name is what?",
+        "آیا اسم من رضا است؟", "ترجمه کن: my name is Reza", "اگر اسم من رضا باشد چه؟"])
+    def test_questions_and_quoted_instructions_are_not_identity_targets(text):
+>       assert PersonalBrain.deterministic_examples(text) == []
+E       AssertionError: assert [{'user': 'Wh...: 'identity'}] == []
+E         
+E         Left contains 3 more items, first extra item: {'user': 'What is my name?', 'assistant': 'what', 'kind': 'identity'}
+E         Use -v to get more diff
+
+tests/test_brain_rewrite.py:20: AssertionError
+_ test_questions_and_quoted_instructions_are_not_identity_targets[\u0622\u06cc\u0627 \u0627\u0633\u0645 \u0645\u0646 \u0631\u0636\u0627 \u0627\u0633\u062a\u061f] _
+
+text = 'آیا اسم من رضا است؟'
+
+    @pytest.mark.parametrize("text", ["اسم من چیه؟", "اسمم چیست؟", "اسم من چی بود؟", "My name is what?",
+        "آیا اسم من رضا است؟", "ترجمه کن: my name is Reza", "اگر اسم من رضا باشد چه؟"])
+    def test_questions_and_quoted_instructions_are_not_identity_targets(text):
+>       assert PersonalBrain.deterministic_examples(text) == []
+E       AssertionError: assert [{'user': 'اس...: 'identity'}] == []
+E         
+E         Left contains 4 more items, first extra item: {'user': 'اسم من چیه؟', 'assistant': 'رضا', 'kind': 'identity'}
+E         Use -v to get more diff
+
+tests/test_brain_rewrite.py:20: AssertionError
+_ test_questions_and_quoted_instructions_are_not_identity_targets[\u062a\u0631\u062c\u0645\u0647 \u06a9\u0646: my name is Reza] _
+
+text = 'ترجمه کن: my name is Reza'
+
+    @pytest.mark.parametrize("text", ["اسم من چیه؟", "اسمم چیست؟", "اسم من چی بود؟", "My name is what?",
+        "آیا اسم من رضا است؟", "ترجمه کن: my name is Reza", "اگر اسم من رضا باشد چه؟"])
+    def test_questions_and_quoted_instructions_are_not_identity_targets(text):
+>       assert PersonalBrain.deterministic_examples(text) == []
+E       AssertionError: assert [{'user': 'Wh...: 'identity'}] == []
+E         
+E         Left contains 3 more items, first extra item: {'user': 'What is my name?', 'assistant': 'Reza', 'kind': 'identity'}
+E         Use -v to get more diff
+
+tests/test_brain_rewrite.py:20: AssertionError
+_ test_questions_and_quoted_instructions_are_not_identity_targets[\u0627\u06af\u0631 \u0627\u0633\u0645 \u0645\u0646 \u0631\u0636\u0627 \u0628\u0627\u0634\u062f \u0686\u0647\u061f] _
+
+text = 'اگر اسم من رضا باشد چه؟'
+
+    @pytest.mark.parametrize("text", ["اسم من چیه؟", "اسمم چیست؟", "اسم من چی بود؟", "My name is what?",
+        "آیا اسم من رضا است؟", "ترجمه کن: my name is Reza", "اگر اسم من رضا باشد چه؟"])
+    def test_questions_and_quoted_instructions_are_not_identity_targets(text):
+>       assert PersonalBrain.deterministic_examples(text) == []
+E       AssertionError: assert [{'user': 'اس...: 'identity'}] == []
+E         
+E         Left contains 4 more items, first extra item: {'user': 'اسم من چیه؟', 'assistant': 'رضا باشد چ', 'kind': 'identity'}
+E         Use -v to get more diff
+
+tests/test_brain_rewrite.py:20: AssertionError
+_ test_identity_spelling_is_preserved[\u0627\u0633\u0645\u0645 \u0698\u0627\u0644\u0647-\u0698\u0627\u0644\u0647] _
+
+text = 'اسمم ژاله', name = 'ژاله'
+
+    @pytest.mark.parametrize("text,name", [("اسم من ژاله است.", "ژاله"), ("اسمم ژاله", "ژاله"),
+        ("اسم من رضاست.", "رضا"), ("My name is Reza.", "Reza"), ("اسم من Sara است.", "Sara")])
+    def test_identity_spelling_is_preserved(text, name):
+        rows = PersonalBrain.deterministic_examples(text)
+>       assert rows and {x["assistant"] for x in rows} == {name}
+E       AssertionError: assert ([{'user': 'اسم من چیه؟', 'assistant': 'ژال', 'kind': 'identity'}, {'user': 'نام من چیست؟', 'assistant': 'ژال', 'kind':...ssistant': 'ژال', 'kind': 'identity'}, {'user': 'اسم صاحب این مغز شخصی چیست؟', 'assistant': 'ژال', 'kind': 'identity'}] and {'ژال'} == {'ژاله'}
+E         
+E         Extra items in the left set:
+E         'ژال'
+E         Extra items in the right set:
+E         'ژاله'
+E         Use -v to get more diff)
+
+tests/test_brain_rewrite.py:27: AssertionError
+_________________________ test_zero_replay_means_zero __________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6b232a57f0>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-brain-red/test_zero_replay_means_zero0')
+
+    def test_zero_replay_means_zero(monkeypatch, tmp_path):
+        brain = _isolated_brain(monkeypatch, tmp_path)
+        brain.cfg.replay_samples = 0
+        _history(brain, [{"id": "p", "examples": [{"user": "old", "assistant": "old answer"}]}])
+        batch = brain.build_training_batch(MODEL, {"id": "new", "examples": [{"user": "new", "assistant": "answer"}]})
+>       assert [r["user"] for r in batch] == ["new"]
+E       AssertionError: assert ['new', 'old'] == ['new']
+E         
+E         Left contains one more item: 'old'
+E         Use -v to get more diff
+
+tests/test_brain_rewrite.py:43: AssertionError
+___________ test_correction_supersedes_all_old_identity_paraphrases ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6b232a7a10>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-brain-red/test_correction_supersedes_all0')
+
+    def test_correction_supersedes_all_old_identity_paraphrases(monkeypatch, tmp_path):
+        brain = _isolated_brain(monkeypatch, tmp_path)
+        _history(brain, [{"id": "p", "examples": PersonalBrain.deterministic_examples("اسم من رضاست.")}])
+        batch = brain.build_training_batch(MODEL, {"id": "new", "examples": PersonalBrain.deterministic_examples("My name is Sara.")})
+>       assert all(r["assistant"] == "Sara" for r in batch)
+E       assert False
+E        +  where False = all(<generator object test_correction_supersedes_all_old_identity_paraphrases.<locals>.<genexpr> at 0x7f6b230f9970>)
+
+tests/test_brain_rewrite.py:50: AssertionError
+_________ test_replay_resolves_newest_answer_and_deduplicates_question _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6b232a72f0>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-brain-red/test_replay_resolves_newest_an0')
+
+    def test_replay_resolves_newest_answer_and_deduplicates_question(monkeypatch, tmp_path):
+        brain = _isolated_brain(monkeypatch, tmp_path)
+        _history(brain, [{"id": "old", "examples": [{"user": "رنگ مورد علاقه؟", "assistant": "قرمز"}]},
+            {"id": "recent", "examples": [{"user": "رنگ مورد علاقه؟", "assistant": "آبی"}]}])
+        batch = brain.build_training_batch(MODEL, {"id": "new", "examples": [{"user": "city", "assistant": "Tehran"}]})
+>       assert [r["assistant"] for r in batch] == ["Tehran", "آبی"]
+E       AssertionError: assert ['Tehran', 'آبی', 'قرمز'] == ['Tehran', 'آبی']
+E         
+E         Left contains one more item: 'قرمز'
+E         Use -v to get more diff
+
+tests/test_brain_rewrite.py:58: AssertionError
+___________ test_malformed_archive_line_does_not_hide_valid_history ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6b232a81a0>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-brain-red/test_malformed_archive_line_do0')
+
+    def test_malformed_archive_line_does_not_hide_valid_history(monkeypatch, tmp_path):
+        brain = _isolated_brain(monkeypatch, tmp_path)
+        _history(brain, [{"id": "p", "examples": [{"user": "q", "assistant": "a"}]}])
+        path = brain.replay_path_for_key(brain.model_key(MODEL))
+        path.write_text("[]\nnull\n" + path.read_text())
+>       assert len(brain._archive_rows(brain.model_key(MODEL))) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = _archive_rows('ce456c1d92d5b8c7')
+E        +      where _archive_rows = <llamaforge.core.personal_brain.PersonalBrain object at 0x7f6b232abf50>._archive_rows
+E        +      and   'ce456c1d92d5b8c7' = <function PersonalBrain.model_key at 0x7f6b236d40e0>(namespace(name='Test', architecture='llama', size_label='1B'))
+E        +        where <function PersonalBrain.model_key at 0x7f6b236d40e0> = <llamaforge.core.personal_brain.PersonalBrain object at 0x7f6b232abf50>.model_key
+
+tests/test_brain_rewrite.py:66: AssertionError
+________________ test_empty_new_lesson_never_trains_replay_only ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6b232a9370>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-brain-red/test_empty_new_lesson_never_tr0')
+
+    def test_empty_new_lesson_never_trains_replay_only(monkeypatch, tmp_path):
+        brain = _isolated_brain(monkeypatch, tmp_path)
+        _history(brain, [{"id": "p", "examples": [{"user": "q", "assistant": "a"}]}])
+        monkeypatch.setattr(brain, "_run_trainer", lambda *a, **k: pytest.fail("empty lesson started trainer"))
+>       result = brain.learn(MODEL, "سلام", "hello", [])
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_brain_rewrite.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/personal_brain.py:1092: in learn
+    result=self._run_trainer(model,batch,emit,adapter_path=candidate,cancel=cancel)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (namespace(name='Test', architecture='llama', size_label='1B'), [{'user': 'q', 'assistant': 'a'}], <function PersonalBrain.learn.<locals>.emit at 0x7f6b231868e0>)
+k = {'adapter_path': PosixPath('/workspace/scratch/a9d8f0e64114/pytest-brain-red/test_empty_new_lesson_never_tr0/brain/profiles/ce456c1d92d5b8c7/peft-adapter.candidate'), 'cancel': None}
+
+>   monkeypatch.setattr(brain, "_run_trainer", lambda *a, **k: pytest.fail("empty lesson started trainer"))
+                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: empty lesson started trainer
+
+tests/test_brain_rewrite.py:72: Failed
+_______ test_live_reload_does_not_rollback_the_candidate_it_is_verifying _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6b232aa7b0>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-brain-red/test_live_reload_does_not_roll0')
+
+    def test_live_reload_does_not_rollback_the_candidate_it_is_verifying(monkeypatch, tmp_path):
+        brain = _isolated_brain(monkeypatch, tmp_path)
+        _candidate(brain)
+        brain._commit_learning_candidate(MODEL, "new", {"generation": 2})
+        brain.activate_model(MODEL)  # start_server calls this before spawning llama.cpp
+>       assert brain.adapter_gguf(MODEL).read_bytes() == b"new-gguf"
+E       AssertionError: assert b'old-gguf' == b'new-gguf'
+E         
+E         At index 0 diff: b'o' != b'n'
+E         Use -v to get more diff
+
+tests/test_brain_rewrite.py:95: AssertionError
+______________ test_teacher_requires_evidence_in_the_user_message ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6b232aa330>
+
+    def test_teacher_requires_evidence_in_the_user_message(monkeypatch):
+        state = object.__new__(LlamaForgeState)
+        state.server_ready = True
+        state.brain = SimpleNamespace(cfg=SimpleNamespace(auto_synthesize=True))
+        state.brain_cancel = threading.Event()
+        state.cfg = SimpleNamespace(host="local", port=123)
+        state.log = lambda *_: None
+        rows = [{"user": "Where do I live?", "assistant": "Paris", "evidence": "I live in Paris"},
+            {"user": "What do I like?", "assistant": "tea", "evidence": "I like tea"}]
+        monkeypatch.setattr("llamaforge.web.server.stream_chat_events", lambda *a, **k: iter([{"type": "text", "delta": json.dumps(rows)}]))
+        result = state._brain_synthesize_examples("I like tea")
+>       assert [r["assistant"] for r in result] == ["tea"]
+E       AssertionError: assert ['Paris', 'tea'] == ['tea']
+E         
+E         At index 0 diff: 'Paris' != 'tea'
+E         Left contains one more item: 'tea'
+E         Use -v to get more diff
+
+tests/test_brain_rewrite.py:122: AssertionError
+_____________________ test_silent_subprocess_obeys_timeout _____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6b232ab290>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-brain-red/test_silent_subprocess_obeys_t0')
+
+    def test_silent_subprocess_obeys_timeout(monkeypatch, tmp_path):
+        import sys
+        import time
+        brain = _isolated_brain(monkeypatch, tmp_path)
+        start = time.monotonic()
+>       with pytest.raises(RuntimeError, match="timed out"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE RuntimeError
+
+tests/test_brain_rewrite.py:130: Failed
+____________ test_grounded_examples_and_short_budget_include_replay ____________
+
+    def test_grounded_examples_and_short_budget_include_replay():
+>       from llamaforge.core.learning_data import validate_examples, training_schedule
+E       ModuleNotFoundError: No module named 'llamaforge.core.learning_data'
+
+tests/test_brain_rewrite.py:136: ModuleNotFoundError
+___________ test_quality_gate_rejects_regression_and_missing_metrics ___________
+
+    def test_quality_gate_rejects_regression_and_missing_metrics():
+>       from llamaforge.core.training_loop import assess_quality
+E       ModuleNotFoundError: No module named 'llamaforge.core.training_loop'
+
+tests/test_brain_rewrite.py:147: ModuleNotFoundError
+_ test_actual_torch_microtraining_improves_loss_without_mutating_frozen_weights _
+
+    def test_actual_torch_microtraining_improves_loss_without_mutating_frozen_weights():
+        torch = pytest.importorskip("torch")
+>       from llamaforge.core.training_loop import train_candidate
+E       ModuleNotFoundError: No module named 'llamaforge.core.training_loop'
+
+tests/test_brain_rewrite.py:156: ModuleNotFoundError
+_____________ test_nonfinite_gradient_never_reaches_optimizer_step _____________
+
+    def test_nonfinite_gradient_never_reaches_optimizer_step():
+        torch = pytest.importorskip("torch")
+>       from llamaforge.core.training_loop import train_candidate
+E       ModuleNotFoundError: No module named 'llamaforge.core.training_loop'
+
+tests/test_brain_rewrite.py:175: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/test_brain_rewrite.py::test_questions_and_quoted_instructions_are_not_identity_targets[\u0627\u0633\u0645 \u0645\u0646 \u0686\u06cc\u0647\u061f]
+FAILED tests/test_brain_rewrite.py::test_questions_and_quoted_instructions_are_not_identity_targets[\u0627\u0633\u0645\u0645 \u0686\u06cc\u0633\u062a\u061f]
+FAILED tests/test_brain_rewrite.py::test_questions_and_quoted_instructions_are_not_identity_targets[\u0627\u0633\u0645 \u0645\u0646 \u0686\u06cc \u0628\u0648\u062f\u061f]
+FAILED tests/test_brain_rewrite.py::test_questions_and_quoted_instructions_are_not_identity_targets[My name is what?]
+FAILED tests/test_brain_rewrite.py::test_questions_and_quoted_instructions_are_not_identity_targets[\u0622\u06cc\u0627 \u0627\u0633\u0645 \u0645\u0646 \u0631\u0636\u0627 \u0627\u0633\u062a\u061f]
+FAILED tests/test_brain_rewrite.py::test_questions_and_quoted_instructions_are_not_identity_targets[\u062a\u0631\u062c\u0645\u0647 \u06a9\u0646: my name is Reza]
+FAILED tests/test_brain_rewrite.py::test_questions_and_quoted_instructions_are_not_identity_targets[\u0627\u06af\u0631 \u0627\u0633\u0645 \u0645\u0646 \u0631\u0636\u0627 \u0628\u0627\u0634\u062f \u0686\u0647\u061f]
+FAILED tests/test_brain_rewrite.py::test_identity_spelling_is_preserved[\u0627\u0633\u0645\u0645 \u0698\u0627\u0644\u0647-\u0698\u0627\u0644\u0647]
+FAILED tests/test_brain_rewrite.py::test_zero_replay_means_zero - AssertionEr...
+FAILED tests/test_brain_rewrite.py::test_correction_supersedes_all_old_identity_paraphrases
+FAILED tests/test_brain_rewrite.py::test_replay_resolves_newest_answer_and_deduplicates_question
+FAILED tests/test_brain_rewrite.py::test_malformed_archive_line_does_not_hide_valid_history
+FAILED tests/test_brain_rewrite.py::test_empty_new_lesson_never_trains_replay_only
+FAILED tests/test_brain_rewrite.py::test_live_reload_does_not_rollback_the_candidate_it_is_verifying
+FAILED tests/test_brain_rewrite.py::test_teacher_requires_evidence_in_the_user_message
+FAILED tests/test_brain_rewrite.py::test_silent_subprocess_obeys_timeout - Fa...
+FAILED tests/test_brain_rewrite.py::test_grounded_examples_and_short_budget_include_replay
+FAILED tests/test_brain_rewrite.py::test_quality_gate_rejects_regression_and_missing_metrics
+FAILED tests/test_brain_rewrite.py::test_actual_torch_microtraining_improves_loss_without_mutating_frozen_weights
+FAILED tests/test_brain_rewrite.py::test_nonfinite_gradient_never_reaches_optimizer_step
+20 failed, 5 passed in 3.20s

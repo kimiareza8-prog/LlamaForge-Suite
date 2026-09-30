@@ -33,11 +33,11 @@ def test_calendar_is_one_general_composable_skill(tmp_path):
     )["events"]
     assert [x["id"] for x in rows] == [event["id"]]
 
-    # Free-time is intentionally reasoning over primitives, not another skill/op.
+    # Free-time remains an operation of the general calendar skill.
     runtime = AgentRuntime()
     calendar_def = next(x["function"] for x in runtime.tool_definitions(AgentPermissions()) if x["function"]["name"] == "calendar")
     ops = calendar_def["parameters"]["properties"]["operation"]["enum"]
-    assert "find_free_time" not in ops
+    assert "find_free_time" in ops
     assert {"now", "list", "create", "update", "cancel", "delete"}.issubset(set(ops))
 
 
@@ -91,8 +91,9 @@ def test_embedded_bridge_payload_contains_workspace_sync_and_matches_version():
     embedded = repo / "llamaforge" / "bridge_payload" / "web-bridge"
     assert (outer / "workspace-sync.php").is_file()
     assert (embedded / "workspace-sync.php").is_file()
-    assert (outer / "VERSION").read_text(encoding="utf-8").strip() == "3.9.0-live-stream-files"
-    assert (embedded / "VERSION").read_text(encoding="utf-8").strip() == "3.9.0-live-stream-files"
+    outer_version = (outer / "VERSION").read_text(encoding="utf-8").strip()
+    embedded_version = (embedded / "VERSION").read_text(encoding="utf-8").strip()
+    assert outer_version and outer_version == embedded_version
     for rel in ("workspace-sync.php", "api.php", "connect.php", "lib/bootstrap.php", "assets/app.js", "assets/app.css"):
         assert (outer / rel).read_bytes() == (embedded / rel).read_bytes()
 

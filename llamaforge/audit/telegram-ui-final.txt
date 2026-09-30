@@ -1,0 +1,41 @@
+SSE split/dedup, reconnect cursor, and context draft: passed
+Brain completion/cancel/error releases the composer: passed
+✔ llamaforge/tests/test_web_protocol.cjs (61.757017ms)
+✔ composer text survives attachment/options rerender and returning to its thread (19.111728ms)
+✔ changing thread cancels the original stream before switching (3.433539ms)
+✔ calendar payload keeps server wall time when browser uses another timezone (1.040153ms)
+✔ late cancelled stream cannot delete or unlock the next response (7.689945ms)
+✔ agenda overlap excludes midnight end and includes the following occupied day (0.330496ms)
+✔ attachment finishing after navigation stays in its original conversation (2.065003ms)
+✔ background Brain auto-setup keeps chat usable on render and refresh (1.957882ms)
+✔ background Brain download-base keeps chat usable on render and refresh (2.648029ms)
+✔ background Brain detect-base keeps chat usable on render and refresh (1.605082ms)
+✔ background Brain trainer keeps chat usable on render and refresh (1.592673ms)
+✔ background Brain doctor keeps chat usable on render and refresh (2.306316ms)
+✔ typing a date invalidates an older conversion response before blur (1.971031ms)
+✔ calendar search ignores stale responses and escapes titles (2.018583ms)
+✔ composer rerender preserves a pending strict lesson lock (1.702628ms)
+✔ request trace timeline ignores stale detail and escapes event text (2.406496ms)
+✔ trace picker escapes prompt previews and excludes invalid identifiers (1.610851ms)
+✔ agent permission draft survives background refresh and revisiting page (3.231186ms)
+✔ agent save retains a newer edit while request is in flight (6.146065ms)
+✔ late Agent status cannot replace the focused Telegram input while typing (2.338974ms)
+✔ Telegram login fields survive forced refresh and revisiting without browser storage (3.550655ms)
+✔ Telegram login completion after leaving the page preserves the next step (2.990454ms)
+✔ Telegram busy controls prevent duplicate requests and restore after errors (4.546873ms)
+✔ Telegram buttons submit normalized Persian digits through code and two-step login (3.299127ms)
+✔ empty Telegram credentials explain the missing fields without calling login (2.330262ms)
+✔ saving Agent permissions preserves unfinished Telegram credentials (6.613137ms)
+✔ Telegram resume, disconnect and confirmed revoke update the visible account (2.616872ms)
+✔ Telegram installation preserves entered credentials and updates its controls (2.225594ms)
+✔ autofilled Telegram credentials survive a render without input events (2.059295ms)
+✔ an older Agent response cannot overwrite a completed Telegram login (1.992223ms)
+✔ state refresh started before login cannot revert the new Telegram status (2.899097ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 177.014435

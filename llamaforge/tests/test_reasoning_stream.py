@@ -32,3 +32,17 @@ def test_think_tags_are_split_from_final_answer():
     assert reasoning == 'internal plan'
     assert text == 'Final answer'
     assert '<think>' not in text
+
+
+def test_thought_tags_are_split_from_local_final_answer():
+    lines = [
+        'data: {"choices":[{"delta":{"content":"<thought>private plan"}}]}\n',
+        'data: {"choices":[{"delta":{"content":"</thought>سلام"}}]}\n',
+        'data: [DONE]\n',
+    ]
+    with patch('llamaforge.core.net._opener', return_value=FakeOpener(FakeResponse(lines))):
+        events = list(stream_chat_events('127.0.0.1', 8080, [{'role':'user','content':'hi'}]))
+    reasoning=''.join(x.get('delta','') for x in events if x.get('type')=='reasoning')
+    text=''.join(x.get('delta','') for x in events if x.get('type')=='text')
+    assert reasoning == 'private plan'
+    assert text == 'سلام'

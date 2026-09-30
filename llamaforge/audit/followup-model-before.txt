@@ -1,0 +1,53 @@
+................FF                                                       [100%]
+=================================== FAILURES ===================================
+__________ test_learning_reload_uses_the_taught_model_not_last_launch __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f3e56c094c0>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-4/test_learning_reload_uses_the_0')
+
+    def test_learning_reload_uses_the_taught_model_not_last_launch(monkeypatch, tmp_path):
+        state=state_for(monkeypatch, tmp_path)
+        state.brain.cfg.enabled=True
+        state.last_launch_payload={'model_path':'old-model.gguf','ctx':4096}
+        state.brain_doctor=lambda:{'checks':[]}
+        state.brain.learn=lambda *a,**kw:{'generation':1}
+        starts=[]
+        def start(payload):
+            starts.append(payload);state.server_proc.running=True;state.server_ready=True
+        state.start_server=start
+        result=state.learn_brain_async({'user':'اسم من رضاست.'})
+        assert result['job']['state']=='done'
+>       assert starts[0]['model_path']=='A.gguf'
+E       AssertionError: assert 'old-model.gguf' == 'A.gguf'
+E
+E         - A.gguf
+E         + old-model.gguf
+
+tests/test_stability_followup.py:131: AssertionError
+_____ test_model_switch_during_preflight_cannot_train_or_restore_old_model _____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f3e56c0c830>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-4/test_model_switch_during_prefl0')
+
+    def test_model_switch_during_preflight_cannot_train_or_restore_old_model(monkeypatch, tmp_path):
+        state=state_for(monkeypatch,tmp_path)
+        state.brain.cfg.enabled=True
+        trained=[];started=[]
+        state.brain.learn=lambda *a,**kw:trained.append(a)
+        state.start_server=lambda payload:started.append(payload)
+        def doctor():
+            state.active_model=SimpleNamespace(name='B',architecture='llama',size_label='1B',path='B.gguf')
+            return {'checks':[]}
+        state.brain_doctor=doctor
+        result=state.learn_brain_async({'user':'اسم من رضاست.'})
+>       assert trained==[] and started==[]
+E       AssertionError: assert ([(namespace(n...f3e5675d6c0>)] == []
+E
+E         Left contains one more item: (namespace(name='A', architecture='llama', size_label='1B', path='A.gguf'), 'اسم من رضاست.', 'Acknowledged.', [{'user'... 'اسم من رضاست', ...}], <function LlamaForgeState.learn_brain_async.<locals>.work.<locals>.progress at 0x7f3e5675d6c0>)
+E         Use -v to get more diff)
+
+tests/test_stability_followup.py:145: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_stability_followup.py::test_learning_reload_uses_the_taught_model_not_last_launch
+FAILED tests/test_stability_followup.py::test_model_switch_during_preflight_cannot_train_or_restore_old_model
+2 failed, 16 passed in 0.21s

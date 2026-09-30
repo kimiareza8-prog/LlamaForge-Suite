@@ -1,0 +1,12 @@
+.............................F                                           [100%]
+=================================== FAILURES ===================================
+______ test_cpu_training_memory_guard_uses_checkpoint_size_not_model_name ______
+
+    def test_cpu_training_memory_guard_uses_checkpoint_size_not_model_name():
+>       from llamaforge.trainer_worker import check_training_memory
+E       ImportError: cannot import name 'check_training_memory' from 'llamaforge.trainer_worker' (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/llamaforge/trainer_worker.py)
+
+tests/test_brain_rewrite.py:246: ImportError
+=========================== short test summary info ============================
+FAILED tests/test_brain_rewrite.py::test_cpu_training_memory_guard_uses_checkpoint_size_not_model_name
+1 failed, 29 passed in 2.05s

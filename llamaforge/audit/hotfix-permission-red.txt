@@ -1,0 +1,112 @@
+FFFF.                                                                    [100%]
+=================================== FAILURES ===================================
+_ test_new_tool_call_honors_permissions_revoked_after_turn_started[allow_workspace_write-calendar-args0] _
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7f867ff59fa0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8680313050>
+permission = 'allow_workspace_write', tool = 'calendar'
+args = {'operation': 'create', 'title': 'Blocked', 'start': '2026-09-27T10:00'}
+
+    @pytest.mark.parametrize('permission,tool,args',[
+        ('allow_workspace_write','calendar',{'operation':'create','title':'Blocked','start':'2026-09-27T10:00'}),
+        ('allow_write','http_request',{'method':'POST','url':'https://example.com/endpoint'}),
+        ('allow_telegram_read','telegram',{'operation':'recent_chats'}),
+        ('allow_telegram_write','telegram',{'operation':'send','chat_ref':'unused','text':'hello'}),
+    ])
+    def test_new_tool_call_honors_permissions_revoked_after_turn_started(runtime,monkeypatch,permission,tool,args):
+        initial=AgentPermissions(allow_write=True)
+        live=AgentPermissions(allow_write=True)
+        setattr(live,permission,False)
+        runtime.permission_provider=lambda:live
+        touched=[]
+        monkeypatch.setattr(runtime,'_http',lambda *_a,**_k:touched.append('network'))
+        monkeypatch.setattr(runtime.telegram,'_submit',lambda coro:(coro.close(),touched.append('telegram'))[-1])
+        result=json.loads(runtime.execute(tool,args,initial))
+>       assert not result['ok'] and not touched
+E       assert (not True)
+
+tests/test_diagnostics_hotfix.py:181: AssertionError
+_ test_new_tool_call_honors_permissions_revoked_after_turn_started[allow_write-http_request-args1] _
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7f867ff5b950>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f867ff5ae70>
+permission = 'allow_write', tool = 'http_request'
+args = {'method': 'POST', 'url': 'https://example.com/endpoint'}
+
+    @pytest.mark.parametrize('permission,tool,args',[
+        ('allow_workspace_write','calendar',{'operation':'create','title':'Blocked','start':'2026-09-27T10:00'}),
+        ('allow_write','http_request',{'method':'POST','url':'https://example.com/endpoint'}),
+        ('allow_telegram_read','telegram',{'operation':'recent_chats'}),
+        ('allow_telegram_write','telegram',{'operation':'send','chat_ref':'unused','text':'hello'}),
+    ])
+    def test_new_tool_call_honors_permissions_revoked_after_turn_started(runtime,monkeypatch,permission,tool,args):
+        initial=AgentPermissions(allow_write=True)
+        live=AgentPermissions(allow_write=True)
+        setattr(live,permission,False)
+        runtime.permission_provider=lambda:live
+        touched=[]
+        monkeypatch.setattr(runtime,'_http',lambda *_a,**_k:touched.append('network'))
+        monkeypatch.setattr(runtime.telegram,'_submit',lambda coro:(coro.close(),touched.append('telegram'))[-1])
+        result=json.loads(runtime.execute(tool,args,initial))
+>       assert not result['ok'] and not touched
+E       AssertionError: assert (not False and not ['network'])
+
+tests/test_diagnostics_hotfix.py:181: AssertionError
+_ test_new_tool_call_honors_permissions_revoked_after_turn_started[allow_telegram_read-telegram-args2] _
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7f867ff84c50>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f867ff876b0>
+permission = 'allow_telegram_read', tool = 'telegram'
+args = {'operation': 'recent_chats'}
+
+    @pytest.mark.parametrize('permission,tool,args',[
+        ('allow_workspace_write','calendar',{'operation':'create','title':'Blocked','start':'2026-09-27T10:00'}),
+        ('allow_write','http_request',{'method':'POST','url':'https://example.com/endpoint'}),
+        ('allow_telegram_read','telegram',{'operation':'recent_chats'}),
+        ('allow_telegram_write','telegram',{'operation':'send','chat_ref':'unused','text':'hello'}),
+    ])
+    def test_new_tool_call_honors_permissions_revoked_after_turn_started(runtime,monkeypatch,permission,tool,args):
+        initial=AgentPermissions(allow_write=True)
+        live=AgentPermissions(allow_write=True)
+        setattr(live,permission,False)
+        runtime.permission_provider=lambda:live
+        touched=[]
+        monkeypatch.setattr(runtime,'_http',lambda *_a,**_k:touched.append('network'))
+        monkeypatch.setattr(runtime.telegram,'_submit',lambda coro:(coro.close(),touched.append('telegram'))[-1])
+        result=json.loads(runtime.execute(tool,args,initial))
+>       assert not result['ok'] and not touched
+E       assert (not True)
+
+tests/test_diagnostics_hotfix.py:181: AssertionError
+_ test_new_tool_call_honors_permissions_revoked_after_turn_started[allow_telegram_write-telegram-args3] _
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7f867ff85730>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f867ff844d0>
+permission = 'allow_telegram_write', tool = 'telegram'
+args = {'operation': 'send', 'chat_ref': 'unused', 'text': 'hello'}
+
+    @pytest.mark.parametrize('permission,tool,args',[
+        ('allow_workspace_write','calendar',{'operation':'create','title':'Blocked','start':'2026-09-27T10:00'}),
+        ('allow_write','http_request',{'method':'POST','url':'https://example.com/endpoint'}),
+        ('allow_telegram_read','telegram',{'operation':'recent_chats'}),
+        ('allow_telegram_write','telegram',{'operation':'send','chat_ref':'unused','text':'hello'}),
+    ])
+    def test_new_tool_call_honors_permissions_revoked_after_turn_started(runtime,monkeypatch,permission,tool,args):
+        initial=AgentPermissions(allow_write=True)
+        live=AgentPermissions(allow_write=True)
+        setattr(live,permission,False)
+        runtime.permission_provider=lambda:live
+        touched=[]
+        monkeypatch.setattr(runtime,'_http',lambda *_a,**_k:touched.append('network'))
+        monkeypatch.setattr(runtime.telegram,'_submit',lambda coro:(coro.close(),touched.append('telegram'))[-1])
+        result=json.loads(runtime.execute(tool,args,initial))
+>       assert not result['ok'] and not touched
+E       assert (not True)
+
+tests/test_diagnostics_hotfix.py:181: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_diagnostics_hotfix.py::test_new_tool_call_honors_permissions_revoked_after_turn_started[allow_workspace_write-calendar-args0]
+FAILED tests/test_diagnostics_hotfix.py::test_new_tool_call_honors_permissions_revoked_after_turn_started[allow_write-http_request-args1]
+FAILED tests/test_diagnostics_hotfix.py::test_new_tool_call_honors_permissions_revoked_after_turn_started[allow_telegram_read-telegram-args2]
+FAILED tests/test_diagnostics_hotfix.py::test_new_tool_call_honors_permissions_revoked_after_turn_started[allow_telegram_write-telegram-args3]
+4 failed, 1 passed, 15 deselected in 0.08s

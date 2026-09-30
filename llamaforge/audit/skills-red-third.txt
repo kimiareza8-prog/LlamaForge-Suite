@@ -1,0 +1,241 @@
+..............................FFFFFFFFFFFFF............................. [ 92%]
+......                                                                   [100%]
+=================================== FAILURES ===================================
+_ test_guard_does_not_turn_mentions_into_actions[I missed a meeting yesterday] _
+
+task = 'I missed a meeting yesterday'
+
+    @pytest.mark.parametrize("task", ["I missed a meeting yesterday", "My browser crashed yesterday",
+        "Tomorrow will be a beautiful day", "دیروز جلسه خوبی داشتم", "قرار نیست کاری انجام بدی",
+        "I like ZIP compression", "Don't create a calendar event"])
+    def test_guard_does_not_turn_mentions_into_actions(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['calendar'] == []
+E         
+E         Left contains one more item: 'calendar'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:52: AssertionError
+_ test_guard_does_not_turn_mentions_into_actions[My browser crashed yesterday] _
+
+task = 'My browser crashed yesterday'
+
+    @pytest.mark.parametrize("task", ["I missed a meeting yesterday", "My browser crashed yesterday",
+        "Tomorrow will be a beautiful day", "دیروز جلسه خوبی داشتم", "قرار نیست کاری انجام بدی",
+        "I like ZIP compression", "Don't create a calendar event"])
+    def test_guard_does_not_turn_mentions_into_actions(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['browser'] == []
+E         
+E         Left contains one more item: 'browser'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:52: AssertionError
+_ test_guard_does_not_turn_mentions_into_actions[Tomorrow will be a beautiful day] _
+
+task = 'Tomorrow will be a beautiful day'
+
+    @pytest.mark.parametrize("task", ["I missed a meeting yesterday", "My browser crashed yesterday",
+        "Tomorrow will be a beautiful day", "دیروز جلسه خوبی داشتم", "قرار نیست کاری انجام بدی",
+        "I like ZIP compression", "Don't create a calendar event"])
+    def test_guard_does_not_turn_mentions_into_actions(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['calendar'] == []
+E         
+E         Left contains one more item: 'calendar'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:52: AssertionError
+_ test_guard_does_not_turn_mentions_into_actions[\u062f\u06cc\u0631\u0648\u0632 \u062c\u0644\u0633\u0647 \u062e\u0648\u0628\u06cc \u062f\u0627\u0634\u062a\u0645] _
+
+task = 'دیروز جلسه خوبی داشتم'
+
+    @pytest.mark.parametrize("task", ["I missed a meeting yesterday", "My browser crashed yesterday",
+        "Tomorrow will be a beautiful day", "دیروز جلسه خوبی داشتم", "قرار نیست کاری انجام بدی",
+        "I like ZIP compression", "Don't create a calendar event"])
+    def test_guard_does_not_turn_mentions_into_actions(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['calendar'] == []
+E         
+E         Left contains one more item: 'calendar'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:52: AssertionError
+_ test_guard_does_not_turn_mentions_into_actions[\u0642\u0631\u0627\u0631 \u0646\u06cc\u0633\u062a \u06a9\u0627\u0631\u06cc \u0627\u0646\u062c\u0627\u0645 \u0628\u062f\u06cc] _
+
+task = 'قرار نیست کاری انجام بدی'
+
+    @pytest.mark.parametrize("task", ["I missed a meeting yesterday", "My browser crashed yesterday",
+        "Tomorrow will be a beautiful day", "دیروز جلسه خوبی داشتم", "قرار نیست کاری انجام بدی",
+        "I like ZIP compression", "Don't create a calendar event"])
+    def test_guard_does_not_turn_mentions_into_actions(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['calendar'] == []
+E         
+E         Left contains one more item: 'calendar'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:52: AssertionError
+____ test_guard_does_not_turn_mentions_into_actions[I like ZIP compression] ____
+
+task = 'I like ZIP compression'
+
+    @pytest.mark.parametrize("task", ["I missed a meeting yesterday", "My browser crashed yesterday",
+        "Tomorrow will be a beautiful day", "دیروز جلسه خوبی داشتم", "قرار نیست کاری انجام بدی",
+        "I like ZIP compression", "Don't create a calendar event"])
+    def test_guard_does_not_turn_mentions_into_actions(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['files'] == []
+E         
+E         Left contains one more item: 'files'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:52: AssertionError
+_ test_guard_does_not_turn_mentions_into_actions[Don't create a calendar event] _
+
+task = "Don't create a calendar event"
+
+    @pytest.mark.parametrize("task", ["I missed a meeting yesterday", "My browser crashed yesterday",
+        "Tomorrow will be a beautiful day", "دیروز جلسه خوبی داشتم", "قرار نیست کاری انجام بدی",
+        "I like ZIP compression", "Don't create a calendar event"])
+    def test_guard_does_not_turn_mentions_into_actions(task):
+>       assert SkillRegistry.hinted_families(task) == []
+E       AssertionError: assert ['calendar'] == []
+E         
+E         Left contains one more item: 'calendar'
+E         Use -v to get more diff
+
+tests/test_skill_audit.py:52: AssertionError
+_ test_operation_preconditions_are_checked_before_execution[calendar-args0-title] _
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7f160c539700>
+skill = 'calendar', args = {'operation': 'create'}, missing = 'title'
+
+    @pytest.mark.parametrize("skill,args,missing", [
+        ("calendar", {"operation":"create"}, "title"),
+        ("calendar", {"operation":"create", "title":"Meeting", "start":"10:00"}, "date"),
+        ("calendar", {"operation":"delete"}, "id"),
+        ("workspace_files", {"operation":"store_attachment"}, "attachment_id"),
+        ("workspace_files", {"operation":"read_content"}, "id"),
+        ("workspace_files", {"operation":"replace_text", "id":"file_a"}, "old_text"),
+    ])
+    def test_operation_preconditions_are_checked_before_execution(runtime, skill, args, missing):
+        ok, error = SkillRegistry(runtime, AgentPermissions()).validate_call(skill, args)
+>       assert not ok and missing in error
+E       assert (not True)
+
+tests/test_skill_audit.py:65: AssertionError
+_ test_operation_preconditions_are_checked_before_execution[calendar-args1-date] _
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7f160c1c79e0>
+skill = 'calendar'
+args = {'operation': 'create', 'title': 'Meeting', 'start': '10:00'}
+missing = 'date'
+
+    @pytest.mark.parametrize("skill,args,missing", [
+        ("calendar", {"operation":"create"}, "title"),
+        ("calendar", {"operation":"create", "title":"Meeting", "start":"10:00"}, "date"),
+        ("calendar", {"operation":"delete"}, "id"),
+        ("workspace_files", {"operation":"store_attachment"}, "attachment_id"),
+        ("workspace_files", {"operation":"read_content"}, "id"),
+        ("workspace_files", {"operation":"replace_text", "id":"file_a"}, "old_text"),
+    ])
+    def test_operation_preconditions_are_checked_before_execution(runtime, skill, args, missing):
+        ok, error = SkillRegistry(runtime, AgentPermissions()).validate_call(skill, args)
+>       assert not ok and missing in error
+E       assert (not True)
+
+tests/test_skill_audit.py:65: AssertionError
+_ test_operation_preconditions_are_checked_before_execution[calendar-args2-id] _
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7f160c1c71a0>
+skill = 'calendar', args = {'operation': 'delete'}, missing = 'id'
+
+    @pytest.mark.parametrize("skill,args,missing", [
+        ("calendar", {"operation":"create"}, "title"),
+        ("calendar", {"operation":"create", "title":"Meeting", "start":"10:00"}, "date"),
+        ("calendar", {"operation":"delete"}, "id"),
+        ("workspace_files", {"operation":"store_attachment"}, "attachment_id"),
+        ("workspace_files", {"operation":"read_content"}, "id"),
+        ("workspace_files", {"operation":"replace_text", "id":"file_a"}, "old_text"),
+    ])
+    def test_operation_preconditions_are_checked_before_execution(runtime, skill, args, missing):
+        ok, error = SkillRegistry(runtime, AgentPermissions()).validate_call(skill, args)
+>       assert not ok and missing in error
+E       assert (not True)
+
+tests/test_skill_audit.py:65: AssertionError
+_ test_operation_preconditions_are_checked_before_execution[workspace_files-args3-attachment_id] _
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7f160c53bf80>
+skill = 'workspace_files', args = {'operation': 'store_attachment'}
+missing = 'attachment_id'
+
+    @pytest.mark.parametrize("skill,args,missing", [
+        ("calendar", {"operation":"create"}, "title"),
+        ("calendar", {"operation":"create", "title":"Meeting", "start":"10:00"}, "date"),
+        ("calendar", {"operation":"delete"}, "id"),
+        ("workspace_files", {"operation":"store_attachment"}, "attachment_id"),
+        ("workspace_files", {"operation":"read_content"}, "id"),
+        ("workspace_files", {"operation":"replace_text", "id":"file_a"}, "old_text"),
+    ])
+    def test_operation_preconditions_are_checked_before_execution(runtime, skill, args, missing):
+        ok, error = SkillRegistry(runtime, AgentPermissions()).validate_call(skill, args)
+>       assert not ok and missing in error
+E       assert (not True)
+
+tests/test_skill_audit.py:65: AssertionError
+_ test_operation_preconditions_are_checked_before_execution[workspace_files-args4-id] _
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7f160c53acc0>
+skill = 'workspace_files', args = {'operation': 'read_content'}, missing = 'id'
+
+    @pytest.mark.parametrize("skill,args,missing", [
+        ("calendar", {"operation":"create"}, "title"),
+        ("calendar", {"operation":"create", "title":"Meeting", "start":"10:00"}, "date"),
+        ("calendar", {"operation":"delete"}, "id"),
+        ("workspace_files", {"operation":"store_attachment"}, "attachment_id"),
+        ("workspace_files", {"operation":"read_content"}, "id"),
+        ("workspace_files", {"operation":"replace_text", "id":"file_a"}, "old_text"),
+    ])
+    def test_operation_preconditions_are_checked_before_execution(runtime, skill, args, missing):
+        ok, error = SkillRegistry(runtime, AgentPermissions()).validate_call(skill, args)
+>       assert not ok and missing in error
+E       assert (not True)
+
+tests/test_skill_audit.py:65: AssertionError
+_ test_operation_preconditions_are_checked_before_execution[workspace_files-args5-old_text] _
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7f160c5388c0>
+skill = 'workspace_files', args = {'operation': 'replace_text', 'id': 'file_a'}
+missing = 'old_text'
+
+    @pytest.mark.parametrize("skill,args,missing", [
+        ("calendar", {"operation":"create"}, "title"),
+        ("calendar", {"operation":"create", "title":"Meeting", "start":"10:00"}, "date"),
+        ("calendar", {"operation":"delete"}, "id"),
+        ("workspace_files", {"operation":"store_attachment"}, "attachment_id"),
+        ("workspace_files", {"operation":"read_content"}, "id"),
+        ("workspace_files", {"operation":"replace_text", "id":"file_a"}, "old_text"),
+    ])
+    def test_operation_preconditions_are_checked_before_execution(runtime, skill, args, missing):
+        ok, error = SkillRegistry(runtime, AgentPermissions()).validate_call(skill, args)
+>       assert not ok and missing in error
+E       assert (not True)
+
+tests/test_skill_audit.py:65: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_skill_audit.py::test_guard_does_not_turn_mentions_into_actions[I missed a meeting yesterday]
+FAILED tests/test_skill_audit.py::test_guard_does_not_turn_mentions_into_actions[My browser crashed yesterday]
+FAILED tests/test_skill_audit.py::test_guard_does_not_turn_mentions_into_actions[Tomorrow will be a beautiful day]
+FAILED tests/test_skill_audit.py::test_guard_does_not_turn_mentions_into_actions[\u062f\u06cc\u0631\u0648\u0632 \u062c\u0644\u0633\u0647 \u062e\u0648\u0628\u06cc \u062f\u0627\u0634\u062a\u0645]
+FAILED tests/test_skill_audit.py::test_guard_does_not_turn_mentions_into_actions[\u0642\u0631\u0627\u0631 \u0646\u06cc\u0633\u062a \u06a9\u0627\u0631\u06cc \u0627\u0646\u062c\u0627\u0645 \u0628\u062f\u06cc]
+FAILED tests/test_skill_audit.py::test_guard_does_not_turn_mentions_into_actions[I like ZIP compression]
+FAILED tests/test_skill_audit.py::test_guard_does_not_turn_mentions_into_actions[Don't create a calendar event]
+FAILED tests/test_skill_audit.py::test_operation_preconditions_are_checked_before_execution[calendar-args0-title]
+FAILED tests/test_skill_audit.py::test_operation_preconditions_are_checked_before_execution[calendar-args1-date]
+FAILED tests/test_skill_audit.py::test_operation_preconditions_are_checked_before_execution[calendar-args2-id]
+FAILED tests/test_skill_audit.py::test_operation_preconditions_are_checked_before_execution[workspace_files-args3-attachment_id]
+FAILED tests/test_skill_audit.py::test_operation_preconditions_are_checked_before_execution[workspace_files-args4-id]
+FAILED tests/test_skill_audit.py::test_operation_preconditions_are_checked_before_execution[workspace_files-args5-old_text]
+13 failed, 65 passed in 0.30s

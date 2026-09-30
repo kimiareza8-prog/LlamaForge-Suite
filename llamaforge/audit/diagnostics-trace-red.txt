@@ -1,0 +1,175 @@
+FFFFFFFF...FF                                                            [100%]
+=================================== FAILURES ===================================
+______________ test_full_input_output_export_and_secret_redaction ______________
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-tracing-red/test_full_input_output_export_0')
+
+    def test_full_input_output_export_and_secret_redaction(tmp_path):
+>       TraceStore, record, logged_model, _ = tracing()
+                                              ^^^^^^^^^
+
+tests/test_request_tracing.py:17:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def tracing():
+>       from llamaforge.core.request_tracing import TraceStore, record, logged_model, logged_stream
+E       ModuleNotFoundError: No module named 'llamaforge.core.request_tracing'
+
+tests/test_request_tracing.py:12: ModuleNotFoundError
+___ test_live_stream_is_not_buffered_and_partial_secret_is_redacted_on_close ___
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-tracing-red/test_live_stream_is_not_buffer0')
+
+    def test_live_stream_is_not_buffered_and_partial_secret_is_redacted_on_close(tmp_path):
+>       TraceStore, _, _, logged_stream=tracing()
+                                        ^^^^^^^^^
+
+tests/test_request_tracing.py:40:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def tracing():
+>       from llamaforge.core.request_tracing import TraceStore, record, logged_model, logged_stream
+E       ModuleNotFoundError: No module named 'llamaforge.core.request_tracing'
+
+tests/test_request_tracing.py:12: ModuleNotFoundError
+__________ test_parallel_requests_do_not_mix_and_export_rejects_paths __________
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-tracing-red/test_parallel_requests_do_not_0')
+
+    def test_parallel_requests_do_not_mix_and_export_rejects_paths(tmp_path):
+>       TraceStore, record, _, _=tracing()
+                                 ^^^^^^^^^
+
+tests/test_request_tracing.py:59:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def tracing():
+>       from llamaforge.core.request_tracing import TraceStore, record, logged_model, logged_stream
+E       ModuleNotFoundError: No module named 'llamaforge.core.request_tracing'
+
+tests/test_request_tracing.py:12: ModuleNotFoundError
+________ test_trace_limit_is_explicit_and_retention_keeps_active_trace _________
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-tracing-red/test_trace_limit_is_explicit_a0')
+
+    def test_trace_limit_is_explicit_and_retention_keeps_active_trace(tmp_path):
+>       TraceStore, record, _, _=tracing()
+                                 ^^^^^^^^^
+
+tests/test_request_tracing.py:73:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def tracing():
+>       from llamaforge.core.request_tracing import TraceStore, record, logged_model, logged_stream
+E       ModuleNotFoundError: No module named 'llamaforge.core.request_tracing'
+
+tests/test_request_tracing.py:12: ModuleNotFoundError
+____ test_agent_records_decisions_catalog_full_observation_and_verification ____
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7f641fc7c890>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-tracing-red/test_agent_records_decisions_c0')
+
+    def test_agent_records_decisions_catalog_full_observation_and_verification(runtime,tmp_path):
+>       TraceStore, _, _, _=tracing()
+                            ^^^^^^^^^
+
+tests/test_request_tracing.py:87:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def tracing():
+>       from llamaforge.core.request_tracing import TraceStore, record, logged_model, logged_stream
+E       ModuleNotFoundError: No module named 'llamaforge.core.request_tracing'
+
+tests/test_request_tracing.py:12: ModuleNotFoundError
+_____ test_failed_requests_have_terminal_error_and_disabled_trace_is_noop ______
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-tracing-red/test_failed_requests_have_term0')
+
+    def test_failed_requests_have_terminal_error_and_disabled_trace_is_noop(tmp_path):
+>       TraceStore,record,_,_=tracing();store=TraceStore(tmp_path)
+                              ^^^^^^^^^
+
+tests/test_request_tracing.py:106:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def tracing():
+>       from llamaforge.core.request_tracing import TraceStore, record, logged_model, logged_stream
+E       ModuleNotFoundError: No module named 'llamaforge.core.request_tracing'
+
+tests/test_request_tracing.py:12: ModuleNotFoundError
+______________ test_binary_is_represented_by_metadata_not_base64 _______________
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-tracing-red/test_binary_is_represented_by_0')
+
+    def test_binary_is_represented_by_metadata_not_base64(tmp_path):
+>       TraceStore,_,_,_=tracing();store=TraceStore(tmp_path)
+                         ^^^^^^^^^
+
+tests/test_request_tracing.py:117:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def tracing():
+>       from llamaforge.core.request_tracing import TraceStore, record, logged_model, logged_stream
+E       ModuleNotFoundError: No module named 'llamaforge.core.request_tracing'
+
+tests/test_request_tracing.py:12: ModuleNotFoundError
+__________________ test_php_empty_workspace_index_is_accepted __________________
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-tracing-red/test_php_empty_workspace_index0')
+
+    def test_php_empty_workspace_index_is_accepted(tmp_path):
+        ws=FileWorkspace(tmp_path)
+>       ws.import_snapshot({'index':{'items':[]},'folders':['رضا'],'files':[]})
+
+tests/test_diagnostic_regressions.py:11:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <llamaforge.core.workspace.FileWorkspace object at 0x7f641fb7fa40>
+payload = {'index': {'items': []}, 'folders': ['رضا'], 'files': []}
+
+    def import_snapshot(self, payload: dict[str, Any]) -> None:
+        if not isinstance(payload, dict) or not isinstance(payload.get("index"), dict) or not isinstance(payload["index"].get("items"), dict):
+>           raise ValueError("Invalid workspace snapshot index")
+E           ValueError: Invalid workspace snapshot index
+
+llamaforge/core/workspace.py:725: ValueError
+______ test_redaction_preserves_token_metrics_but_removes_quoted_secrets _______
+
+    def test_redaction_preserves_token_metrics_but_removes_quoted_secrets():
+        result=redact({'max_tokens':42,'prompt_tokens':30,'token_id':3,'owner_key':'SECRET_OWNER',
+                       'text':'password="two secret words" n_tokens = 42\nCookie: a=SECRET_COOKIE; b=ANOTHER'})
+>       assert result['max_tokens']==42 and result['prompt_tokens']==30 and result['token_id']==3
+E       AssertionError: assert (42 == 42 and 30 == 30 and '[redacted]' == 3)
+
+tests/test_diagnostic_regressions.py:23: AssertionError
+_________ test_brain_doctor_rejects_prequantized_source_with_intel_gpu _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f641fb7f740>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/pytest-tracing-red/test_brain_doctor_rejects_preq0')
+
+    def test_brain_doctor_rejects_prequantized_source_with_intel_gpu(monkeypatch,tmp_path):
+        brain=_isolated_brain(monkeypatch,tmp_path)
+        base=tmp_path/'source';base.mkdir()
+        (base/'config.json').write_text(json.dumps({'quantization_config':{'quant_method':'bitsandbytes','load_in_4bit':True}}))
+        (base/'model.safetensors').write_text('fixture');(base/'tokenizer.json').write_text('{}')
+        py=tmp_path/'python.exe';py.touch();brain.trainer_python=lambda:py
+        brain.training_base_for=lambda model:str(base);brain.training_base_ready=lambda model:True;brain.toolchain_ready=lambda:True
+        brain._doctor_dependencies_cache=(__import__('time').time(),{'ok':True,'detail':json.dumps({'cuda':False,'mps':False})})
+        hw=SimpleNamespace(os_name='Windows',gpus=[SimpleNamespace(name='Intel HD 530')],ram_total_gb=16,ram_available_gb=9,physical_cores=2,logical_cores=4,cpu='CPU')
+        check=next((r for r in brain.doctor(hw=hw)['checks'] if r['name']=='cpu_checkpoint_format'),None)
+>       assert check and not check['ok'] and 'full' in check['detail'].lower()
+E       assert (None)
+
+tests/test_diagnostic_regressions.py:38: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_request_tracing.py::test_full_input_output_export_and_secret_redaction
+FAILED tests/test_request_tracing.py::test_live_stream_is_not_buffered_and_partial_secret_is_redacted_on_close
+FAILED tests/test_request_tracing.py::test_parallel_requests_do_not_mix_and_export_rejects_paths
+FAILED tests/test_request_tracing.py::test_trace_limit_is_explicit_and_retention_keeps_active_trace
+FAILED tests/test_request_tracing.py::test_agent_records_decisions_catalog_full_observation_and_verification
+FAILED tests/test_request_tracing.py::test_failed_requests_have_terminal_error_and_disabled_trace_is_noop
+FAILED tests/test_request_tracing.py::test_binary_is_represented_by_metadata_not_base64
+FAILED tests/test_diagnostic_regressions.py::test_php_empty_workspace_index_is_accepted
+FAILED tests/test_diagnostic_regressions.py::test_redaction_preserves_token_metrics_but_removes_quoted_secrets
+FAILED tests/test_diagnostic_regressions.py::test_brain_doctor_rejects_prequantized_source_with_intel_gpu
+10 failed, 3 passed in 0.18s

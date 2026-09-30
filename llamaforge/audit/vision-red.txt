@@ -1,0 +1,43 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_final_budget_still_receives_explicitly_read_image ____________
+
+runtime = <llamaforge.core.agent_tools.AgentRuntime object at 0x7fc4d0bdf710>
+
+    def test_final_budget_still_receives_explicitly_read_image(runtime):
+        runtime.vision_available = True
+        staged = runtime.prepare_messages_for_agent([{"role":"user", "content":"Describe this image", "attachments":[
+            {"kind":"image", "name":"photo.png", "type":"image/png", "data_url":"data:image/png;base64,AAEC"}]}])
+        attachment_id = staged[0]["_attachment_refs"][0]["attachment_id"]
+        def model(messages, tools):
+            if "stage 0" in messages[0]["content"]:
+                return {"content":'{"route":"skills","families":["files"]}'}
+            return {"content":json.dumps({"action":"tool", "skill":"workspace_files", "arguments":{"operation":"read_content", "attachment_id":attachment_id}})}
+        def final(messages):
+            assert isinstance(messages[0]["content"], list)
+            assert messages[0]["content"][1]["type"] == "image_url"
+            yield {"type":"text", "delta":"Image inspected"}
+>       list(runtime.run(staged, model, AgentPermissions(), max_steps=1, stream_final=final))
+
+tests/test_skill_audit.py:182: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+llamaforge/core/agent_tools.py:1392: in run
+    for event in engine.run(
+llamaforge/core/agent_engine.py:1183: in run
+    yield from stream_final([{"role":"user", "content":synthesis}])
+llamaforge/core/agent_engine.py:777: in guarded_stream
+    for event in iterator:
+                 ^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+messages = [{'role': 'user', 'content': 'The agent has reached its tool-step budget. Give the best final answer in English (en) u..."name":"photo.png","mime":"image/png","size":3},"vision_attachment":{"name":"photo.png","available_to_model":true}}}'}]
+
+    def final(messages):
+>       assert isinstance(messages[0]["content"], list)
+E       assert False
+E        +  where False = isinstance('The agent has reached its tool-step budget. Give the best final answer in English (en) using ONLY the observations be...","name":"photo.png","mime":"image/png","size":3},"vision_attachment":{"name":"photo.png","available_to_model":true}}}', list)
+
+tests/test_skill_audit.py:179: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_skill_audit.py::test_final_budget_still_receives_explicitly_read_image
+1 failed in 0.15s

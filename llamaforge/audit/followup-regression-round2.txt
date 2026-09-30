@@ -1,0 +1,100 @@
+..........FFFFFF                                                         [100%]
+=================================== FAILURES ===================================
+___________ test_preview_does_not_inherit_previous_job_cancellation ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f79268b85f0>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-2/test_preview_does_not_inherit_0')
+
+    def test_preview_does_not_inherit_previous_job_cancellation(monkeypatch, tmp_path):
+        state = state_for(monkeypatch, tmp_path)
+        state.server_ready = True
+        state.cfg = SimpleNamespace(host='localhost', port=1234)
+        state.brain.cfg.auto_synthesize = True
+        state.brain_cancel.set()
+        def stream(*args, **kwargs):
+            assert kwargs.get('cancel') is None or not kwargs['cancel'].is_set()
+            yield {'type':'text','delta':'[{"user":"Style?","assistant":"concise","evidence":"I prefer concise replies.","kind":"preference"}]'}
+        monkeypatch.setattr('llamaforge.web.server.stream_chat_events', stream)
+        result=state.preview_brain_lesson({'user':'I prefer concise replies.'})
+>       assert result['should_learn']
+E       assert False
+
+tests/test_stability_followup.py:106: AssertionError
+______ test_empty_reschedule_fields_are_rejected_without_mutation[start] _______
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-2/test_empty_reschedule_fields_a0')
+field = 'start'
+
+    @pytest.mark.parametrize('field', ['start','time','jalali','gregorian','relative_date'])
+    def test_empty_reschedule_fields_are_rejected_without_mutation(tmp_path, field):
+        cal=CalendarStore(tmp_path)
+        event=cal.write('create',{'title':'جلسه','start':'2026-09-25T10:00'})
+>       with pytest.raises(ValueError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_stability_followup.py:114: Failed
+_______ test_empty_reschedule_fields_are_rejected_without_mutation[time] _______
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-2/test_empty_reschedule_fields_a1')
+field = 'time'
+
+    @pytest.mark.parametrize('field', ['start','time','jalali','gregorian','relative_date'])
+    def test_empty_reschedule_fields_are_rejected_without_mutation(tmp_path, field):
+        cal=CalendarStore(tmp_path)
+        event=cal.write('create',{'title':'جلسه','start':'2026-09-25T10:00'})
+>       with pytest.raises(ValueError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_stability_followup.py:114: Failed
+______ test_empty_reschedule_fields_are_rejected_without_mutation[jalali] ______
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-2/test_empty_reschedule_fields_a2')
+field = 'jalali'
+
+    @pytest.mark.parametrize('field', ['start','time','jalali','gregorian','relative_date'])
+    def test_empty_reschedule_fields_are_rejected_without_mutation(tmp_path, field):
+        cal=CalendarStore(tmp_path)
+        event=cal.write('create',{'title':'جلسه','start':'2026-09-25T10:00'})
+>       with pytest.raises(ValueError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_stability_followup.py:114: Failed
+____ test_empty_reschedule_fields_are_rejected_without_mutation[gregorian] _____
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-2/test_empty_reschedule_fields_a3')
+field = 'gregorian'
+
+    @pytest.mark.parametrize('field', ['start','time','jalali','gregorian','relative_date'])
+    def test_empty_reschedule_fields_are_rejected_without_mutation(tmp_path, field):
+        cal=CalendarStore(tmp_path)
+        event=cal.write('create',{'title':'جلسه','start':'2026-09-25T10:00'})
+>       with pytest.raises(ValueError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_stability_followup.py:114: Failed
+__ test_empty_reschedule_fields_are_rejected_without_mutation[relative_date] ___
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-2/test_empty_reschedule_fields_a4')
+field = 'relative_date'
+
+    @pytest.mark.parametrize('field', ['start','time','jalali','gregorian','relative_date'])
+    def test_empty_reschedule_fields_are_rejected_without_mutation(tmp_path, field):
+        cal=CalendarStore(tmp_path)
+        event=cal.write('create',{'title':'جلسه','start':'2026-09-25T10:00'})
+>       with pytest.raises(ValueError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_stability_followup.py:114: Failed
+=========================== short test summary info ============================
+FAILED tests/test_stability_followup.py::test_preview_does_not_inherit_previous_job_cancellation
+FAILED tests/test_stability_followup.py::test_empty_reschedule_fields_are_rejected_without_mutation[start]
+FAILED tests/test_stability_followup.py::test_empty_reschedule_fields_are_rejected_without_mutation[time]
+FAILED tests/test_stability_followup.py::test_empty_reschedule_fields_are_rejected_without_mutation[jalali]
+FAILED tests/test_stability_followup.py::test_empty_reschedule_fields_are_rejected_without_mutation[gregorian]
+FAILED tests/test_stability_followup.py::test_empty_reschedule_fields_are_rejected_without_mutation[relative_date]
+6 failed, 10 passed in 0.15s

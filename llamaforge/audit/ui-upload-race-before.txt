@@ -1,0 +1,33 @@
+✔ composer text survives attachment/options rerender and returning to its thread (22.761072ms)
+✔ changing thread cancels the original stream before switching (3.34391ms)
+✔ calendar payload keeps server wall time when browser uses another timezone (1.747608ms)
+✔ late cancelled stream cannot delete or unlock the next response (10.473011ms)
+✔ agenda overlap excludes midnight end and includes the following occupied day (0.350123ms)
+✖ attachment finishing after navigation stays in its original conversation (3.985802ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 137.972077
+
+✖ failing tests:
+
+test at tests/test_workspace_ui.cjs:80:1
+✖ attachment finishing after navigation stays in its original conversation (3.985802ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/tests/test_workspace_ui.cjs:85:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

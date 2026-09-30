@@ -18,7 +18,7 @@ function aib_random_secret(string $prefix): string {
 
 function aib_default_config(bool $withSecrets = false): array {
     return [
-        'version' => '3.9.0-live-stream-files',
+        'version' => '3.10.1-updater-reliability',
         'app_name' => 'AI Bridge',
         // Secrets are generated exactly once by aib_ensure_config(). Normal reads
         // never invent replacement credentials if config.php is temporarily unavailable.
@@ -453,6 +453,7 @@ function aib_public_models($rows): array {
             'loaded'=>!empty($m['loaded']),
             'selected'=>!empty($m['selected']),
             'vision_capable'=>!empty($m['vision_capable']),
+            'provider'=>aib_clean_message((string)($m['provider'] ?? 'local'), 30),
         ];
     }
     return $out;

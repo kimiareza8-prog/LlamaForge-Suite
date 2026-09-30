@@ -1,0 +1,351 @@
+FFFFFFFFFF                                                               [100%]
+=================================== FAILURES ===================================
+__________ test_setup_failure_publishes_terminal_state[error0-error] ___________
+
+a = (<function LlamaForgeState.prepare_brain_async.<locals>.work.<locals>.progress at 0x7f3da6221440>,)
+kw = {'force': False, 'cancel': <threading.Event at 0x7f3da6358ad0: unset>}
+
+>   def fail(*a, **kw): raise error
+                        ^^^^^^^^^^^
+E   RuntimeError: installer failed
+
+tests/test_stability_followup.py:36: RuntimeError
+
+During handling of the above exception, another exception occurred:
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f3da6355c40>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-0/test_setup_failure_publishes_t0')
+error = RuntimeError('installer failed'), expected = 'error'
+
+    @pytest.mark.parametrize('error,expected', [(RuntimeError('installer failed'),'error'), (BrainCancelled('stop'),'cancelled')])
+    def test_setup_failure_publishes_terminal_state(monkeypatch, tmp_path, error, expected):
+        state = state_for(monkeypatch, tmp_path)
+        def fail(*a, **kw): raise error
+        state.brain.prepare_environment = fail
+>       result = state.prepare_brain_async()
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_stability_followup.py:38:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+llamaforge/web/server.py:2560: in prepare_brain_async
+    threading.Thread(target=work, name="brain-setup", daemon=True).start()
+tests/test_stability_followup.py:15: in start
+    def start(self): self.target()
+                     ^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def work():
+        try:
+            def progress(msg, p):
+                with self.brain.lock:
+                    self.brain.job.update(state="running", stage="setup", message=str(msg), progress=float(p), error="")
+                self.events.publish("brain", {"brain": self.brain_status()})
+                self.log("[brain:setup] " + str(msg))
+            self.brain.prepare_environment(progress, force=force, cancel=self.brain_cancel)
+            with self.brain.lock:
+                self.brain.job = {"state":"done","stage":"setup","message":"Brain Trainer ready","error":"","progress":1.0}
+            self.events.publish("brain", {"brain": self.brain_status()})
+        except Exception as exc:
+            with self.brain.lock:
+                self.brain.job = {
+>                   "state":"cancelled" if cancelled else "error",
+                                           ^^^^^^^^^
+                    "stage":"setup",
+                    "message":"Brain Trainer setup stopped" if cancelled else "Brain Trainer setup failed",
+                    "error":"" if cancelled else str(exc),
+                    "progress":float(self.brain.job.get("progress") or 0.0) if cancelled else 0.0,
+                }
+E               NameError: name 'cancelled' is not defined
+
+llamaforge/web/server.py:2551: NameError
+________ test_setup_failure_publishes_terminal_state[error1-cancelled] _________
+
+a = (<function LlamaForgeState.prepare_brain_async.<locals>.work.<locals>.progress at 0x7f3da6297880>,)
+kw = {'force': False, 'cancel': <threading.Event at 0x7f3da635b080: unset>}
+
+>   def fail(*a, **kw): raise error
+                        ^^^^^^^^^^^
+E   llamaforge.core.personal_brain.BrainCancelled: stop
+
+tests/test_stability_followup.py:36: BrainCancelled
+
+During handling of the above exception, another exception occurred:
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f3da6355ca0>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-0/test_setup_failure_publishes_t1')
+error = BrainCancelled('stop'), expected = 'cancelled'
+
+    @pytest.mark.parametrize('error,expected', [(RuntimeError('installer failed'),'error'), (BrainCancelled('stop'),'cancelled')])
+    def test_setup_failure_publishes_terminal_state(monkeypatch, tmp_path, error, expected):
+        state = state_for(monkeypatch, tmp_path)
+        def fail(*a, **kw): raise error
+        state.brain.prepare_environment = fail
+>       result = state.prepare_brain_async()
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_stability_followup.py:38:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+llamaforge/web/server.py:2560: in prepare_brain_async
+    threading.Thread(target=work, name="brain-setup", daemon=True).start()
+tests/test_stability_followup.py:15: in start
+    def start(self): self.target()
+                     ^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def work():
+        try:
+            def progress(msg, p):
+                with self.brain.lock:
+                    self.brain.job.update(state="running", stage="setup", message=str(msg), progress=float(p), error="")
+                self.events.publish("brain", {"brain": self.brain_status()})
+                self.log("[brain:setup] " + str(msg))
+            self.brain.prepare_environment(progress, force=force, cancel=self.brain_cancel)
+            with self.brain.lock:
+                self.brain.job = {"state":"done","stage":"setup","message":"Brain Trainer ready","error":"","progress":1.0}
+            self.events.publish("brain", {"brain": self.brain_status()})
+        except Exception as exc:
+            with self.brain.lock:
+                self.brain.job = {
+>                   "state":"cancelled" if cancelled else "error",
+                                           ^^^^^^^^^
+                    "stage":"setup",
+                    "message":"Brain Trainer setup stopped" if cancelled else "Brain Trainer setup failed",
+                    "error":"" if cancelled else str(exc),
+                    "progress":float(self.brain.job.get("progress") or 0.0) if cancelled else 0.0,
+                }
+E               NameError: name 'cancelled' is not defined
+
+llamaforge/web/server.py:2551: NameError
+__________ test_enabling_brain_cannot_revoke_inflight_cancel[toggle] ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f3da635bc20>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-0/test_enabling_brain_cannot_rev0')
+endpoint = 'toggle'
+
+    @pytest.mark.parametrize('endpoint', ['toggle','settings'])
+    def test_enabling_brain_cannot_revoke_inflight_cancel(monkeypatch, tmp_path, endpoint):
+        state = state_for(monkeypatch, tmp_path)
+        state.brain.cfg.enabled = False
+        state.brain.job = {'state':'cancelling','stage':'train'}
+        state.brain_cancel.set(); state.brain_download_cancel.set()
+        if endpoint == 'toggle': state.toggle_brain(True)
+        else: state.update_brain({'enabled':True})
+        assert state.brain.cfg.enabled
+>       assert state.brain_cancel.is_set() and state.brain_download_cancel.is_set()
+E       assert (False)
+E        +  where False = is_set()
+E        +    where is_set = <threading.Event at 0x7f3da635abd0: unset>.is_set
+E        +      where <threading.Event at 0x7f3da635abd0: unset> = <llamaforge.web.server.LlamaForgeState object at 0x7f3da635bd70>.brain_cancel
+
+tests/test_stability_followup.py:52: AssertionError
+_________ test_enabling_brain_cannot_revoke_inflight_cancel[settings] __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f3da6358440>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-0/test_enabling_brain_cannot_rev1')
+endpoint = 'settings'
+
+    @pytest.mark.parametrize('endpoint', ['toggle','settings'])
+    def test_enabling_brain_cannot_revoke_inflight_cancel(monkeypatch, tmp_path, endpoint):
+        state = state_for(monkeypatch, tmp_path)
+        state.brain.cfg.enabled = False
+        state.brain.job = {'state':'cancelling','stage':'train'}
+        state.brain_cancel.set(); state.brain_download_cancel.set()
+        if endpoint == 'toggle': state.toggle_brain(True)
+        else: state.update_brain({'enabled':True})
+        assert state.brain.cfg.enabled
+>       assert state.brain_cancel.is_set() and state.brain_download_cancel.is_set()
+E       assert (False)
+E        +  where False = is_set()
+E        +    where is_set = <threading.Event at 0x7f3da6359880: unset>.is_set
+E        +      where <threading.Event at 0x7f3da6359880: unset> = <llamaforge.web.server.LlamaForgeState object at 0x7f3da635ab10>.brain_cancel
+
+tests/test_stability_followup.py:52: AssertionError
+_______ test_failed_preflight_does_not_start_an_initially_stopped_model ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f3da6358a70>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-0/test_failed_preflight_does_not0')
+
+    def test_failed_preflight_does_not_start_an_initially_stopped_model(monkeypatch, tmp_path):
+        state = state_for(monkeypatch, tmp_path)
+        state.brain.cfg.enabled = True
+        state.brain_doctor = lambda: {'checks':[{'ok':False,'name':'trainer','detail':'missing'}]}
+        starts=[];state.start_server=lambda payload:starts.append(payload)
+        result=state.learn_brain_async({'user':'اسم من رضاست.'})
+        assert result['job']['state']=='error'
+>       assert starts == []
+E       AssertionError: assert [{'model_path': 'A.gguf'}] == []
+E
+E         Left contains one more item: {'model_path': 'A.gguf'}
+E         Use -v to get more diff
+
+tests/test_stability_followup.py:62: AssertionError
+_________ test_preview_rejects_model_switch_during_teacher_compilation _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f3da635a330>
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-0/test_preview_rejects_model_swi0')
+
+    def test_preview_rejects_model_switch_during_teacher_compilation(monkeypatch, tmp_path):
+        state = state_for(monkeypatch, tmp_path)
+        def compile_lesson(*a):
+            state.active_model = SimpleNamespace(name='B',architecture='llama',size_label='1B',path='B.gguf')
+            return [{'user':'Preferred style?', 'assistant':'concise'}]
+        state._brain_synthesize_examples = compile_lesson
+>       with pytest.raises(RuntimeError, match='model changed'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE RuntimeError
+
+tests/test_stability_followup.py:71: Failed
+____ test_calendar_reschedule_preserves_duration[change0-2026-09-25T12:30] _____
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-0/test_calendar_reschedule_prese0')
+change = {'time': '12:30'}, expected = '2026-09-25T12:30'
+
+    @pytest.mark.parametrize('change,expected', [
+        ({'time':'12:30'},'2026-09-25T12:30'),
+        ({'jalali':'1405-07-04','time':'10:00'},'2026-09-26T10:00'),
+        ({'start':'2026-09-27T09:00'},'2026-09-27T09:00'),
+    ])
+    def test_calendar_reschedule_preserves_duration(tmp_path, change, expected):
+        from datetime import datetime
+        cal=CalendarStore(tmp_path)
+        event=cal.write('create',{'title':'جلسه','start':'2026-09-25T10:00','end':'2026-09-25T11:30'})
+        updated=cal.write('update',{'id':event['id'],**change})
+>       assert updated['start'].startswith(expected)
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7f3da6245bb0>('2026-09-25T12:30')
+E        +    where <built-in method startswith of str object at 0x7f3da6245bb0> = '2026-09-25T10:00+02:00'.startswith
+
+tests/test_stability_followup.py:85: AssertionError
+____ test_calendar_reschedule_preserves_duration[change1-2026-09-26T10:00] _____
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-0/test_calendar_reschedule_prese1')
+change = {'jalali': '1405-07-04', 'time': '10:00'}
+expected = '2026-09-26T10:00'
+
+    @pytest.mark.parametrize('change,expected', [
+        ({'time':'12:30'},'2026-09-25T12:30'),
+        ({'jalali':'1405-07-04','time':'10:00'},'2026-09-26T10:00'),
+        ({'start':'2026-09-27T09:00'},'2026-09-27T09:00'),
+    ])
+    def test_calendar_reschedule_preserves_duration(tmp_path, change, expected):
+        from datetime import datetime
+        cal=CalendarStore(tmp_path)
+        event=cal.write('create',{'title':'جلسه','start':'2026-09-25T10:00','end':'2026-09-25T11:30'})
+        updated=cal.write('update',{'id':event['id'],**change})
+>       assert updated['start'].startswith(expected)
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7f3da61694b0>('2026-09-26T10:00')
+E        +    where <built-in method startswith of str object at 0x7f3da61694b0> = '2026-09-25T10:00+02:00'.startswith
+
+tests/test_stability_followup.py:85: AssertionError
+____ test_calendar_reschedule_preserves_duration[change2-2026-09-27T09:00] _____
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-0/test_calendar_reschedule_prese2')
+change = {'start': '2026-09-27T09:00'}, expected = '2026-09-27T09:00'
+
+    @pytest.mark.parametrize('change,expected', [
+        ({'time':'12:30'},'2026-09-25T12:30'),
+        ({'jalali':'1405-07-04','time':'10:00'},'2026-09-26T10:00'),
+        ({'start':'2026-09-27T09:00'},'2026-09-27T09:00'),
+    ])
+    def test_calendar_reschedule_preserves_duration(tmp_path, change, expected):
+        from datetime import datetime
+        cal=CalendarStore(tmp_path)
+        event=cal.write('create',{'title':'جلسه','start':'2026-09-25T10:00','end':'2026-09-25T11:30'})
+>       updated=cal.write('update',{'id':event['id'],**change})
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_stability_followup.py:84:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <llamaforge.core.workspace.CalendarStore object at 0x7f3da635fd70>
+operation = 'update'
+data = {'id': 'evt_c70722d95d9f4261', 'start': '2026-09-27T09:00'}
+
+    def write(self, operation: str, data: dict[str, Any]) -> dict[str, Any]:
+        op = str(operation or "").lower()
+        with self.lock:
+            db = self._load()
+            events = [x for x in (db.get("events") or []) if isinstance(x, dict)]
+            now = datetime.now().astimezone().isoformat(timespec="seconds")
+            if op == "create":
+                title = str(data.get("title") or "").strip()
+                if not title:
+                    raise ValueError("title is required")
+                start = self._event_start(data)
+                end_raw = str(data.get("end") or "").strip()
+                end = _parse_iso(end_raw) if end_raw else start + timedelta(hours=1)
+                if end <= start:
+                    raise ValueError("end must be after start")
+                ev = {
+                    "id": "evt_" + uuid.uuid4().hex[:16],
+                    "title": title[:300],
+                    "start": start.isoformat(timespec="minutes"),
+                    "end": end.isoformat(timespec="minutes"),
+                    "all_day": bool(data.get("all_day", False)),
+                    "location": str(data.get("location") or "")[:500],
+                    "notes": str(data.get("notes") or "")[:5000],
+                    "tags": [str(x)[:80] for x in (data.get("tags") or []) if str(x).strip()][:20],
+                    "reminders": [int(x) for x in (data.get("reminders") or []) if str(x).lstrip("-").isdigit()][:10],
+                    "status": "active",
+                    "created_at": now,
+                    "updated_at": now,
+                }
+                events.append(ev)
+                db["events"] = events
+                self._save(db)
+                return ev
+            event_id = str(data.get("id") or "").strip()
+            idx = next((i for i, ev in enumerate(events) if str(ev.get("id")) == event_id), -1)
+            if idx < 0:
+                raise ValueError("event not found")
+            ev = dict(events[idx])
+            if op == "update":
+                if "title" in data and not str(data.get("title") or "").strip():
+                    raise ValueError("title is required")
+                for key in ("title", "location", "notes"):
+                    if key in data:
+                        ev[key] = str(data.get(key) or "").strip()[:5000 if key == "notes" else 300 if key == "title" else 500]
+                for key in ("start", "end"):
+                    if key in data and str(data.get(key) or "").strip():
+                        ev[key] = _parse_iso(str(data[key])).isoformat(timespec="minutes")
+                if "all_day" in data:
+                    ev["all_day"] = bool(data.get("all_day"))
+                if "tags" in data:
+                    ev["tags"] = [str(x)[:80] for x in (data.get("tags") or []) if str(x).strip()][:20]
+                if "reminders" in data:
+                    ev["reminders"] = [int(x) for x in (data.get("reminders") or []) if str(x).lstrip("-").isdigit()][:10]
+                if _parse_iso(ev["end"]) <= _parse_iso(ev["start"]):
+>                   raise ValueError("end must be after start")
+E                   ValueError: end must be after start
+
+llamaforge/core/workspace.py:289: ValueError
+____________________ test_all_day_default_duration_is_a_day ____________________
+
+tmp_path = PosixPath('/workspace/scratch/a9d8f0e64114/LlamaForge-Suite/llamaforge/pytest-of-root/pytest-0/test_all_day_default_duration_0')
+
+    def test_all_day_default_duration_is_a_day(tmp_path):
+        from datetime import datetime
+        event=CalendarStore(tmp_path).write('create',{'title':'سفر','start':'2026-09-25','all_day':True})
+>       assert (datetime.fromisoformat(event['end'])-datetime.fromisoformat(event['start'])).total_seconds()==86400
+E       AssertionError: assert 3600.0 == 86400
+E        +  where 3600.0 = <built-in method total_seconds of datetime.timedelta object at 0x7f3da6358960>()
+E        +    where <built-in method total_seconds of datetime.timedelta object at 0x7f3da6358960> = (datetime.datetime(2026, 9, 25, 1, 0, tzinfo=datetime.timezone(datetime.timedelta(seconds=7200))) - datetime.datetime(2026, 9, 25, 0, 0, tzinfo=datetime.timezone(datetime.timedelta(seconds=7200)))).total_seconds
+E        +      where datetime.datetime(2026, 9, 25, 1, 0, tzinfo=datetime.timezone(datetime.timedelta(seconds=7200))) = <built-in method fromisoformat of type object at 0x145e668>('2026-09-25T01:00+02:00')
+E        +        where <built-in method fromisoformat of type object at 0x145e668> = <class 'datetime.datetime'>.fromisoformat
+E        +      and   datetime.datetime(2026, 9, 25, 0, 0, tzinfo=datetime.timezone(datetime.timedelta(seconds=7200))) = <built-in method fromisoformat of type object at 0x145e668>('2026-09-25T00:00+02:00')
+E        +        where <built-in method fromisoformat of type object at 0x145e668> = <class 'datetime.datetime'>.fromisoformat
+
+tests/test_stability_followup.py:92: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_stability_followup.py::test_setup_failure_publishes_terminal_state[error0-error]
+FAILED tests/test_stability_followup.py::test_setup_failure_publishes_terminal_state[error1-cancelled]
+FAILED tests/test_stability_followup.py::test_enabling_brain_cannot_revoke_inflight_cancel[toggle]
+FAILED tests/test_stability_followup.py::test_enabling_brain_cannot_revoke_inflight_cancel[settings]
+FAILED tests/test_stability_followup.py::test_failed_preflight_does_not_start_an_initially_stopped_model
+FAILED tests/test_stability_followup.py::test_preview_rejects_model_switch_during_teacher_compilation
+FAILED tests/test_stability_followup.py::test_calendar_reschedule_preserves_duration[change0-2026-09-25T12:30]
+FAILED tests/test_stability_followup.py::test_calendar_reschedule_preserves_duration[change1-2026-09-26T10:00]
+FAILED tests/test_stability_followup.py::test_calendar_reschedule_preserves_duration[change2-2026-09-27T09:00]
+FAILED tests/test_stability_followup.py::test_all_day_default_duration_is_a_day
+10 failed in 0.37s

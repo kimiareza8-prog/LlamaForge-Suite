@@ -1,0 +1,31 @@
+{
+  "repeats": 7,
+  "calls_per_repeat": 1000,
+  "deterministic_median_ms": 0.00288903599994228,
+  "questions_mislearned": 0,
+  "question_cases": 7,
+  "gguf_quality_measured": false,
+  "obsolete_identity_answers_in_batch": 0,
+  "replay_rows_when_disabled": 0,
+  "replay_steps_in_three_updates": 1,
+  "tiny_torch_sanity": {
+    "parameters": 4,
+    "optimizer_steps": 3,
+    "validation": {
+      "accepted": true,
+      "reasons": [],
+      "before": {
+        "new": 0.6931471824645996
+      },
+      "after": {
+        "new": 0.2675072252750397
+      },
+      "method": "bounded-curriculum-loss",
+      "held_out": false,
+      "examples": 1,
+      "trained_new": 3,
+      "trained_replay": 0
+    },
+    "frozen_weights_unchanged": true
+  }
+}
